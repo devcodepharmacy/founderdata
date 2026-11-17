@@ -1,0 +1,382 @@
+/*
+ * Inter, self-hosted: the variable font, latin subset only, so the dashboard makes no third-party request. Characters
+ * outside the range fall back to the system font. "Inter Fallback" is Arial resized to Inter's metrics, so the swap
+ * from fallback to Inter moves no text.
+ */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107.06%;
+  ascent-override: 90.49%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tailwind's sr-only is position: absolute with no offsets, so it sits at its static position. Inside a table or a
+ * strip that scrolls sideways, that position can be far to the right, and the scroller does not clip it when it is not
+ * the element's containing block: the whole page then scrolls sideways on a phone. Pinning it to the corner of its
+ * containing block keeps it out of the scrollable area; it stays invisible and read aloud as before.
+ */
+.sr-only {
+  left: 0;
+  top: 0;
+}
+
+/*
+ * Theme colors as RGB triples (tailwind.config.js reads them as rgb(var(--x) / alpha)). :root holds the light theme;
+ * .dark (set on <html> before first paint, see index.html) holds the dark one. docs/DESIGN.md explains every token.
+ * In dark the neutral ramp inverts: stone-900 and ink read light, stone-400 stays muted, white is the card surface.
+ * The accent ramps invert the same way: -50 is a dim tint for chip backgrounds, -700 a light shade for chip text.
+ * Text shades are AA (4.5:1) on both the card and the page: stone-400 is the lightest shade that may carry text.
+ */
+:root {
+  /* Surfaces, bottom to top: paper (page), white (card), stone-50 (inset or hover), stone-100 (raised control). */
+  --white: 255 255 255;
+  --paper: 246 246 244;
+  --ink: 20 20 19;
+  /* Text on a coral, blue or mint fill: dark in both themes (AA on all three; white on these fills is 3:1 or less). */
+  --on-fill: 20 20 19;
+  --border-default: 229 229 226;
+  /* Series. Coral is money, blue is visitors; both pass the dataviz palette checks on white and on the dark card. */
+  --visitors: 59 125 221;
+  --revenue: 224 89 58;
+  --visitors-soft: 228 238 251;
+  --revenue-soft: 251 228 221;
+  /* Brand: the logo's navy and its mint trail. For brand and live moments only, never for a data series. */
+  --brand: 46 230 166;
+  --brand-text: 10 122 86;
+  --brand-navy: 22 32 63;
+  --brand-soft: 222 247 237;
+  --focus: 10 122 86;
+  --stone-50: 250 250 249;
+  --stone-100: 243 243 241;
+  --stone-200: 229 229 226;
+  --stone-300: 208 208 204;
+  --stone-400: 112 112 108;
+  --stone-500: 92 92 88;
+  --stone-600: 72 72 69;
+  --stone-700: 54 54 52;
+  --stone-800: 36 36 34;
+  --stone-900: 23 23 22;
+  --stone-950: 10 10 10;
+  --amber-50: 255 250 235;
+  --amber-100: 254 242 199;
+  --amber-200: 253 228 150;
+  --amber-500: 240 160 20;
+  --amber-600: 214 120 8;
+  --amber-700: 166 78 8;
+  --amber-800: 146 64 14;
+  --amber-900: 120 53 15;
+  --red-50: 254 242 241;
+  --red-200: 252 205 202;
+  --red-500: 214 64 59;
+  --red-600: 196 46 42;
+  --red-700: 172 34 31;
+  --red-800: 150 28 26;
+  --emerald-50: 234 248 240;
+  --emerald-200: 170 230 196;
+  --emerald-500: 34 170 104;
+  --emerald-600: 22 132 78;
+  --emerald-700: 18 112 66;
+  --violet-50: 245 243 255;
+  --violet-200: 221 214 254;
+  --violet-700: 109 40 217;
+  --sky-50: 240 247 255;
+  --sky-200: 190 220 250;
+  --sky-700: 30 100 180;
+
+  /* Elevation: card (resting), raised (hover lift), pop (menus, tooltips), overlay (dialogs). */
+  --shadow-card: 0 1px 2px rgb(20 20 19 / 0.04), 0 0 0 1px rgb(20 20 19 / 0.01);
+  --shadow-raised: 0 1px 2px rgb(20 20 19 / 0.04), 0 6px 16px -6px rgb(20 20 19 / 0.1);
+  --shadow-pop: 0 12px 32px -4px rgb(20 20 19 / 0.14), 0 2px 6px rgb(20 20 19 / 0.06);
+  --shadow-overlay: 0 24px 64px -12px rgb(20 20 19 / 0.25), 0 4px 12px rgb(20 20 19 / 0.08);
+  /* The page backdrop: a faint wash at the top of the page. */
+  --backdrop: radial-gradient(1200px 520px at 50% -180px, rgb(22 32 63 / 0.035), transparent 70%);
+
+  /* Motion. Durations stay between 120 and 320 ms; only transform and opacity animate. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+  --dur-slower: 320ms;
+
+  /* Charts (Recharts and inline SVG take these as fill and stroke values). Gridlines are solid hairlines. */
+  --chart-grid: #ededea;
+  --chart-axis: #70706c;
+  --chart-cursor: rgba(20, 20, 19, 0.035);
+  --chart-cursor-line: #d0d0cc;
+  --chart-dot-ring: #ffffff;
+  --chart-note: #48484a;
+  --chart-note-line: #c4c4c0;
+  /* Chart note kinds (ChartNotes.tsx): the marker on the chart and the chip in the changes list. */
+  --note-pricing: #d97706;
+  --note-release: #0d9488;
+  --note-copy: #0284c7;
+  --note-seo: #65a30d;
+  --note-aso: #c026d3;
+  --note-ads: #4f46e5;
+  --note-launch: #e11d48;
+  --note-ai: #7c3aed;
+  --note-outage: #57534e;
+  --note-other: #78716c;
+}
+
+.dark {
+  color-scheme: dark;
+  /* Near-black page with a hint of the logo's navy, one step up for cards, more for raised controls (stone-100). */
+  --white: 16 17 20;
+  --paper: 8 9 11;
+  --ink: 242 242 240;
+  --on-fill: 16 17 20;
+  --border-default: 34 35 40;
+  --visitors: 79 143 234;
+  --revenue: 226 96 63;
+  --visitors-soft: 26 36 54;
+  --revenue-soft: 56 32 27;
+  --brand: 46 230 166;
+  --brand-text: 72 232 176;
+  --brand-navy: 22 32 63;
+  --brand-soft: 16 44 36;
+  --focus: 72 232 176;
+  --stone-50: 21 22 26;
+  --stone-100: 27 28 33;
+  --stone-200: 37 38 44;
+  --stone-300: 56 57 64;
+  --stone-400: 132 133 139;
+  --stone-500: 160 161 166;
+  --stone-600: 188 189 193;
+  --stone-700: 212 212 214;
+  --stone-800: 230 230 228;
+  --stone-900: 242 242 240;
+  --stone-950: 250 250 248;
+  --amber-50: 42 33 18;
+  --amber-100: 58 44 18;
+  --amber-200: 90 67 22;
+  --amber-500: 245 166 35;
+  --amber-600: 251 191 36;
+  --amber-700: 252 211 77;
+  --amber-800: 253 230 138;
+  --amber-900: 254 243 199;
+  --red-50: 46 24 23;
+  --red-200: 92 38 36;
+  --red-500: 240 96 91;
+  --red-600: 245 112 106;
+  --red-700: 250 160 155;
+  --red-800: 253 200 196;
+  --emerald-50: 19 38 29;
+  --emerald-200: 26 80 56;
+  --emerald-500: 63 185 122;
+  --emerald-600: 72 196 132;
+  --emerald-700: 120 220 166;
+  --violet-50: 36 31 50;
+  --violet-200: 66 55 104;
+  --violet-700: 196 181 253;
+  --sky-50: 19 33 48;
+  --sky-200: 26 64 96;
+  --sky-700: 130 190 250;
+
+  /* In dark, depth comes from a lit top edge and a darker drop, not from a gray shadow. */
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.035), 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 8px 24px -8px rgb(0 0 0 / 0.6);
+  --shadow-pop: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-overlay: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 32px 80px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --backdrop: radial-gradient(1200px 560px at 50% -200px, rgb(46 74 140 / 0.16), transparent 70%);
+
+  --chart-grid: #1d1e22;
+  --chart-axis: #84858b;
+  --chart-cursor: rgba(255, 255, 255, 0.035);
+  --chart-cursor-line: #3a3b42;
+  --chart-dot-ring: #101114;
+  --chart-note: #bcbdc1;
+  --chart-note-line: #3a3b42;
+  --note-pricing: #f5a623;
+  --note-release: #2dd4bf;
+  --note-copy: #38bdf8;
+  --note-seo: #a3e635;
+  --note-aso: #e879f9;
+  --note-ads: #818cf8;
+  --note-launch: #fb7185;
+  --note-ai: #a78bfa;
+  --note-outage: #d6d3d1;
+  --note-other: #a8a29e;
+}
+
+@layer base {
+  html {
+    background: rgb(var(--paper));
+    color: rgb(var(--ink));
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  /* The body stays transparent so the fixed backdrop below can sit between the page color and the content. */
+  body {
+    font-size: 14px;
+    /* Tabular figures everywhere, so numbers line up in every table; prose that reads oddly with them takes
+       normal-nums. cv11 is Inter's single-storey a. */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'cv11' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--backdrop);
+  }
+  h1, h2, h3 { letter-spacing: -0.012em; }
+  ::selection { background: rgb(var(--brand) / 0.28); }
+  .dark ::selection { background: rgb(var(--brand) / 0.22); }
+
+  /* One focus ring for every control: keyboard only, in the brand green, following the control's radius. */
+  :focus-visible { outline: 2px solid rgb(var(--focus) / 0.7); outline-offset: 2px; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; }
+
+  /* Thin scrollbars in the theme's own grays. */
+  * { scrollbar-width: thin; scrollbar-color: rgb(var(--stone-300)) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--stone-300)); border: 3px solid transparent; border-radius: 99px; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background-color: rgb(var(--stone-400)); }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+
+  input[type='date']::-webkit-calendar-picker-indicator { opacity: 0.55; cursor: pointer; }
+  .dark input[type='date']::-webkit-calendar-picker-indicator { filter: invert(1); }
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-stone-200/80 bg-white shadow-card; }
+  /* A card that lifts on hover: for cards that are links or buttons. */
+  .card-hover { @apply transition-[box-shadow,border-color,transform] duration-base ease-out hover:border-stone-300/80 hover:shadow-raised; }
+
+  .btn {
+    @apply inline-flex h-9 select-none items-center justify-center gap-2 rounded-[10px] border border-stone-200/80 bg-white px-3 text-[13px] font-medium text-ink shadow-card
+      transition-[background-color,border-color,color,box-shadow,transform] duration-fast ease-out
+      hover:border-stone-300 hover:bg-stone-50 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-dark {
+    @apply inline-flex h-9 select-none items-center justify-center gap-2 rounded-[10px] bg-ink px-3.5 text-[13px] font-medium text-white
+      shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_1px_2px_rgb(0_0_0/0.2)]
+      transition-[opacity,transform,box-shadow] duration-fast ease-out hover:opacity-90 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45;
+  }
+  .dark .btn-dark { @apply shadow-[inset_0_-1px_0_rgb(0_0_0/0.12),0_0_0_1px_rgb(255_255_255/0.06)]; }
+  .btn-ghost {
+    @apply inline-flex h-9 select-none items-center justify-center gap-2 rounded-[10px] px-2.5 text-[13px] font-medium text-stone-500
+      transition-[background-color,color,transform] duration-fast ease-out hover:bg-stone-100 hover:text-ink active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40;
+  }
+  .input {
+    @apply w-full rounded-[10px] border border-stone-200 bg-white px-3 py-2 text-sm outline-none
+      transition-[border-color,box-shadow] duration-fast ease-out placeholder:text-stone-400
+      hover:border-stone-300 focus:border-focus/60 focus:ring-[3px] focus:ring-focus/15 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .input[aria-invalid='true'] { @apply border-red-500/70 focus:border-red-500 focus:ring-red-500/15; }
+  .label { @apply mb-1.5 block text-[13px] font-medium text-stone-600; }
+
+  /* Tabs: quiet text, the active one on a raised chip. ui/Tabs slides the chip between tabs. */
+  .tabs { @apply inline-flex items-center gap-0.5; }
+  .tab { @apply relative rounded-lg px-2.5 py-1 text-[13px] font-medium text-stone-400 transition-colors duration-fast hover:text-stone-700; }
+  .tab-active { @apply bg-stone-100 text-ink hover:text-ink; }
+  .tabs[data-indicator] .tab-active { background: transparent; }
+
+  /* A segmented control: the same tabs on a tray, for a choice that switches the whole page. ui/Segmented and
+     ui/SegTrack slide a thumb under the pressed button; without them the pressed button gets the chip itself. */
+  .seg { @apply relative inline-flex h-9 items-center gap-0.5 rounded-[10px] border border-stone-200/80 bg-white p-[3px] shadow-card; }
+  .seg > button { @apply relative z-[1] h-full rounded-[7px] px-2.5 text-[13px] font-medium text-stone-500 transition-colors duration-fast hover:text-ink; }
+  .seg > button[aria-pressed='true'] { @apply bg-stone-100 text-ink; }
+  .seg[data-thumb] [aria-pressed='true'] { background: transparent; }
+  .seg[data-thumb] > :not(.fd-thumb) { position: relative; z-index: 1; }
+
+  /* The sliding chip behind the active tab or pressed segment (ui/useIndicator). */
+  .fd-thumb {
+    @apply pointer-events-none absolute left-0 top-0 rounded-[7px] bg-stone-100;
+    transition: transform var(--dur-slow) var(--ease-out), width var(--dur-slow) var(--ease-out), opacity var(--dur-fast) linear;
+  }
+  .dark .fd-thumb { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05); }
+  .seg .fd-thumb { box-shadow: 0 1px 2px rgb(20 20 19 / 0.06); }
+  .dark .seg .fd-thumb { background: rgb(var(--stone-200)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06); }
+
+  .pop { @apply rounded-xl border border-stone-200/80 bg-white; box-shadow: var(--shadow-pop); }
+  .dark .pop { background: rgb(var(--stone-50)); }
+  /* Menu and popover entrance: a short fade and drop from where it opened. */
+  .pop-in { animation: fd-pop-in var(--dur-base) var(--ease-out) both; transform-origin: top; }
+
+  .kbd { @apply inline-flex h-5 min-w-[20px] items-center justify-center rounded-[5px] border border-stone-200 bg-stone-50 px-1 font-sans text-[11px] font-medium text-stone-400; box-shadow: inset 0 -1px 0 rgb(var(--stone-200)); }
+  .code { @apply block overflow-x-auto whitespace-pre rounded-xl bg-[#141518] p-4 font-mono text-[13px] leading-relaxed text-[#f2f2f0]; }
+  /* Code stays a dark block in both themes; in dark it sinks below the card with a hairline edge. */
+  .dark .code { @apply bg-[#07080a] ring-1 ring-inset ring-[#ffffff12]; }
+
+  /* Entrances (ui/Reveal, ui/Stagger): first mount only, a 6 px rise and a fade. */
+  .fd-reveal { animation: fd-rise var(--dur-slow) var(--ease-out) both; animation-delay: var(--fd-delay, 0ms); }
+  .fd-stagger > * { animation: fd-rise var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--fd-i, 12) * 35ms); }
+  .fd-stagger > :nth-child(1) { --fd-i: 0; }
+  .fd-stagger > :nth-child(2) { --fd-i: 1; }
+  .fd-stagger > :nth-child(3) { --fd-i: 2; }
+  .fd-stagger > :nth-child(4) { --fd-i: 3; }
+  .fd-stagger > :nth-child(5) { --fd-i: 4; }
+  .fd-stagger > :nth-child(6) { --fd-i: 5; }
+  .fd-stagger > :nth-child(7) { --fd-i: 6; }
+  .fd-stagger > :nth-child(8) { --fd-i: 7; }
+  .fd-stagger > :nth-child(9) { --fd-i: 8; }
+  .fd-stagger > :nth-child(10) { --fd-i: 9; }
+  .fd-stagger > :nth-child(11) { --fd-i: 10; }
+
+  /* Skeleton shimmer: a light band sweeping over a stone block. */
+  .fd-skeleton { @apply relative overflow-hidden rounded-md bg-stone-200/70; }
+  .dark .fd-skeleton { background: rgb(var(--stone-100)); }
+  .fd-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
+    animation: fd-shimmer 1.4s var(--ease-in-out) infinite;
+  }
+  .dark .fd-skeleton::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.045), transparent); }
+}
+
+@keyframes fd-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fd-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fd-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes fd-dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes fd-shimmer { to { transform: translateX(100%); } }
+@keyframes fd-ping { 0% { transform: scale(1); opacity: 0.55; } 80%, 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes fd-spin { to { transform: rotate(360deg); } }
+@keyframes fd-shake { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+@keyframes fd-wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes fd-dot-in { 0% { opacity: 0; transform: scale(0.2); } 70% { opacity: 1; transform: scale(1.15); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes fd-drift { from { transform: translate3d(-4%, -2%, 0) scale(1); } to { transform: translate3d(4%, 3%, 0) scale(1.08); } }
+
+/* The theme switch (lib/theme.ts) crossfades the whole page through a view transition. */
+html.fd-theme-vt::view-transition-old(root),
+html.fd-theme-vt::view-transition-new(root) { animation-duration: var(--dur-slow); animation-timing-function: var(--ease-out); }
+
+/* Reduced motion: everything lands in its end state at once, and the looping shimmer and pulses stop. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  .fd-skeleton::after { display: none; }
+}

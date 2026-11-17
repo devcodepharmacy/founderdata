@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs the FounderData ASO collector once a day on a Mac (docs/ASO.md, "Schedule it").
+  Copy to ~/Library/LaunchAgents/com.example.founderdata-aso.plist and replace:
+    /path/to/node          the output of `which node`
+    /path/to/founderdata   your clone of the repository
+    https://founderdata.example.com   your deployment
+  Then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.founderdata-aso.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.founderdata-aso</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/node</string>
+    <string>scripts/aso-collect.mjs</string>
+    <string>https://founderdata.example.com</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/path/to/founderdata</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>15</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/tmp/founderdata-aso.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/founderdata-aso.log</string>
+</dict>
+</plist>

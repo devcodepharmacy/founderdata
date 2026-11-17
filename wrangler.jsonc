@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "founderdata",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2025-09-01",
+  // No "placement" here on purpose. Placement ("mode": "smart", or "region" near the database) runs the fetch handler next
+  // to D1, which saves 270 to 450 ms a round trip for readers far from it; static files stay at the edge. A measurement on
+  // 2026-11-15 found request.cf still held the visitor's location with the Worker placed elsewhere, but that is one
+  // deployment, and the right region depends on where each database is. docs/GUIDE.md, "Run the Worker next to its
+  // database", shows both forms for wrangler.local.jsonc, how to check them and how to undo them.
+  // Workers Logs keeps what the code logs (errors only, no visitor data) for 3 days on the free plan. Invocation logs
+  // are off: they would keep every request's URL and headers, which include the visitor's IP (docs/PRIVACY.md).
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
+  // Daily at 03:17 UTC: delete visit data older than RETENTION_MONTHS, 24 by default (src/worker/retention.ts).
+  // Daily at 10:30 UTC: re-import the last 3 days of App Store sales (pro/worker/ascsales.ts), when the ASC_* secrets are set.
+  // Every 5 minutes: the tick. It collects and posts rank checks on your DataForSEO account, Google and App Store, when its
+  // secrets are set (pro/worker/dataforseo.ts), and starts a few AI visibility checks (pro/worker/ai-visibility.ts). Each tick
+  // stays inside the free plan's 10 ms of CPU and 50 subrequests, so 288 ticks a day raise what a day does, not what one run does.
+  // The tick at minute 0 also runs the hourly jobs: the 08:00 phone pushes in the reporting timezone (pro/worker/scheduled-push.ts),
+  // alert rules and the X poll. Its 07:00 UTC run also sends the alerts (src/worker/alerts.ts): notes for new app versions,
+  // "worth a look" when there is something, and on Mondays the weekly report, to the channels added on the dashboard's Notifications page.
+  // Three triggers of the free plan's five. A deployment that keeps the old "0 * * * *" runs everything once an hour, as before.
+  "triggers": { "crons": ["17 3 * * *", "30 10 * * *", "*/5 * * * *"] },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Only API calls and the MCP server run the Worker; the dashboard and /js/script.js are served as free static files.
+    "run_worker_first": ["/api/*", "/mcp"]
+  },
+  // The deployed version id, which GET /api/v1/whoami and the MCP whoami tool report.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      // `npm run setup` creates it (or `npx wrangler d1 create founderdata`). Wrangler finds it by name, so no id is needed.
+      // A deployment that pins its own id or name keeps it in wrangler.local.jsonc (gitignored, see AGENTS.md).
+      "database_name": "founderdata",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

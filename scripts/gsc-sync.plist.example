@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs the FounderData Search Console sync once a day on a Mac (docs/SEO.md, "Sync Search Console").
+  It reads the sites from ~/.config/founderdata/gsc-sync.json, the Google key from
+  ~/.config/founderdata/gsc-credentials.json and the admin password from ~/.config/founderdata/admin-password.
+  Copy to ~/Library/LaunchAgents/com.example.founderdata-gsc.plist and replace:
+    /path/to/node          the output of `which node`
+    /path/to/founderdata   your clone of the repository
+  Then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.founderdata-gsc.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.founderdata-gsc</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/node</string>
+    <string>scripts/gsc-sync.mjs</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/path/to/founderdata</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>7</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/tmp/founderdata-gsc.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/founderdata-gsc.log</string>
+</dict>
+</plist>

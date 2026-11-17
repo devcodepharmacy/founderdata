@@ -1,0 +1,63 @@
+{
+  "name": "founderdata",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source analytics for your company: websites, iOS apps and revenue, on Cloudflare Workers and D1.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/datPascal/founderdata.git"
+  },
+  "keywords": [
+    "analytics",
+    "revenue-attribution",
+    "cloudflare-workers",
+    "d1",
+    "stripe",
+    "app-store",
+    "self-hosted",
+    "privacy"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "concurrently -k -n api,web \"node scripts/wrangler.mjs dev --port 8787\" \"vite\"",
+    "dev:api": "node scripts/wrangler.mjs dev --port 8787",
+    "dev:web": "vite",
+    "build": "vite build",
+    "bundle:report": "node scripts/bundle-report.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply DB --local",
+    "db:migrate": "node scripts/wrangler.mjs d1 migrations apply DB --remote",
+    "deploy": "vite build && node scripts/wrangler.mjs d1 migrations apply DB --remote && node scripts/wrangler.mjs deploy",
+    "seed": "node scripts/seed-demo.mjs && node scripts/wrangler.mjs d1 execute DB --local --file .wrangler/seed.sql",
+    "smoke": "node scripts/smoke.mjs",
+    "check:core": "node scripts/edition.mjs check-core"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261023.1",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.6.1",
+    "concurrently": "^10.0.6",
+    "postcss": "^8.5.31",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.15.4",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5",
+    "vitest": "^3.2.7",
+    "wrangler": "^4.152.0"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+dist
+.wrangler
+.dev.vars
+*.log
+wrangler.local.jsonc
+/sites.json
+.private-words
+.DS_Store
+.build/
+.swiftpm/
+

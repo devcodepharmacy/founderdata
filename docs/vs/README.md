@@ -1,0 +1,44 @@
+# FounderData compared with other tools
+
+One page per tool you might be using now. Each page says what the other tool does well, puts the numbers side by side,
+lists what FounderData does not do, and links the import path if you move.
+
+| If you use | Read |
+| --- | --- |
+| DataFast | [FounderData vs DataFast](datafast.md) |
+| Plausible, and a short note on Fathom, Umami and PostHog | [FounderData vs Plausible](plausible.md) |
+| OpenSEO | [FounderData vs OpenSEO](openseo.md) |
+| Astro or Appfigures for App Store keywords | [FounderData vs Astro](astro.md) |
+| RevenueCat charts or ChartMogul | [FounderData vs RevenueCat and ChartMogul](revenuecat-chartmogul.md) |
+| Peec or Profound for AI visibility | [FounderData vs Peec and Profound](peec-profound.md) |
+
+## What FounderData is
+
+Open-source (MIT) analytics you host yourself on Cloudflare Workers and D1. It joins web and iOS visits, payments,
+Search Console, rank checks, App Store ranks and AI answers in one database, and a 33-tool MCP server lets your AI agent
+read all of it with one key. See the [README](../../README.md).
+
+## How to read these pages
+
+- Competitor prices, limits and features were checked in November 2026, from each vendor's own pages where we could read
+  them. Vendors change plans often, so check the vendor's page before you decide. A line marked unverified came from one
+  secondary source or could not be opened.
+- FounderData numbers come from this repository's docs and code. Prices of third-party APIs that FounderData calls, such
+  as DataForSEO, are estimates until your own invoice says otherwise.
+- Every page has a section called "What FounderData does not do". The pages are not neutral marketing, but they try to
+  be fair about what you give up.
+
+## Gaps that apply to every page
+
+These are not built, and no comparison here pretends otherwise.
+
+- **No crawler.** The Page audit reads a file your own crawler pushes. See [SEO.md](../SEO.md#page-audit).
+- **No RevenueCat key-based check.** The RevenueCat history check compares against a chart CSV you paste. ChartMogul has a
+  key-based check.
+- **No verified bot IPs and no crawler by citation by revenue table.** AI crawler hits and AI citations are listed
+  separately. See [AI-VISIBILITY.md](../AI-VISIBILITY.md#ai-crawler-hits).
+- **No live visitor map.** The dashboard shows who is online now as a count.
+- **A large MCP tool set.** The server exposes 33 tools, and a client loads all of their descriptions before it reads a
+  number. See [MCP.md](../MCP.md).
+- **Terminal setup.** You deploy with Node and Wrangler, and several integrations need a secret you set yourself. The
+  [setup checklist](../GUIDE.md#setup-checklist) tests each one live.

@@ -1,0 +1,38 @@
+{
+  "identifier" : "5C0B7D0E-2B7A-4E61-9F0E-7A3D2C1B0A99",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "6F2D8A41-3C5B-4E7A-8D19-0B4C6E2F7A11",
+      "localizations" : [
+        {
+          "description" : "Test product for the FounderDataKit purchase tests.",
+          "displayName" : "Pro lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "app.founderdata.tests.pro_lifetime",
+      "referenceName" : "Pro lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

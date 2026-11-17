@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FounderData</title>
+    <!-- Apply the saved theme before first paint, so dark mode does not flash light. Keep in step with lib/theme.ts. -->
+    <script>
+      try {
+        var t = localStorage.getItem('founderdata-theme');
+        if (t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
+    <!--
+      Start the session check and the first page's data now, so they run while the scripts download. lib/boot.ts
+      and lib/cache.ts pick the requests up; a 401 here (nobody signed in) is discarded there. The URLs must match
+      the ones lib/routes.ts dataOf builds, or the early request is simply not used. A share or invite link asks nothing.
+    -->
+    <script>
+      (function () {
+        var p = location.pathname;
+        if (/^\/(share|join)\//.test(p)) return;
+        var o = { credentials: 'same-origin' };
+        window.__fdMe = fetch('/api/auth/me', o)
+          .then(function (r) { return r.json(); })
+          .catch(function () { return null; });
+        var early = (window.__fdEarly = {});
+        function go(url) {
+          var f = fetch(url, o);
+          f.catch(function () {});
+          early[url] = f;
+        }
+        var s = location.search === '?period=30d' ? '' : location.search;
+        var site = /^\/site\/([\w-]+)\/?$/.exec(p);
+        if (p === '/' && !s) {
+          go('/api/home?period=30d');
+          go('/api/home/growth?period=30d');
+        } else if (site && !s) {
+          go('/api/sites');
+          go('/api/sites/' + site[1] + '/overview?period=30d');
+        }
+      })();
+    </script>
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <style>
+      /* Page changes cross-fade (lib/nav.ts), quickly; a person who asked for less motion gets none. */
+      ::view-transition-group(root) { animation-duration: 120ms; }
+      @media (prefers-reduced-motion: reduce) { ::view-transition-group(root) { animation-duration: 0s; } }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- The shell: the header and the page background, painted before any script runs. Keep in step with the header in components/ui/RouteFallback.tsx. -->
+      <div id="fd-shell" class="mx-auto max-w-7xl px-4 py-5 sm:py-10">
+        <header class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <svg width="28" height="28" viewBox="0 0 1024 1024" aria-hidden="true">
+              <rect width="1024" height="1024" rx="230" fill="#0f1730" />
+              <path d="M170 774C196.7 749 283.3 637.3 330 624C376.7 610.7 405 720.7 450 694C495 667.3 558.3 495.7 600 464C641.7 432.3 658.3 544 700 504C741.7 464 825 270.7 850 224" fill="none" stroke="#2ee6a6" stroke-linecap="round" stroke-linejoin="round" stroke-width="64" />
+              <circle cx="850" cy="224" r="46" fill="#2ee6a6" />
+            </svg>
+            <span class="text-lg font-semibold tracking-tight">FounderData</span>
+          </div>
+          <div class="flex items-center gap-2" aria-hidden="true">
+            <div class="hidden h-9 w-24 rounded-lg bg-stone-100 sm:block"></div>
+            <div class="h-9 w-9 rounded-lg bg-stone-100"></div>
+          </div>
+        </header>
+      </div>
+      <script>
+        // A site page has a narrower, tighter frame than the other pages (pages/Dashboard.tsx).
+        if (/^\/site\/[\w-]+\/?/.test(location.pathname) && !/\/settings\/?$/.test(location.pathname)) document.getElementById('fd-shell').className = 'mx-auto max-w-[1240px] px-3 pb-10 pt-4 sm:px-6 sm:pt-6';
+      </script>
+    </div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
