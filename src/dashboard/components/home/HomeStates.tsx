@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { LogoMark } from '../Logo';
 import { basisNote } from '../BasisChip';
-import { Skeleton, SkeletonChart, SkeletonRows } from '../ui';
+import { Skeleton, SkeletonChart, SkeletonRows, StatStrip } from '../ui';
 import { InfoIcon, Popover, STATUS_NOTE } from './shared';
 import type { SiteRow } from './types';
 
@@ -10,7 +10,7 @@ export function HomeSkeleton() {
   return (
     <div role="status" aria-busy="true" aria-live="polite" className="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <span className="sr-only">Loading</span>
-      <div className="card p-5 sm:p-6 lg:col-span-6 lg:h-[360px]" aria-hidden="true">
+      <div className="card p-5 lg:col-span-6 lg:h-[360px]" aria-hidden="true">
         <div className="grid gap-8 sm:grid-cols-[1.3fr_1fr]">
           <div>
             <Skeleton className="h-3.5 w-24" />
@@ -25,19 +25,21 @@ export function HomeSkeleton() {
         </div>
         <SkeletonChart height={150} className="mt-8" />
       </div>
-      <div className="card hidden h-[360px] p-5 sm:p-6 lg:col-span-6 lg:block" aria-hidden="true">
+      <div className="card hidden h-[360px] p-5 lg:col-span-6 lg:block" aria-hidden="true">
         <Skeleton className="h-3.5 w-16" />
         <Skeleton className="mt-3 h-10 w-28" />
         <SkeletonRows rows={3} className="mt-8 max-w-[45%]" />
       </div>
-      <div className="card grid grid-cols-2 overflow-hidden lg:col-span-12 lg:grid-cols-4" aria-hidden="true">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className={`px-5 py-4 sm:px-6 ${i % 2 ? 'border-l border-stone-200/60' : ''} ${i >= 2 ? 'border-t border-stone-200/60 lg:border-l lg:border-t-0' : ''}`}>
-            <Skeleton className="h-3.5 w-20" />
-            <Skeleton className="mt-2.5 h-6 w-16" />
-            <Skeleton className="mt-2 h-4 w-12" />
-          </div>
-        ))}
+      <div className="lg:col-span-12" aria-hidden="true">
+        <StatStrip>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="px-5 py-4">
+              <Skeleton className="h-3.5 w-20" />
+              <Skeleton className="mt-2.5 h-7 w-20" />
+              <Skeleton className="mt-2 h-4 w-12" />
+            </div>
+          ))}
+        </StatStrip>
       </div>
       <div className="card p-5 lg:col-span-12" aria-hidden="true">
         <Skeleton className="h-5 w-48" />
@@ -100,9 +102,7 @@ export function FirstRun({ viewer, onAdd }: { viewer: boolean; onAdd: () => void
             {viewer ? 'Nothing to show yet' : 'Add your first site or app'}
           </h2>
           <p className="mt-3 max-w-md text-[15px] leading-relaxed text-stone-500">
-            {viewer
-              ? 'This login reads only. Once the owner adds a website or an app, its visitors and revenue show up here.'
-              : 'Websites, iOS apps, browser extensions and newsletters all land on this page, with their visitors, revenue and MRR side by side.'}
+            {viewer ? 'This login only reads. Visitors and revenue show here once the owner adds a site or app.' : 'Websites, iOS apps, extensions and newsletters land here with their visitors, revenue and MRR.'}
           </p>
           {!viewer && (
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -117,13 +117,13 @@ export function FirstRun({ viewer, onAdd }: { viewer: boolean; onAdd: () => void
         </div>
         <ol className="space-y-6 self-center lg:border-l lg:border-stone-200/60 lg:pl-12">
           <Step n={1} title="Add a website or an iOS app">
-            A domain, a bundle id or both, plus the currency and timezone its numbers count in.
+            A domain or a bundle id, plus a currency and timezone.
           </Step>
           <Step n={2} title="Install the tracker">
-            A script tag for a website, the Swift package for an app. Copy AI prompt writes the install for your coding agent.
+            A script tag, or the Swift package. Copy AI prompt writes the install for your agent.
           </Step>
           <Step n={3} title="Connect payments">
-            Stripe, the App Store, RevenueCat and more, in the site's Settings. Revenue then shows next to the visits that brought it.
+            Stripe, the App Store or RevenueCat, in Settings. Revenue then shows next to its visits.
           </Step>
         </ol>
       </div>
@@ -131,7 +131,7 @@ export function FirstRun({ viewer, onAdd }: { viewer: boolean; onAdd: () => void
   );
 }
 
-/** "2 websites, 1 app without a website and 1 newsletter". */
+/** "2 websites, 1 app and 1 newsletter". An app counts here only when it has no website: a site with both is a website. */
 export function countLine(sites: SiteRow[]) {
   // Extensions and newsletters count apart from websites (Settings, Product type).
   const typed = (t: string) => sites.filter((s) => s.type === t).length;
@@ -139,27 +139,30 @@ export function countLine(sites: SiteRow[]) {
   const apps = sites.filter((s) => s.kind === 'app').length;
   const parts = [];
   if (web) parts.push(`${web} ${web === 1 ? 'website' : 'websites'}`);
-  if (apps) parts.push(`${apps} ${apps === 1 ? 'app' : 'apps'} without a website`);
+  if (apps) parts.push(`${apps} ${apps === 1 ? 'app' : 'apps'}`);
   if (typed('extension')) parts.push(`${typed('extension')} ${typed('extension') === 1 ? 'browser extension' : 'browser extensions'}`);
   if (typed('newsletter')) parts.push(`${typed('newsletter')} ${typed('newsletter') === 1 ? 'newsletter' : 'newsletters'}`);
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0] ?? 'Nothing yet';
 }
 
-/** The page's fine print, one click away from the period line. */
+/** The page's fine print, one click away in the header's button row. */
 export function HowCounted({ tz, sites }: { tz: string; sites: SiteRow[] }) {
   const other = sites.filter((s) => s.timezone && s.timezone !== tz);
   return (
     <Popover
-      label="How these numbers are counted"
+      label="How it's counted"
+      align="right"
+      triggerClass="btn-ghost h-9 gap-1.5 px-2.5 sm:px-3"
       trigger={
         <>
           <InfoIcon size={14} />
-          <span className="underline decoration-stone-300 underline-offset-4">How these numbers are counted</span>
+          <span className="max-sm:sr-only">How it's counted</span>
         </>
       }
     >
       <div className="mb-2 text-sm font-semibold text-ink">How these numbers are counted</div>
       <ul className="list-disc space-y-1.5 pl-4">
+        <li>An app counts on its own only when it has no website. A site with both counts as a website.</li>
         <li>
           Days run on {tz} time, the reporting timezone in Settings. The iPhone and the read API use the same one, so a number here matches theirs.
           {other.length > 0 &&
@@ -174,7 +177,7 @@ export function HowCounted({ tz, sites }: { tz: string; sites: SiteRow[] }) {
           Pacific time, so a sale late in the evening there can land one day off.
         </li>
         <li>New customers and conversion count recorded payments only. Each conversion rate counts the customers whose payment is linked to a visit on that platform.</li>
-        <li>Web and app visitors have their own tiles. Bounce rate and session time are for websites only. Hover Web visitors to see them.</li>
+        <li>Web and app visitors have their own tiles. Bounce rate and session time are for websites only. Hover the (i) on Web visitors to see them.</li>
         <li>{STATUS_NOTE}</li>
       </ul>
     </Popover>

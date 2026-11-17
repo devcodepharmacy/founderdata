@@ -14,11 +14,11 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'JPY', 'BRL
 /** What is being added. A website can also be a browser extension or a newsletter (components/ProductType.tsx). */
 type Kind = 'website' | 'app' | 'both' | 'extension' | 'newsletter';
 const KINDS: { value: Kind; label: string; text: string; icon: ReactNode }[] = [
-  { value: 'website', label: 'Website', text: 'One script tag. Visitors, sources, pages and revenue per source.', icon: SetupIcons.site },
-  { value: 'app', label: 'iOS app', text: 'A Swift package. Sessions, screens, onboarding and App Store purchases.', icon: SetupIcons.phone },
+  { value: 'website', label: 'Website', text: 'One script tag. Visitors, sources, pages and revenue.', icon: SetupIcons.site },
+  { value: 'app', label: 'iOS app', text: 'A Swift package. Sessions, screens and purchases.', icon: SetupIcons.phone },
   { value: 'both', label: 'Website and iOS app', text: 'One site with both, split by platform.', icon: SetupIcons.install },
-  { value: 'extension', label: 'Browser extension', text: 'Installs, weekly active and uninstalls, from a few lines in the extension.', icon: SetupIcons.puzzle },
-  { value: 'newsletter', label: 'Newsletter', text: 'Subscribers, unsubscribes and opens, from your newsletter tool.', icon: SetupIcons.mail },
+  { value: 'extension', label: 'Browser extension', text: 'Installs, weekly active and uninstalls.', icon: SetupIcons.puzzle },
+  { value: 'newsletter', label: 'Newsletter', text: 'Subscribers, unsubscribes and opens.', icon: SetupIcons.mail },
 ];
 
 type StepId = 'kind' | 'details' | 'install';
@@ -152,7 +152,7 @@ export function AddSite({ open, onClose }: { open: boolean; onClose: () => void 
               </label>
               <input id={ids.domain} className="input" placeholder="example.com" value={domain} onChange={(e) => setDomain(e.target.value)} autoFocus autoCapitalize="off" spellCheck={false} />
               <p className="mt-1.5 text-xs text-stone-500">
-                {kind === 'extension' || kind === 'newsletter' ? 'Events name a page on this domain.' : 'Subdomains such as app.example.com count as the same site.'}
+                {kind === 'extension' || kind === 'newsletter' ? 'Events name a page on this domain.' : 'Subdomains such as app.example.com count too.'}
               </p>
             </div>
           )}
@@ -175,8 +175,8 @@ export function AddSite({ open, onClose }: { open: boolean; onClose: () => void 
               />
               <p className={`mt-1.5 text-xs ${bundleBad ? 'text-red-600' : 'text-stone-500'}`}>
                 {bundleBad
-                  ? 'A bundle id has letters, digits and hyphens in two or more parts split by dots, like com.example.app.'
-                  : 'In Xcode: the app target, General, Bundle Identifier. The server takes events only from this app.'}
+                  ? 'Use two or more parts split by dots, like com.example.app.'
+                  : 'In Xcode: target, General, Bundle Identifier. Only this app can send events.'}
               </p>
             </div>
           )}
@@ -228,7 +228,7 @@ export function AddSite({ open, onClose }: { open: boolean; onClose: () => void 
           <AiPromptPanel site={added} origin={window.location.origin} />
           <FirstData site={added} />
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-200/60 pt-4">
-            <p className="text-[13px] text-stone-500">Payments, Search Console and agents are in Settings when you want them.</p>
+            <p className="text-[13px] text-stone-500">Payments and more are in Settings.</p>
             <div className="flex gap-2">
               <button className="btn" onClick={() => navigate(`/site/${added.id}/settings#payments`)}>
                 Connect payments

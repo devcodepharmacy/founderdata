@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { navigate } from '../App';
 import { api, isViewer, type Site } from '../lib/api';
 import { SettingsCard } from './setup/kit';
-import { SkeletonText, toast } from './ui';
+import { Note, SkeletonText, toast } from './ui';
 
 /**
  * The reporting timezone (src/worker/reporting.ts, docs/API.md "Reporting timezone"): the days Home, the iPhone, the
@@ -103,7 +103,7 @@ export function ReportingTimezoneSection() {
     <SettingsCard
       id="reporting-timezone"
       title="Reporting timezone"
-      desc="Home, the iPhone app, the read API and the Monday report count days in this timezone, so they show the same numbers for the same period. It covers every site."
+      desc="Home, the iPhone app, the read API and the Monday report count days in this timezone. It covers every site, so they show the same numbers for the same period."
     >
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1 sm:max-w-xs">
@@ -143,23 +143,29 @@ export function ReportingTimezoneSection() {
           </>
         )}
       </div>
-      <p className="mt-2 text-xs text-stone-500">
+      <p className="mt-2 text-[13px] text-stone-500">
         Now {data.timezone}. {why}
       </p>
       {others.length > 0 && (
-        <div className="mt-4 rounded-xl bg-stone-50 px-4 py-3 text-sm text-stone-600">
-          <p>
-            {others.length === 1 ? '1 site counts' : `${others.length} sites count`} days in another timezone on its own page:{' '}
-            {others.map((s, i) => (
-              <span key={s.id}>
-                {i > 0 && ', '}
-                <span className="font-medium text-ink">{s.name}</span> {s.timezone}
-              </span>
-            ))}
-            . Totals on those pages can differ from Home by a few hours of data.
-          </p>
+        <div className="card-inset mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+          <Note
+            className="min-w-0 flex-1 basis-64"
+            more={
+              <p>
+                {others.map((s, i) => (
+                  <span key={s.id}>
+                    {i > 0 && ', '}
+                    <span className="font-medium text-ink">{s.name}</span> {s.timezone}
+                  </span>
+                ))}
+                . Totals on those pages can differ from Home by a few hours of data.
+              </p>
+            }
+          >
+            {others.length === 1 ? '1 site counts' : `${others.length} sites count`} days in another timezone on its own page.
+          </Note>
           {!viewer && (
-            <button className="btn mt-3" disabled={busy} onClick={applyAll}>
+            <button className="btn" disabled={busy} onClick={applyAll}>
               Use {data.timezone} for every site
             </button>
           )}

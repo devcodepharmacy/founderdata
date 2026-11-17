@@ -13,8 +13,8 @@ import { BasisChip } from './BasisChip';
 import { TREND_RULES } from '../../shared/trend-rules';
 import { DOWN_IS_GOOD, METRIC_NOTE, TYPE_TILES, typeOf, type ProductNumbers } from './ProductType';
 import { chartAnim, chartDefs, chartGrid, chartLine, chartLineCursor, chartTooltip, chartXAxis, chartYAxis, SERIES } from './ui/chart';
-import { NumberTicker } from './ui/NumberTicker';
 import { Skeleton, SkeletonChart } from './ui/Skeleton';
+import { StatStrip, StatTile } from './ui/StatTile';
 import { Delta, Key } from './site/primitives';
 
 type Metric = 'visitors' | 'revenue';
@@ -36,24 +36,26 @@ interface TrialLead { trialToPaid: number | null; trialsPaid: number; trialsEnde
 interface AsaLead { hasSpend: boolean; from: string; to: string; totals: { spend: number | null; paid: number; cpa: number | null; roas: number | null } }
 
 /**
- * One KPI tile, either a lead tile (big number) or a secondary one. `num` with `fmt` ticks to each new value;
- * `value` is shown as it is (a dash, "n/a", a skeleton while its route loads).
+ * One KPI tile, shown by StatTile. `num` with `fmt` ticks to each new value (null is a muted dash); `display` is shown
+ * as it is ("n/a"). `meta` is the change under the number, or a short muted line.
  */
 interface Tile {
   key: string;
   label: string;
   /** Next to the label: the revenue basis (BasisChip). */
   chip?: ReactNode;
-  num?: number;
+  num?: number | null;
   fmt?: (n: number) => string;
-  value?: ReactNode;
-  change: ReactNode;
+  display?: ReactNode;
+  /** Skeleton in place of the number while its route loads. */
+  loading?: boolean;
+  meta?: ReactNode;
+  /** One muted line after the change. */
+  sub?: ReactNode;
   tone?: 'visitors' | 'revenue';
   metric?: Metric;
   title?: string;
 }
-
-const pulse = <Skeleton className="my-0.5 h-7 w-20" />;
 
 /** A payment row from GET /api/sites/:id/customers, the fields the chart reads. */
 interface CustomerRow { id: string; visitor_id: string | null; name: string | null; pay_name: string | null; renewal: number | boolean; ts: number }
@@ -61,7 +63,8 @@ interface CustomerRow { id: string; visitor_id: string | null; name: string | nu
 /** The chart's total height: the key row, then the visitors line over the revenue strip. */
 const CHART_H = 348;
 
-export function OverviewCard({ data, notes }: { data: Overview | null; notes: ChartNotes }) {
+/** `controls` sit at the left of the chart's key row: the platform switch of a site with a web and an app side. */
+export function OverviewCard({ data, notes, controls }: { data: Overview | null; notes: ChartNotes; controls?: ReactNode }) {
   const { money, q, site, reloadKey, decimals } = useDash();
   // Payments linked to a visit (Coverage.tsx). Whole site, so hidden while a filter is on.
   const coverage = useApi<Coverage>(Object.keys(q.filters).length ? null : `/api/sites/${site.id}/coverage?${qs(q)}`, reloadKey).data;
@@ -208,15 +211,12 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
     chip: k.chip,
     num: k.num,
     fmt: k.show,
-    value: k.value,
+    display: k.value ? <span className="text-stone-400" title={k.note}>{k.value}</span> : undefined,
     tone: k.tone,
     metric: k.metric,
     title: k.title,
-    change: k.note ? (
-      <span className="text-xs text-stone-400">{k.note}</span>
-    ) : (
-      <Delta cur={c![k.key] ?? 0} prev={p![k.key] ?? 0} invert={k.invert} noData={k.noData} fmt={k.fmt} />
-    ),
+    // Nothing before and nothing now is no news: no badge.
+    meta: k.note || ((c![k.key] ?? 0) === 0 && (p![k.key] ?? 0) === 0) ? null : <Delta cur={c![k.key] ?? 0} prev={p![k.key] ?? 0} invert={k.invert} noData={k.noData} fmt={k.fmt} />,
   });
 
   // The primary goal (site Settings) as a tile, the number Home shows for the site (src/worker/primary-goal.ts).
@@ -227,7 +227,7 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
         num: data.goal.count,
         fmt: fmtNumber,
         title: `Primary goal: ${data.goal.name}. Visitors who reached it in the period, as on Home.`,
-        change: <Delta cur={data.goal.count} prev={data.goal.previous} fmt={fmtNumber} />,
+        meta: data.goal.count === 0 && data.goal.previous === 0 ? null : <Delta cur={data.goal.count} prev={data.goal.previous} fmt={fmtNumber} />,
       }
     : null;
   // No visit or app session for a day or more (TREND_RULES.quietHours, the same rule as Home's "Quiet").
@@ -240,9 +240,9 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
         return {
           key,
           label,
-          ...(m ? { num: m.value, fmt: fmtNumber } : { value: pulse }),
+          ...(m ? { num: m.value, fmt: fmtNumber } : { loading: true }),
           title: METRIC_NOTE[key],
-          change: m ? <Delta cur={m.value} prev={m.previous} invert={DOWN_IS_GOOD.has(key)} fmt={fmtNumber} before={key === 'subscribers' ? 'at the start of the period' : 'before'} /> : null,
+          meta: m ? <Delta cur={m.value} prev={m.previous} invert={DOWN_IS_GOOD.has(key)} fmt={fmtNumber} before={key === 'subscribers' ? 'at the start of the period' : 'before'} /> : null,
         };
       })
     : [];
@@ -257,22 +257,17 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
                 {
                   key: 'mrr',
                   label: 'MRR',
-                  ...(subs ? { num: subs.current.mrr, fmt: (n: number) => money(n, true) } : { value: pulse }),
+                  ...(subs ? { num: subs.current.mrr, fmt: (n: number) => money(n, true) } : { loading: true }),
                   title: 'Monthly recurring revenue of the paying subscriptions at the end of the period, as in the Subscriptions tab. A yearly plan counts as a twelfth.',
-                  change: subs ? <Delta cur={subs.current.mrr} prev={subs.current.mrrStart} fmt={(n) => money(n, true)} before="at the start of the period" /> : null,
+                  meta: subs ? <Delta cur={subs.current.mrr} prev={subs.current.mrrStart} fmt={(n) => money(n, true)} before="at the start of the period" /> : null,
                 },
               ]),
           {
             key: 'trialToPaid',
             label: 'Trial to paid',
-            ...(trial ? (trial.trialToPaid === null ? { value: <span className="text-stone-300" title="No trial decided yet">–</span> } : { num: trial.trialToPaid, fmt: (n: number) => fmtPct(n) }) : { value: pulse }),
+            ...(trial ? (trial.trialToPaid === null ? { num: null, display: <span className="text-stone-300" title="No trial decided yet">–</span> } : { num: trial.trialToPaid, fmt: (n: number) => fmtPct(n) }) : { loading: true }),
             title: `Trials that paid by the end of the trial plus 3 days, over the trials that paid or ended, as in the App tab.${trial ? ` ${trial.trialsPaid} of ${decided} decided.` : ''}`,
-            change:
-              trial && trial.trialToPaid !== null ? (
-                <Delta cur={trial.trialToPaid} prev={trialBefore?.trialToPaid ?? 0} noData={trialBefore?.trialToPaid == null} fmt={pts} />
-              ) : trial ? (
-                <span className="text-xs text-stone-400">no trial decided yet</span>
-              ) : null,
+            meta: trial && trial.trialToPaid !== null ? <Delta cur={trial.trialToPaid} prev={trialBefore?.trialToPaid ?? 0} noData={trialBefore?.trialToPaid == null} fmt={pts} /> : null,
           },
           ...(asa && !asa.hasSpend
             ? []
@@ -280,14 +275,14 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
                 {
                   key: 'asaCpp',
                   label: 'Search Ads cost per paid',
-                  ...(asa ? (asa.totals.cpa === null ? { value: <span className="text-stone-300" title="No paid user from Search Ads yet">–</span> } : { num: asa.totals.cpa, fmt: (n: number) => money(n) }) : { value: pulse }),
+                  ...(asa ? (asa.totals.cpa === null ? { num: null, display: <span className="text-stone-300" title="No paid user from Search Ads yet">–</span> } : { num: asa.totals.cpa, fmt: (n: number) => money(n) }) : { loading: true }),
                   title: `Apple Search Ads spend over the users it brought who paid${asa ? `, ${asa.from} to ${asa.to}` : ''}. Apple reports a day late, so a period up to today counts the same number of days up to yesterday, as the iPhone does. ROAS is revenue to date from those users over the spend.`,
-                  change: asa ? (
-                    <span className="truncate text-xs text-stone-500">
+                  sub: asa ? (
+                    <>
                       {money(asa.totals.spend ?? 0, true)} spend
                       {asa.totals.roas !== null && <>, ROAS {fmtPct(asa.totals.roas)}</>}
-                    </span>
-                  ) : null,
+                    </>
+                  ) : undefined,
                 },
               ]),
         ]
@@ -310,44 +305,33 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
     const other: Metric = t.metric === 'visitors' ? 'revenue' : 'visitors';
     setHidden((h) => (h[other] || h[t.metric!] ? { visitors: false, revenue: false } : { ...h, [other]: true }));
   };
-  const tileEl = (t: Tile, big: boolean) => {
+  const stat = (t: Tile) => {
     const can = canPick(t);
     const on = can && isOn(t);
-    const dim = !!t.metric && !rpv && hidden[t.metric];
-    // The bar under a chosen tile is the series' own color, so the tile reads as the chart's key.
-    const bar = t.key === 'revenuePerVisitor' || t.metric === 'revenue' ? 'bg-revenue' : 'bg-visitors';
-    const swatch = t.tone === 'visitors' ? 'bg-visitors' : t.tone === 'revenue' ? 'bg-revenue' : null;
-    const Tag = can ? 'button' : 'div';
+    const hint = can ? (on && !rpv && t.metric ? 'Click to show it alone on the chart' : 'Click to show on the chart') : '';
+    const title = [t.title, hint].filter(Boolean).join('\n');
     return (
-      <Tag
+      <StatTile
         key={t.key}
-        {...(can ? { type: 'button' as const, onClick: () => pickTile(t), 'aria-pressed': on } : {})}
-        className={`group relative flex min-w-0 flex-col bg-white text-left [box-shadow:inset_-1px_-1px_0_rgb(var(--stone-200)/0.7)] ${big ? 'px-4 py-3.5 sm:px-5 sm:py-4' : 'px-4 py-2.5 sm:px-5 sm:py-3'} ${can ? 'transition-colors duration-fast hover:bg-stone-50 focus-visible:z-10' : ''}`}
-        title={[t.title, can ? (on && !rpv && t.metric ? 'Click to show it alone on the chart' : 'Click to show on the chart') : ''].filter(Boolean).join('\n') || undefined}
-      >
-        <div className="flex h-5 min-w-0 items-center gap-1.5 text-[13px] font-medium text-stone-500">
-          {swatch && <span className={`h-2 w-2 shrink-0 rounded-[3px] transition-opacity duration-fast ${swatch} ${dim ? 'opacity-30' : ''}`} aria-hidden="true" />}
-          <span className="truncate">{t.label}</span>
-          {t.chip}
-        </div>
-        <div
-          className={`truncate font-semibold tracking-tight tabular-nums transition-colors duration-fast ${big ? 'mt-1 text-[22px] leading-7 sm:text-[26px] sm:leading-8' : 'mt-0.5 text-[17px] leading-6'} ${dim ? 'text-stone-400 group-hover:text-stone-500' : 'text-ink'}`}
-        >
-          {t.num !== undefined && t.fmt ? <NumberTicker value={t.num} format={t.fmt} /> : t.value}
-        </div>
-        <div className={`flex min-h-[20px] items-center ${big ? 'mt-1.5' : 'mt-1'}`}>{t.change}</div>
-        {can && (
-          <span
-            className={`absolute inset-x-0 bottom-0 h-[2px] origin-center ${bar} transition-transform duration-slow ease-out ${on ? 'scale-x-100' : 'scale-x-0'}`}
-            aria-hidden="true"
-          />
-        )}
-      </Tag>
+        label={<span title={title || undefined}>{t.label}</span>}
+        info={t.chip}
+        // The bar under a chosen tile is the series' own color, so the tile reads as the chart's key.
+        tone={t.key === 'revenuePerVisitor' ? 'revenue' : t.tone}
+        value={t.num}
+        format={t.fmt}
+        display={t.display}
+        loading={t.loading}
+        footer={t.meta}
+        sub={t.sub}
+        onClick={can ? () => pickTile(t) : undefined}
+        active={on}
+      />
     );
   };
-  const row = 'fd-stagger -mb-px -mr-px grid grid-cols-2 sm:grid-cols-3 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none';
 
-  const showR = !noPay && !hidden.revenue;
+  // No revenue in the whole period: the strip under the line would be an empty grid, so the line takes its height.
+  const hasRevenue = !data || data.series.some((d) => d.revenue > 0 || (d.imported_revenue ?? 0) > 0);
+  const showR = !noPay && !hidden.revenue && hasRevenue;
   const showV = !hidden.visitors || !showR;
 
   return (
@@ -355,13 +339,13 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
       {quietSince !== null && <QuietLine since={quietSince} app={app} settingsHref={`/site/${site.id}/settings`} timezone={site.timezone} />}
       {c ? (
         <>
-          <div className="overflow-hidden border-b border-stone-200/70">
-            <div className={row}>{mainTiles.map((t) => tileEl(t, true))}</div>
-          </div>
+          <StatStrip flat label="Headline numbers">
+            {mainTiles.map(stat)}
+          </StatStrip>
           {secondary.length > 0 && (
-            <div className="overflow-hidden border-b border-stone-200/70">
-              <div className={`${row} [&>*]:!bg-stone-50/60`}>{secondary.map((t) => tileEl(t, false))}</div>
-            </div>
+            <StatStrip flat label="More numbers">
+              {secondary.map(stat)}
+            </StatStrip>
           )}
         </>
       ) : (
@@ -374,35 +358,40 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
       <div className="relative px-2 pb-2 pt-3 sm:px-3">
         {data ? (
           <>
-            <div className="mb-1 flex min-h-[20px] flex-wrap items-center justify-end gap-x-4 gap-y-1 px-2 text-xs text-stone-500">
-              {noPay ? (
-                <a className="mr-auto text-stone-400 underline-offset-2 hover:text-ink hover:underline" href={`/site/${site.id}/settings#payments`}>
-                  Connect payments to see revenue
-                </a>
-              ) : (
-                <div className="mr-auto hidden sm:block">
-                  <NoteLegend notes={notes.list} />
-                </div>
-              )}
-              {rpv ? (
-                <Key swatch="h-[3px] w-3 rounded-full bg-revenue" label="Revenue per visitor" />
-              ) : (
-                <>
-                  {showV && <Key swatch="h-[3px] w-3 rounded-full bg-visitors" label="Visitors" />}
-                  {showR && <Key swatch="h-2 w-2 rounded-[3px] bg-revenue" label="Revenue" />}
-                  {data.series.some((d) => d.imported) && <Key swatch="h-2 w-3 rounded-[3px] bg-stone-200" label="Imported days" />}
-                </>
-              )}
-              {importedRevenue && !noPay && !rpv && (
-                <label className="flex cursor-pointer items-center gap-1.5" title="Draws imported revenue (from your DataFast import) and native revenue as one line, with a marker on the first day FounderData recorded itself. The numbers above stay native only.">
-                  <input type="checkbox" checked={withImported} onChange={(e) => setWithImported(e.target.checked)} />
-                  Include imported history
-                </label>
-              )}
+            <div className={`mb-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 text-xs text-stone-500 ${controls ? 'min-h-8' : 'min-h-[20px]'}`}>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                {controls}
+                {noPay ? (
+                  <a className="text-stone-400 underline-offset-2 hover:text-ink hover:underline" href={`/site/${site.id}/settings#payments`}>
+                    Connect payments to see revenue
+                  </a>
+                ) : (
+                  <div className="hidden sm:block">
+                    <NoteLegend notes={notes.list} />
+                  </div>
+                )}
+              </div>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+                {rpv ? (
+                  <Key swatch="h-[3px] w-3 rounded-full bg-revenue" label="Revenue per visitor" />
+                ) : (
+                  <>
+                    {showV && <Key swatch="h-[3px] w-3 rounded-full bg-visitors" label="Visitors" />}
+                    {showR && <Key swatch="h-2 w-2 rounded-[3px] bg-revenue" label="Revenue" />}
+                    {data.series.some((d) => d.imported) && <Key swatch="h-2 w-3 rounded-[3px] bg-stone-200" label="Imported days" />}
+                  </>
+                )}
+                {importedRevenue && !noPay && !rpv && (
+                  <label className="flex cursor-pointer items-center gap-1.5" title="Draws imported revenue (from your DataFast import) and native revenue as one line, with a marker on the first day FounderData recorded itself. The numbers above stay native only.">
+                    <input type="checkbox" checked={withImported} onChange={(e) => setWithImported(e.target.checked)} />
+                    Include imported history
+                  </label>
+                )}
+              </div>
             </div>
             {line && showR && !rpv && (
               <p className="px-2 pb-1 text-xs text-stone-400">
-                The revenue line adds {money(data.imported?.revenue ?? 0)} imported from another tool. The totals, customers and conversion above are native only.
+                Revenue line includes {money(data.imported?.revenue ?? 0)} imported. Totals above are native only.
               </p>
             )}
             <OverviewChart
@@ -437,16 +426,11 @@ export function OverviewCard({ data, notes }: { data: Overview | null; notes: Ch
 /** The KPI strip while the first answer loads: six tiles of the real tile's size. */
 function TilesSkeleton() {
   return (
-    <div className="grid grid-cols-2 border-b border-stone-200/70 sm:grid-cols-3 lg:grid-cols-6" role="status" aria-busy="true">
-      <span className="sr-only">Loading</span>
+    <StatStrip flat label="Loading">
       {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="px-4 py-3.5 sm:px-5 sm:py-4">
-          <Skeleton className="h-3.5 w-20" />
-          <Skeleton className="mt-2.5 h-7 w-24" />
-          <Skeleton className="mt-2.5 h-4 w-12" />
-        </div>
+        <StatTile key={i} label={<Skeleton className="h-3.5 w-20" />} value={undefined} loading />
       ))}
-    </div>
+    </StatStrip>
   );
 }
 

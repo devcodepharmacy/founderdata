@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { TREND_RULES } from '../../../shared/trend-rules';
-import { changeView, currencyDecimals, fmtMoney, fmtNumber } from '../../lib/format';
+import { changeView, currencyDecimals, fmtMoney, fmtNumber, NO_COMPARISON } from '../../lib/format';
 import { Favicon } from '../Icons';
 import { TypeGlyph } from '../ProductType';
-import { StatusChip } from '../ui';
+import { NoComparison, StatusChip } from '../ui';
 import type { Money, SiteRow, TrendStatus } from './types';
 
 export const PERIODS = [
@@ -69,14 +69,25 @@ const bare = (t: string) => t.replace(/\s*[↑↓]$/, '');
 
 type ChangeProps = { cur: number; prev: number; minBase: number; invert?: boolean; fmt?: (n: number) => string; noData?: boolean };
 
+/** No change: a muted "0%", never a chip and never the words. Nothing at all when both periods are zero. */
+function Flat({ className = '' }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center whitespace-nowrap text-xs font-medium tabular-nums text-stone-400 ${className}`} title="No change against the period before">
+      <span className="sr-only">no change</span>
+      <span aria-hidden="true">0%</span>
+    </span>
+  );
+}
+
 /**
  * Change against the previous period, as plain colored text for rows and cards. On a small base (fewer than
  * `minBase` before, or 0) it shows the count, because 3 to 6 visitors is not a 100% story. With nothing to compare
- * (`noData`) it says so.
+ * (`noData`) it shows nothing and keeps the words for a screen reader, so "no data before" never repeats down a column.
  */
 export function Change({ cur, prev, minBase, invert = false, fmt = fmtNumber, noData = false }: ChangeProps) {
   const v = changeView(cur, prev, { minBase, noData, fmt });
-  if (v.kind === 'noData' || v.kind === 'none') return <span className="whitespace-nowrap text-xs text-stone-400">{v.text}</span>;
+  if (v.kind === 'noData') return <span className="sr-only">{NO_COMPARISON}</span>;
+  if (v.kind === 'none') return cur === 0 && prev === 0 ? null : <Flat />;
   const good = invert ? !v.up : v.up;
   return (
     <span className={`inline-flex items-center gap-0.5 whitespace-nowrap text-xs font-medium tabular-nums ${good ? 'text-emerald-700' : 'text-red-600'}`} title={`${fmt(prev)} before`}>
@@ -87,10 +98,14 @@ export function Change({ cur, prev, minBase, invert = false, fmt = fmtNumber, no
   );
 }
 
-/** The same change as a tinted chip, the ChangeBadge look, for the headline tiles. */
+/**
+ * The same change as a tinted chip, the ChangeBadge look, for the headline tiles. Nothing to compare is a muted dash
+ * with a title (NoComparison), no change a muted "0%".
+ */
 export function Delta({ cur, prev, minBase, invert = false, fmt = fmtNumber, noData = false }: ChangeProps) {
   const v = changeView(cur, prev, { minBase, noData, fmt });
-  if (v.kind === 'noData' || v.kind === 'none') return <span className="whitespace-nowrap text-xs text-stone-400">{v.text}</span>;
+  if (v.kind === 'noData') return <NoComparison />;
+  if (v.kind === 'none') return <Flat className="h-5" />;
   const good = invert ? !v.up : v.up;
   return (
     <span
@@ -104,9 +119,9 @@ export function Delta({ cur, prev, minBase, invert = false, fmt = fmtNumber, noD
   );
 }
 
-/** A change in money, colored, with the percent against `prev` on hover. */
+/** A change in money, colored, with the percent against `prev` on hover. No change shows nothing. */
 export function MoneyChange({ d, prev, currency, before = 'before' }: { d: number; prev: number; currency: string; before?: string }) {
-  if (!d) return <span className="whitespace-nowrap text-xs text-stone-400">no change</span>;
+  if (!d) return null;
   return (
     <span
       className={`whitespace-nowrap text-xs font-medium tabular-nums ${d > 0 ? 'text-emerald-700' : 'text-red-600'}`}
@@ -154,7 +169,7 @@ export function useDismiss(open: boolean, ref: RefObject<HTMLElement>, close: ()
 }
 
 /** A click-to-open panel for fine print that is too long for a hover tooltip. */
-export function Popover({ label, trigger, children, align = 'left' }: { label: string; trigger: ReactNode; children: ReactNode; align?: 'left' | 'right' }) {
+export function Popover({ label, trigger, children, align = 'left', triggerClass = 'rounded-md text-stone-500 hover:text-ink' }: { label: string; trigger: ReactNode; children: ReactNode; align?: 'left' | 'right'; triggerClass?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -164,7 +179,7 @@ export function Popover({ label, trigger, children, align = 'left' }: { label: s
     <div ref={ref} className="relative inline-flex">
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 rounded-md text-stone-500 transition-colors duration-fast hover:text-ink"
+        className={`inline-flex items-center gap-1.5 transition-colors duration-fast ${triggerClass}`}
         aria-expanded={open}
         aria-controls={id}
         aria-label={typeof trigger === 'string' ? undefined : label}

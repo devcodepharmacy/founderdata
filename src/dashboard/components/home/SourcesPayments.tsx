@@ -2,13 +2,14 @@ import { memo, useMemo, useState } from 'react';
 import { navigate } from '../../App';
 import { fmtAgo, fmtMoney, fmtNumber, fmtPct } from '../../lib/format';
 import { Favicon, Flag, SourceIcon } from '../Icons';
-import { EmptyIcons, EmptyState } from '../ui';
-import { currenciesOf, InfoIcon, money, NEW_CUSTOMERS_NOTE, PhoneGlyph, Popover, PROVIDERS } from './shared';
+import { Num, Row, Table } from '../site/primitives';
+import { CardHeader, EmptyIcons, EmptyState, MeterBar } from '../ui';
+import { currenciesOf, money, NEW_CUSTOMERS_NOTE, PhoneGlyph, PROVIDERS } from './shared';
 import type { HomeData, Money, Payment } from './types';
 
 function MoneyList({ m }: { m: Money }) {
   const list = currenciesOf(m);
-  if (!list.length) return <span className="text-stone-300">–</span>;
+  if (!list.length) return null;
   return (
     <>
       {list.map(([cc, v]) => (
@@ -34,78 +35,81 @@ export const Sources = memo(function Sources({ sources }: { sources: HomeData['s
   }, [sources]);
   const rows = all ? sources : sources.slice(0, SOURCES_SHOWN);
   return (
-    <section className="card p-5" aria-labelledby="sources-title">
-      <div className="flex items-center gap-2">
-        <h2 id="sources-title" className="text-title">
-          Where customers come from
-        </h2>
-        <Popover label="How revenue is credited to sources" trigger={<InfoIcon size={14} />}>
-          Revenue goes to the visit each payment is linked to. Payments with no linked visit, and App Store sales no payment explains, get their own rows. So the
-          revenue column adds up to the Revenue tile.{main ? ` The bar under each source is its share of ${main} revenue.` : ''}
-        </Popover>
-      </div>
-      <p className="text-[13px] text-stone-500">All sites, this period</p>
+    <section className="card flex flex-col" aria-labelledby="sources-title">
+      <CardHeader
+        title={
+          <h2 id="sources-title" className="truncate text-[13px] font-semibold leading-6 text-ink">
+            Where customers come from
+          </h2>
+        }
+        info={
+          <p>
+            Revenue goes to the visit each payment is linked to. Payments with no linked visit, and App Store sales no payment explains, get their own rows. So the revenue column adds up to the
+            Revenue tile.{main ? ` The bar is each source's share of ${main} revenue.` : ''}
+          </p>
+        }
+        infoLabel="How revenue is credited to sources"
+        sub="All sites, this period"
+      />
       {sources.length ? (
-        <>
-          <table className="mt-4 w-full text-[13px]">
-            <thead>
-              <tr className="text-left text-xs text-stone-500">
-                <th className="pb-2 font-medium">Source</th>
-                <th className="pb-2 pl-3 text-right font-medium">Visitors</th>
-                <th className="pb-2 pl-3 text-right font-medium" title={NEW_CUSTOMERS_NOTE}>
-                  <span className="hidden sm:inline">New customers</span>
-                  <span className="sm:hidden">Customers</span>
-                </th>
-                <th className="pb-2 pl-3 text-right font-medium">Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const synthetic = r.appStore || r.noVisit;
-                const share = main && total ? Math.max(0, r.revenue[main] ?? 0) / total : 0;
-                return (
-                  <tr key={r.label} className="border-t border-stone-200/60 align-top">
-                    <td className="py-2.5" title={r.appStore ? APP_STORE_ROW_NOTE : r.noVisit ? NO_SOURCE_ROW_NOTE : undefined}>
-                      <div className="flex items-center gap-2">
-                        {r.appStore ? (
-                          <PhoneGlyph size={16} />
-                        ) : r.noVisit ? (
-                          <span className="w-4 text-center text-stone-300" aria-hidden="true">
-                            –
+        <div className="px-5 pb-5">
+          <Table
+            head={[
+              'Source',
+              'Visitors',
+              <span key="c" title={NEW_CUSTOMERS_NOTE}>
+                <span className="hidden sm:inline">New customers</span>
+                <span className="sm:hidden">New</span>
+              </span>,
+              'Revenue',
+            ]}
+          >
+            {rows.map((r) => {
+              const synthetic = r.appStore || r.noVisit;
+              const share = main && total ? Math.max(0, r.revenue[main] ?? 0) / total : 0;
+              const pct = fmtPct(share, share < 0.1 ? 1 : 0);
+              return (
+                <Row
+                  key={r.label}
+                  title={r.appStore ? APP_STORE_ROW_NOTE : r.noVisit ? NO_SOURCE_ROW_NOTE : `${r.channel}, ${r.sites} ${r.sites === 1 ? 'site' : 'sites'}`}
+                  cells={[
+                    <span key="s" className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                        {r.appStore ? <PhoneGlyph size={16} /> : r.noVisit ? <span className="text-stone-300" aria-hidden="true">–</span> : <SourceIcon source={r.label} domain={r.domain} size={16} />}
+                      </span>
+                      <span className="truncate font-medium text-ink">{r.label}</span>
+                      <span className="hidden shrink-0 text-xs text-stone-400 md:inline">{r.appStore ? 'Apple report' : r.channel}</span>
+                    </span>,
+                    synthetic ? null : <Num value={r.visitors} format={fmtNumber} />,
+                    synthetic ? null : <Num value={r.customers} format={fmtNumber} />,
+                    <span key="r" className="inline-flex items-center justify-end gap-3">
+                      {main && share > 0 && (
+                        <>
+                          <span className="hidden w-14 sm:block">
+                            <MeterBar share={share} tone="revenue" label={`${pct} of ${main} revenue`} />
                           </span>
-                        ) : (
-                          <SourceIcon source={r.label} domain={r.domain} size={16} />
-                        )}
-                        <span className="truncate font-medium text-ink">{r.label}</span>
-                      </div>
-                      <div className="pl-6 text-xs text-stone-400">
-                        {r.appStore ? "Apple's report, no linked visit" : r.channel}, {r.sites} {r.sites === 1 ? 'site' : 'sites'}
-                      </div>
-                      {main && (
-                        <div className="relative ml-6 mt-1.5 h-1 max-w-[14rem] overflow-hidden rounded-full bg-stone-100" title={`${fmtPct(share, share < 0.1 && share > 0 ? 1 : 0)} of ${main} revenue`}>
-                          <div className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-revenue transition-transform duration-slower ease-out" style={{ transform: `scaleX(${Math.min(1, share)})` }} />
-                        </div>
+                          <span className="hidden w-9 text-right text-xs text-stone-400 sm:inline">{pct}</span>
+                        </>
                       )}
-                    </td>
-                    <td className="py-2.5 pl-3 text-right tabular-nums text-ink">{synthetic ? <span className="text-stone-300">–</span> : fmtNumber(r.visitors)}</td>
-                    <td className="py-2.5 pl-3 text-right tabular-nums text-ink">{synthetic ? <span className="text-stone-300">–</span> : fmtNumber(r.customers)}</td>
-                    <td className="py-2.5 pl-3 text-right font-medium tabular-nums text-ink">
-                      <MoneyList m={r.revenue} />
-                      {main && share > 0 && <div className="text-xs font-normal text-stone-400">{fmtPct(share, share < 0.1 ? 1 : 0)}</div>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <span className="min-w-[3.5rem] text-right font-medium text-ink">
+                        <MoneyList m={r.revenue} />
+                      </span>
+                    </span>,
+                  ]}
+                />
+              );
+            })}
+          </Table>
           {sources.length > SOURCES_SHOWN && (
             <button className="btn-ghost mt-3 w-full" aria-expanded={all} onClick={() => setAll((a) => !a)}>
               {all ? `Show the top ${SOURCES_SHOWN}` : `Show all ${fmtNumber(sources.length)} sources`}
             </button>
           )}
-        </>
+        </div>
       ) : (
-        <EmptyState compact icon={EmptyIcons.search} title="No visitors in this period" />
+        <div className="px-5 pb-5">
+          <EmptyState compact icon={EmptyIcons.search} title="No visitors in this period" />
+        </div>
       )}
     </section>
   );
@@ -141,19 +145,17 @@ function PaymentMeta({ p }: { p: Payment }) {
   return (
     <div className="flex items-center gap-1.5 truncate text-xs text-stone-500">
       <span className={p.kind === 'refund' ? 'text-red-600' : p.renewal ? '' : 'text-emerald-700'}>{p.kind === 'refund' ? 'Refund' : p.renewal ? 'Renewal' : 'New'}</span>
-      <span className="text-stone-300">·</span>
+      <span className="text-stone-300" aria-hidden="true">·</span>
       {PROVIDERS[p.provider] ?? p.provider}
-      <span className="text-stone-300">·</span>
-      {p.source ? (
+      {p.source && (
         <>
+          <span className="text-stone-300" aria-hidden="true">·</span>
           <SourceIcon source={p.source} domain={p.sourceDomain} size={12} /> {p.source}
         </>
-      ) : (
-        'no linked visit'
       )}
       {p.country && (
         <>
-          <span className="text-stone-300">·</span>
+          <span className="text-stone-300" aria-hidden="true">·</span>
           <Flag cc={p.country} size={12} />
         </>
       )}
@@ -165,15 +167,21 @@ export const Payments = memo(function Payments({ payments }: { payments: HomeDat
   const groups = useMemo(() => paymentGroups(payments), [payments]);
   const now = Date.now();
   const ago = (ts: number) => <span className="shrink-0 self-start pt-0.5 text-xs tabular-nums text-stone-400">{fmtAgo(now - ts)} ago</span>;
-  const row = 'flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left text-sm transition-colors duration-fast hover:bg-stone-50';
+  const row = '-mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors duration-fast hover:bg-stone-50';
   return (
-    <section className="card p-5" aria-labelledby="payments-title">
-      <h2 id="payments-title" className="text-title">
-        Latest payments
-      </h2>
-      <p className="text-[13px] text-stone-500">The {payments.length} most recent, whatever the period. Renewals in a row share a line.</p>
+    <section className="card flex flex-col" aria-labelledby="payments-title">
+      <CardHeader
+        title={
+          <h2 id="payments-title" className="truncate text-[13px] font-semibold leading-6 text-ink">
+            Latest payments
+          </h2>
+        }
+        info="Renewals in a row on the same site and currency share one line."
+        infoLabel="How latest payments are listed"
+        sub={`The ${payments.length} most recent, whatever the period`}
+      />
       {payments.length ? (
-        <ul className="-mx-2 mt-3">
+        <ul className="px-5 pb-3">
           {groups.map((g) => {
             if (g.kind === 'renewals') {
               const first = g.items[0];
@@ -181,9 +189,9 @@ export const Payments = memo(function Payments({ payments }: { payments: HomeDat
               const sum = g.items.reduce((t, p) => t + shownAmount(p).amount, 0);
               const products = [...new Set(g.items.map((p) => p.product).filter(Boolean))];
               return (
-                <li key={first.id}>
+                <li key={first.id} className="border-t border-stone-200/60 first:border-t-0">
                   <button className={row} onClick={() => navigate(`/site/${first.siteId}`)} title={g.items.map((p) => `${fmtMoney(shownAmount(p).amount, cur.currency, cur.decimals)} ${p.product ?? ''}, ${fmtAgo(now - p.ts)} ago`).join('\n')}>
-                    <span className="opacity-60">
+                    <span className="flex w-[18px] shrink-0 justify-center opacity-60">
                       <Favicon domain={first.siteDomain} size={18} />
                     </span>
                     <div className="min-w-0 flex-1 text-stone-500">
@@ -204,9 +212,9 @@ export const Payments = memo(function Payments({ payments }: { payments: HomeDat
             const amount = shownAmount(p);
             const quietRow = p.renewal && p.kind !== 'refund';
             return (
-              <li key={p.id}>
+              <li key={p.id} className="border-t border-stone-200/60 first:border-t-0">
                 <button className={row} onClick={() => navigate(`/site/${p.siteId}`)}>
-                  <span className={quietRow ? 'opacity-60' : ''}>
+                  <span className={`flex w-[18px] shrink-0 justify-center ${quietRow ? 'opacity-60' : ''}`}>
                     <Favicon domain={p.siteDomain} size={18} />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -218,7 +226,7 @@ export const Payments = memo(function Payments({ payments }: { payments: HomeDat
                       {p.converted && <span className="shrink-0 text-xs tabular-nums text-stone-400">paid {fmtMoney(p.amount, p.currency, p.decimals)}</span>}
                       <span className="text-stone-500">{p.siteName}</span>
                       {p.product && (
-                        <span className={`min-w-0 basis-full break-all sm:basis-auto sm:truncate ${quietRow ? 'text-stone-500' : 'text-stone-600'}`} title={p.product}>
+                        <span className={`min-w-0 basis-full break-all text-xs sm:basis-auto sm:truncate ${quietRow ? 'text-stone-400' : 'text-stone-500'}`} title={p.product}>
                           {p.product}
                         </span>
                       )}
@@ -232,9 +240,11 @@ export const Payments = memo(function Payments({ payments }: { payments: HomeDat
           })}
         </ul>
       ) : (
-        <EmptyState compact icon={EmptyIcons.inbox} title="No payments yet">
-          Connect Stripe, the App Store or RevenueCat in a site's Settings.
-        </EmptyState>
+        <div className="px-5 pb-5">
+          <EmptyState compact icon={EmptyIcons.inbox} title="No payments yet">
+            Connect Stripe, the App Store or RevenueCat in a site's Settings.
+          </EmptyState>
+        </div>
       )}
     </section>
   );

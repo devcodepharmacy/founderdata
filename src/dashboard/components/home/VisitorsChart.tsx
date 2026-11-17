@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { bucketLabel, fmtNumber } from '../../lib/format';
-import { chartAnim, chartDefs, chartGrid, chartLine, chartLineCursor, chartTooltip, chartXAxis, chartYAxis, ChartTooltip, SERIES } from '../ui';
+import { CardHeader, chartAnim, chartDefs, chartGrid, chartLine, chartLineCursor, chartTooltip, chartXAxis, chartYAxis, ChartTooltip, SERIES } from '../ui';
 import type { HomeData } from './types';
 
 /** Visitors across all sites, per bucket. Revenue has its own chart in the money card, never a second y-axis here. */
@@ -10,19 +10,23 @@ export const VisitorsChart = memo(function VisitorsChart({ series, granularity }
   const total = useMemo(() => rows.reduce((t, r) => t + r.visitors, 0), [rows]);
   const peak = useMemo(() => rows.reduce((m, r) => (r.visitors > m.visitors ? r : m), rows[0] ?? { bucket: '', visitors: 0 }), [rows]);
   return (
-    <section className="card p-5" aria-labelledby="visitors-title">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 id="visitors-title" className="flex items-center gap-2 text-title">
-          <span className="h-2 w-2 rounded-[3px] bg-visitors" aria-hidden="true" />
-          Visitors, all sites
-        </h2>
-        {total > 0 && (
-          <p className="text-xs text-stone-500">
-            Busiest {granularity}: <span className="font-medium text-ink">{bucketLabel(peak.bucket, granularity, true)}</span>, {fmtNumber(peak.visitors)} visitors
-          </p>
-        )}
-      </div>
-      <div className="mt-4 h-[220px]">
+    <section className="card" aria-labelledby="visitors-title">
+      <CardHeader
+        title={
+          <h2 id="visitors-title" className="flex items-center gap-2 text-[13px] font-semibold leading-6 text-ink">
+            <span className="h-2 w-2 rounded-[3px] bg-visitors" aria-hidden="true" />
+            Visitors, all sites
+          </h2>
+        }
+        right={
+          total > 0 && (
+            <p className="text-xs text-stone-500">
+              Busiest {granularity}: <span className="font-medium text-ink">{bucketLabel(peak.bucket, granularity, true)}</span>, {fmtNumber(peak.visitors)} visitors
+            </p>
+          )
+        }
+      />
+      <div className="h-[240px] px-5 pb-5">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={rows} margin={{ top: 6, right: 4, left: 0, bottom: 0 }}>
             {chartDefs()}

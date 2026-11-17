@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { fmtAgo } from '../lib/format';
 import { useApi } from '../lib/useApi';
-import { CheckResult, CopyButton, InlineError } from './setup/kit';
-import { SkeletonRows, Spinner, StatusChip, type StatusTone } from './ui';
+import { CheckResult, CopyButton, Disclosure, InlineError } from './setup/kit';
+import { Note, SkeletonRows, Spinner, StatusChip, type StatusTone } from './ui';
 
 // The setup checklist (src/worker/setup-checklist.ts, docs/GUIDE.md "Setup checklist"): one row per integration with its
 // live status and the next step. Loading the rows calls nobody. A test runs only when its button is pressed. Only the
@@ -36,7 +36,7 @@ const BADGE: Record<Row['status'], { text: string; tone: StatusTone }> = {
 function RowView({ row, reload, lead }: { row: Row; reload: () => void; lead?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [open, setOpen] = useState(!!lead);
+  const [open, setOpen] = useState(false);
   const run = async () => {
     if (!row.test) return;
     setBusy(true);
@@ -52,8 +52,9 @@ function RowView({ row, reload, lead }: { row: Row; reload: () => void; lead?: b
   };
   const b = BADGE[row.status];
   const body = `check-${row.id.replace(/[^\w-]/g, '-')}`;
+  const look = row.status === 'error' || row.status === 'warn';
   return (
-    <li className={lead ? 'rounded-xl bg-stone-50 px-3.5 py-3 ring-1 ring-inset ring-stone-200/70' : 'py-1'}>
+    <li className={lead ? 'card-inset px-3.5 py-2.5' : look ? 'card-inset px-3.5 py-2.5' : 'py-0.5'}>
       <button type="button" className="flex w-full items-center gap-2.5 rounded-lg py-1.5 text-left" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <StatusChip tone={b.tone}>{b.text}</StatusChip>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
@@ -64,17 +65,24 @@ function RowView({ row, reload, lead }: { row: Row; reload: () => void; lead?: b
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
-      {open && (
-        <div id={body} className="pb-2 pl-1 pt-1 text-sm animate-fade">
-          <p className="text-stone-600">{row.detail}</p>
+      {look && (
+        <div className="-mt-0.5 space-y-0.5 text-[13px]">
+          <p className={`text-stone-500 ${open ? '' : 'truncate'}`} title={open ? undefined : row.detail}>
+            {row.detail}
+          </p>
           {row.next && (
-            <p className="mt-1.5 text-ink">
-              <span className="font-medium">Next: </span>
-              {row.next}
+            <p className={`text-stone-400 ${open ? '' : 'truncate'}`} title={open ? undefined : row.next}>
+              Next: {row.next}
             </p>
           )}
+        </div>
+      )}
+      {open && (
+        <div id={body} className="pb-1 pt-2.5 text-sm animate-fade">
+          {!look && <p className="text-stone-500">{row.detail}</p>}
+          {!look && row.next && <p className="mt-1.5 text-stone-500">Next: {row.next}</p>}
           {row.secrets && (
-            <p className="mt-2 flex flex-wrap gap-1.5 text-xs">
+            <p className="flex flex-wrap gap-1.5 text-xs">
               {row.secrets.map((s) => (
                 <StatusChip key={s.name} tone={s.set ? 'ok' : 'neutral'} className="font-mono">
                   {s.name} {s.set ? 'set' : 'not set'}
@@ -131,11 +139,11 @@ export function SetupChecklist() {
   return (
     <div className="space-y-5">
       <div>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-          <span className="font-medium text-ink">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 font-medium text-ink">
             {ok.length} of {rows.length} working
           </span>
-          <span className="text-xs text-stone-500">
+          <span className="text-xs text-stone-400">
             {look.length ? `${look.length} need a look · ` : ''}
             {off.length} optional, off
           </span>
@@ -145,7 +153,7 @@ export function SetupChecklist() {
           <span className="bg-red-500" style={{ width: share(look.filter((r) => r.status === 'error').length) }} />
           <span className="bg-amber-400" style={{ width: share(look.filter((r) => r.status === 'warn').length) }} />
         </div>
-        <p className="mt-2 text-xs text-stone-500">Each test runs only when you press it. Wait 15 seconds between presses.</p>
+        <Note className="mt-3">Tests run only when you press them, 15 seconds apart.</Note>
       </div>
 
       {look.length > 0 && (
@@ -170,12 +178,13 @@ export function SetupChecklist() {
       )}
       {off.length > 0 && (
         <section aria-label="Optional, off">
-          <h4 className="mb-1 text-micro uppercase text-stone-400">Optional, off</h4>
-          <ul className="divide-y divide-stone-200/60">
-            {off.map((r) => (
-              <RowView key={r.id} row={r} reload={again} />
-            ))}
-          </ul>
+          <Disclosure summary={`${off.length} optional integrations, off`}>
+            <ul className="divide-y divide-stone-200/60">
+              {off.map((r) => (
+                <RowView key={r.id} row={r} reload={again} />
+              ))}
+            </ul>
+          </Disclosure>
         </section>
       )}
     </div>

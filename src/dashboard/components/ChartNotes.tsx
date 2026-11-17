@@ -337,7 +337,9 @@ function Flag({ viewBox, label, kind, notes, onHover }: { viewBox?: { x: number;
     onHover?.({ x: r.left + r.width / 2, y: r.bottom, notes });
   };
   const hide = () => onHover?.(null);
-  const plain = kind === 'note' && count === 1;
+  // A marker is a quiet 16 px stone disc. The kind's color shows as a thin ring, and in full on hover or focus; a
+  // count or the kind's glyph sits inside, so color is never the only cue.
+  const ink = 'rgb(var(--stone-500))';
   return (
     <g
       className="fd-note-flag"
@@ -352,25 +354,30 @@ function Flag({ viewBox, label, kind, notes, onHover }: { viewBox?: { x: number;
     >
       {!onHover && <title>{label}</title>}
       <circle cx={viewBox.x} cy={y} r={14} fill="transparent" />
-      <g className="transition-transform duration-fast ease-out [.fd-note-flag:focus-visible_&]:scale-[1.2] [.fd-note-flag:hover_&]:scale-[1.15]" style={{ transformOrigin: `${viewBox.x}px ${y}px` }}>
-        {plain ? (
-          <circle cx={viewBox.x} cy={y} r={4.5} fill={color} stroke="var(--chart-dot-ring)" strokeWidth={2} />
+      <g className="transition-transform duration-fast ease-out [.fd-note-flag:focus-visible_&]:scale-[1.15] [.fd-note-flag:hover_&]:scale-[1.15]" style={{ transformOrigin: `${viewBox.x}px ${y}px` }}>
+        <circle cx={viewBox.x} cy={y} r={8} fill="rgb(var(--stone-100))" stroke="var(--chart-dot-ring)" strokeWidth={2} />
+        <circle cx={viewBox.x} cy={y} r={8} fill="none" stroke={color} strokeWidth={1.25} strokeOpacity={0.55} />
+        <circle
+          cx={viewBox.x}
+          cy={y}
+          r={8}
+          fill={tint(color, 16)}
+          stroke={color}
+          strokeWidth={1.5}
+          className="opacity-0 transition-opacity duration-fast [.fd-note-flag:focus-visible_&]:opacity-100 [.fd-note-flag:hover_&]:opacity-100"
+        />
+        {count > 1 ? (
+          <text x={viewBox.x} y={y} dy="0.35em" textAnchor="middle" fontSize={10} fontWeight={600} fill="rgb(var(--stone-600))" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {count}
+          </text>
+        ) : kind === 'note' ? (
+          <circle cx={viewBox.x} cy={y} r={2} fill={ink} />
         ) : (
-          <>
-            <circle cx={viewBox.x} cy={y} r={11.5} fill={tint(color, 16)} />
-            <circle cx={viewBox.x} cy={y} r={8} fill={color} stroke="var(--chart-dot-ring)" strokeWidth={1.5} />
-            {count > 1 ? (
-              <text x={viewBox.x} y={y} dy="0.35em" textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--chart-dot-ring)">
-                {count}
-              </text>
-            ) : (
-              <g transform={`translate(${viewBox.x - 4.75} ${y - 4.75}) scale(0.396)`} fill="none" stroke="var(--chart-dot-ring)" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                {GLYPH[kind].map((d) => (
-                  <path key={d} d={d} />
-                ))}
-              </g>
-            )}
-          </>
+          <g transform={`translate(${viewBox.x - 4.75} ${y - 4.75}) scale(0.396)`} fill="none" stroke={ink} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+            {GLYPH[kind].map((d) => (
+              <path key={d} d={d} />
+            ))}
+          </g>
         )}
       </g>
     </g>
@@ -379,10 +386,12 @@ function Flag({ viewBox, label, kind, notes, onHover }: { viewBox?: { x: number;
 
 /**
  * The note markers, as children of a chart (Recharts reads its children by type, so this is a function, not a
- * component). One line per bucket in the kind's color; several notes in a bucket share it and show their count.
- * `flags` false draws the lines only, for the revenue strip under the chart. `onHover` opens the hover card.
+ * component). One marker per bucket; several notes in a bucket share it and show their count. `flags` false draws
+ * nothing, for the revenue strip under the chart. `onHover` opens the hover card.
  */
 export function noteLines(notes: ChartNote[], yAxisId: string, flags = true, onHover?: NoteHoverFn) {
+  // Without markers a line has nothing to belong to: the revenue strip under the chart draws none.
+  if (!flags) return [];
   const byBucket = new Map<string, ChartNote[]>();
   for (const n of notes) byBucket.set(n.bucket, [...(byBucket.get(n.bucket) ?? []), n]);
   return [...byBucket].map(([bucket, list]) => {
@@ -395,7 +404,9 @@ export function noteLines(notes: ChartNote[], yAxisId: string, flags = true, onH
         yAxisId={yAxisId}
         stroke="var(--chart-note-line)"
         strokeDasharray="2 4"
-        label={flags ? <Flag label={list.map(hoverText).join('\n\n')} kind={kind} notes={list} onHover={onHover} /> : undefined}
+        // The drop line shows only for the marker under the pointer or the keyboard.
+        className="[&>line]:opacity-0 [&>line]:transition-opacity [&>line]:duration-fast [&:focus-within>line]:opacity-100 [&:hover>line]:opacity-100"
+        label={<Flag label={list.map(hoverText).join('\n\n')} kind={kind} notes={list} onHover={onHover} />}
       />
     );
   });
@@ -518,22 +529,18 @@ function KindChip({ kind }: { kind: Kind }) {
   );
 }
 
-/** The chart's key: one glyph and name per kind of change in the period, in KIND's order. */
+/** The chart's key: a quiet chip per kind of change in the period, in KIND's order. */
 export function NoteLegend({ notes }: { notes: ChartNote[] }) {
   const present = new Set(notes.map(kindOf));
   const kinds = (Object.keys(KIND) as Kind[]).filter((k) => present.has(k));
   if (!kinds.length) return null;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Kinds of change on the chart">
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-1" role="group" aria-label="Kinds of change on the chart">
       {kinds.map((k) => (
-        <span key={k} className="flex items-center gap-1 text-stone-500">
-          {k === 'note' ? (
-            <span className="mx-[3px] h-2 w-2 rounded-full" style={{ background: KIND.note.color }} aria-hidden="true" />
-          ) : (
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full" style={{ background: KIND[k].color }} aria-hidden="true">
-              <Glyph kind={k} size={9} color="var(--chart-dot-ring)" width={3} />
-            </span>
-          )}
+        <span key={k} className="inline-flex h-[18px] items-center gap-1 rounded-md px-1 text-[11px] font-medium text-stone-400">
+          <span className="flex h-3 w-3 shrink-0 items-center justify-center rounded-full" style={{ boxShadow: `inset 0 0 0 1.25px ${tint(KIND[k].color, 60)}` }} aria-hidden="true">
+            {k === 'note' ? <span className="h-1 w-1 rounded-full bg-stone-400" /> : <Glyph kind={k} size={7} width={3.2} />}
+          </span>
           {KIND[k].label}
         </span>
       ))}
@@ -691,7 +698,7 @@ export function ChangesList({ notes, impacts, bare = false }: { notes: ChartNote
     <div id="changes" className={bare ? '' : 'scroll-mt-6 border-t border-stone-100'}>
       {bare ? (
         <div className="flex min-h-[32px] items-center justify-between gap-3 px-3 pb-1">
-          <span className="text-xs text-stone-400">{n ? 'Impact over each change\'s own window' : ''}</span>
+          <span className="text-xs text-stone-400">{n ? "Impact over each change's own window" : ''}</span>
           {manage}
         </div>
       ) : (
@@ -716,7 +723,7 @@ export function ChangesList({ notes, impacts, bare = false }: { notes: ChartNote
           }
           title="No changes in this period"
         >
-          Mark a launch or a price change, or have an agent send it to <code className="text-[12px]">POST /api/v1/notes</code>. Each one shows here with its impact.
+          A launch or a price change shows here with its impact.
         </EmptyState>
       ) : (
         <>
@@ -726,9 +733,11 @@ export function ChangesList({ notes, impacts, bare = false }: { notes: ChartNote
             ))}
           </ul>
           {n > FIRST_ROWS && (
-            <button className="mx-auto mt-2 block rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink" onClick={() => setAll((a) => !a)}>
-              {all ? 'Show fewer' : `Show all ${n}`}
-            </button>
+            <div className="flex justify-end pt-2">
+              <button className="rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink" onClick={() => setAll((a) => !a)}>
+                {all ? 'Show fewer' : `Show all ${n}`}
+              </button>
+            </div>
           )}
         </>
       )}

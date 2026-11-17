@@ -11,6 +11,7 @@ import {
   SERIES,
   SkeletonChart,
   SkeletonRows,
+  StatStrip,
   StatTile,
   StatusChip,
   Stagger,
@@ -82,11 +83,24 @@ function SharePanel({ token, period, tabs, money }: { token: string; period: str
   const { data, error, loading } = useApi<BreakdownRow[]>(`/api/share/${token}/breakdown?dim=${dim}&period=${period}`);
   const rows = useMemo(() => [...(data ?? [])].sort((a, b) => b.visitors - a.visitors), [data]);
   const max = Math.max(1, ...rows.map((r) => r.visitors));
+  // A view where no row earned anything shows no revenue column.
+  const earns = !!money && rows.some((r) => r.revenue > 0);
   return (
-    <div className="card flex flex-col p-3">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <Tabs label="Breakdown" items={tabs.map((t) => ({ value: t.dim, label: t.label }))} value={dim} onChange={(d) => (setDim(d), setAll(false))} className="overflow-x-auto" />
-        <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-stone-400">Visitors</span>
+    <div className="card flex min-h-[220px] min-w-0 flex-col p-3">
+      <div className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-stretch xl:flex-row xl:items-center">
+        <Tabs label="Breakdown" items={tabs.map((t) => ({ value: t.dim, label: t.label }))} value={dim} onChange={(d) => (setDim(d), setAll(false))} className="min-w-0 overflow-x-auto" />
+        <div className="flex shrink-0 items-center self-end pr-2.5 text-xs font-medium text-stone-400 sm:self-auto lg:self-end xl:self-auto">
+          <span className="flex w-16 items-center justify-end gap-1">
+            <span className="h-2 w-2 rounded-[3px] bg-visitors" aria-hidden="true" />
+            Visitors
+          </span>
+          {earns && (
+            <span className="flex w-[76px] items-center justify-end gap-1">
+              <span className="h-2 w-2 rounded-[3px] bg-revenue" aria-hidden="true" />
+              Revenue
+            </span>
+          )}
+        </div>
       </div>
       <div className={`flex-1 space-y-0.5 transition-opacity duration-base ${loading && data ? 'opacity-60' : ''}`}>
         {error && <p className="p-3 text-sm text-red-600">{error}</p>}
@@ -95,20 +109,22 @@ function SharePanel({ token, period, tabs, money }: { token: string; period: str
         {rows.slice(0, all ? undefined : 10).map((r, i) => (
           <div key={`${r.label}-${i}`} className="relative flex h-9 items-center rounded-lg">
             <div className="absolute inset-y-0 left-0 origin-left rounded-lg bg-visitorsSoft" style={{ width: `${(r.visitors / max) * 100}%`, minWidth: r.visitors ? 4 : 0 }} />
-            <div className="relative flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-[13px]">
+            <div className="relative flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-sm">
               {r.appStore || r.noVisit ? <span className="truncate">{r.label}</span> : renderLabel(dim, r)}
             </div>
-            <div className="relative flex shrink-0 items-center gap-3 pr-2.5 text-[13px] font-medium tabular-nums">
-              {money && r.revenue ? <span className="font-normal text-revenue">{money(r.revenue, true)}</span> : null}
-              {r.visitors ? fmtNumber(r.visitors) : ''}
+            <div className="relative flex shrink-0 items-center pr-2.5 text-sm tabular-nums">
+              <span className="w-16 text-right font-medium">{r.visitors ? fmtNumber(r.visitors) : <span className="text-stone-300">–</span>}</span>
+              {earns && money && <span className="w-[76px] text-right text-stone-500">{r.revenue ? money(r.revenue, true) : <span className="text-stone-300">–</span>}</span>}
             </div>
           </div>
         ))}
       </div>
       {rows.length > 10 && !all && (
-        <button className="btn-ghost mx-auto mt-2 h-8 text-xs" onClick={() => setAll(true)}>
-          Show all {rows.length}
-        </button>
+        <div className="mt-auto flex min-h-8 items-center justify-end pt-2">
+          <button className="rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink" onClick={() => setAll(true)}>
+            Show all {fmtNumber(rows.length)}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -117,7 +133,7 @@ function SharePanel({ token, period, tabs, money }: { token: string; period: str
 /** "+$450 in this period", "no change in this period". */
 function mrrNote(m: { mrr: number; mrrStart: number }, money: Money) {
   const d = m.mrr - m.mrrStart;
-  return d === 0 ? 'No change in this period' : `${d > 0 ? '+' : '-'}${money(Math.abs(d), true)} in this period`;
+  return d === 0 ? '' : `${d > 0 ? '+' : '-'}${money(Math.abs(d), true)} in this period`;
 }
 
 function ShareOverview({ data, money }: { data: ShareOverviewData | null; money: Money | null }) {
@@ -138,7 +154,7 @@ function ShareOverview({ data, money }: { data: ShareOverviewData | null; money:
             tone="revenue"
             value={mrr.mrr}
             format={(n) => money(n, true)}
-            footer={<span className="text-xs text-stone-500" title={`Monthly recurring revenue from ${fmtNumber(mrr.active)} paying ${mrr.active === 1 ? 'subscription' : 'subscriptions'} at the end of the period. A yearly plan counts as a twelfth.`}>{mrrNote(mrr, money)}</span>}
+            footer={mrrNote(mrr, money) && <span className="text-xs text-stone-500" title={`Monthly recurring revenue from ${fmtNumber(mrr.active)} paying ${mrr.active === 1 ? 'subscription' : 'subscriptions'} at the end of the period. A yearly plan counts as a twelfth.`}>{mrrNote(mrr, money)}</span>}
           />,
         ]
       : []),
@@ -148,9 +164,9 @@ function ShareOverview({ data, money }: { data: ShareOverviewData | null; money:
   ];
   return (
     <div className="card overflow-hidden">
-      <div className={`grid grid-cols-2 divide-stone-200/60 border-b border-stone-200/60 sm:grid-cols-3 [&>*]:border-stone-200/60 ${tiles.length > 6 ? 'lg:grid-cols-7' : tiles.length > 5 ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
+      <StatStrip flat label="Headline numbers">
         {tiles}
-      </div>
+      </StatStrip>
       <div className="h-[300px] px-2 pb-3 pt-6 sm:px-4">
         {!data ? (
           <SkeletonChart height={270} />
@@ -271,10 +287,12 @@ export function SharePage({ token }: { token: string }) {
       )}
 
       {info && (
-        <p className="mt-10 flex flex-wrap items-center justify-center gap-2 text-center text-xs text-stone-400">
+        <p className="mt-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-stone-400">
           <LogoMark size={16} />
-          Read-only stats, shared by the owner of {info.site.domain}. Times in {info.site.timezone}
-          {money ? `, revenue in ${info.site.currency}` : ''}. Made with FounderData, open-source analytics you host yourself.
+          <span>
+            Read-only stats shared by {info.site.domain} · Times in {info.site.timezone}
+            {money ? `, revenue in ${info.site.currency}` : ''} · Made with FounderData
+          </span>
         </p>
       )}
     </div>

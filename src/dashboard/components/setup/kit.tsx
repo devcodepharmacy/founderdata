@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react';
+import { InfoTip } from '../InfoTip';
 import { Spinner, StatusChip, type StatusTone } from '../ui';
 
 /**
@@ -168,7 +169,7 @@ export function SecretField({
 
 /** Numbered steps for work a person does somewhere else: a dashboard, a terminal, Xcode. */
 export function Steps({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <ol className={`fd-steps space-y-5 text-sm ${className}`}>{children}</ol>;
+  return <ol className={`fd-steps space-y-4 text-sm ${className}`}>{children}</ol>;
 }
 
 export function Step({ n, title, children, done }: { n: number; title?: ReactNode; children?: ReactNode; done?: boolean }) {
@@ -202,7 +203,7 @@ export function CheckResult({ ok, title, children, onRetry }: { ok: boolean; tit
     <div
       role="status"
       className={`flex items-start gap-3 rounded-xl px-3.5 py-3 text-sm ring-1 ring-inset animate-fade ${
-        ok ? 'bg-emerald-50 text-emerald-800 ring-emerald-200/60' : 'bg-red-50 text-red-800 ring-red-200/60'
+        ok ? 'bg-emerald-50 text-emerald-700 ring-emerald-200/60' : 'bg-red-50 text-red-800 ring-red-200/60'
       }`}
     >
       <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#fff] ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} aria-hidden="true">
@@ -256,7 +257,17 @@ export interface CardStatus {
   detail?: string;
 }
 
-/** A settings card that is always open: General, Reporting timezone, Team. */
+/**
+ * A card's help text as one line: the first sentence of a string stays visible, the rest moves into an (i). A node is
+ * shown as given, so keep it short.
+ */
+export function splitDesc(desc: ReactNode): { line: ReactNode; more: string | null } {
+  if (typeof desc !== 'string') return { line: desc, more: null };
+  const m = /^(.*?[a-z0-9)`'"\]][.!?])\s+(?=[A-Z])(.*)$/s.exec(desc);
+  return m ? { line: m[1], more: m[2] } : { line: desc, more: null };
+}
+
+/** A settings card that is always open: General, Reporting timezone, Team. One title, one help line, the body under a hairline. */
 export function SettingsCard({
   id,
   title,
@@ -274,22 +285,101 @@ export function SettingsCard({
   children?: ReactNode;
   className?: string;
 }) {
+  const { line, more } = splitDesc(desc);
   return (
     <section id={id} className={`card scroll-mt-24 ${className}`} aria-labelledby={id ? `${id}-title` : undefined}>
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 p-5">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-5 pb-4 pt-4">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 id={id ? `${id}-title` : undefined} className="text-title text-ink">
+          <div className="flex min-h-6 flex-wrap items-center gap-2">
+            <h3 id={id ? `${id}-title` : undefined} className="text-[15px] font-semibold leading-6 text-ink">
               {title}
             </h3>
             {status && <StatusChip tone={status.tone}>{status.label}</StatusChip>}
+            {more && (
+              <InfoTip label={`More about ${typeof title === 'string' ? title.toLowerCase() : 'this card'}`} className="text-stone-400">
+                {more}
+              </InfoTip>
+            )}
           </div>
-          {desc && <p className="mt-1 max-w-2xl text-sm text-stone-500">{desc}</p>}
+          {line && <p className="mt-0.5 text-[13px] text-stone-500">{line}</p>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
       {children && <div className="border-t border-stone-200/60 px-5 pb-5 pt-4">{children}</div>}
     </section>
+  );
+}
+
+/** A native disclosure for steps and fine print: one quiet line with a chevron, the rest under it. Pass `open` to control it. */
+export function Disclosure({
+  summary,
+  children,
+  defaultOpen = false,
+  open,
+  onOpenChange,
+  className = '',
+}: {
+  summary: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  className?: string;
+}) {
+  return (
+    <details className={`group ${className}`} open={open ?? (defaultOpen || undefined)} onToggle={onOpenChange ? (e) => onOpenChange((e.currentTarget as HTMLDetailsElement).open) : undefined}>
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md text-[13px] font-medium text-stone-500 transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-base ease-out group-open:rotate-90" aria-hidden="true">
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+        {summary}
+      </summary>
+      <div className="mt-3 animate-fade">{children}</div>
+    </details>
+  );
+}
+
+/** An on/off switch with a visible state in both themes: a filled track and a knob on the right when on. */
+export function Switch({ checked, onChange, label, disabled, className = '' }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; className?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full ring-1 ring-inset transition-colors duration-fast disabled:pointer-events-none disabled:opacity-50 ${
+        checked ? 'bg-emerald-500 ring-emerald-600/30' : 'bg-stone-200 ring-stone-300'
+      } ${className}`}
+    >
+      <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[#fff] shadow-[0_1px_2px_rgb(0_0_0/0.3)] transition-transform duration-fast ease-out ${checked ? 'translate-x-4' : ''}`} />
+    </button>
+  );
+}
+
+/**
+ * One setting as a row: the label and a one-line help on the left, the control on the right (under the text on a
+ * phone). `info` is the fine print behind an (i) next to the label.
+ */
+export function SettingRow({ title, help, info, children, htmlFor }: { title: ReactNode; help?: ReactNode; info?: ReactNode; children?: ReactNode; htmlFor?: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0 flex-1 basis-64">
+        <div className="flex items-center gap-1.5">
+          <label htmlFor={htmlFor} className="text-[13px] font-medium text-ink">
+            {title}
+          </label>
+          {info && (
+            <InfoTip label={`More about ${typeof title === 'string' ? title.toLowerCase() : 'this setting'}`} className="text-stone-400">
+              {info}
+            </InfoTip>
+          )}
+        </div>
+        {help && <div className="mt-0.5 text-[13px] text-stone-500">{help}</div>}
+      </div>
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </div>
   );
 }
 
@@ -331,7 +421,9 @@ export function IntegrationCard({
           {mark}
           <span className="min-w-0 flex-1">
             <span className="block text-[15px] font-semibold text-ink">{title}</span>
-            <span className="mt-0.5 line-clamp-2 text-[13px] font-normal sm:block sm:truncate text-stone-500">{status?.detail ?? desc}</span>
+            <span className="mt-0.5 block truncate text-[13px] font-normal text-stone-500" title={typeof (status?.detail ?? desc) === 'string' ? (status?.detail ?? (desc as string)) : undefined}>
+              {status?.detail ?? splitDesc(desc).line}
+            </span>
           </span>
           {status && <StatusChip tone={status.tone} className="hidden sm:inline-flex">{status.label}</StatusChip>}
           {status && (
@@ -357,7 +449,7 @@ export function IntegrationCard({
       </h3>
       {open && (
         <div id={body} role="region" aria-labelledby={`${id}-toggle`} className="border-t border-stone-200/60 px-5 pb-5 pt-4 animate-fade">
-          {status?.detail && <p className="mb-4 text-[13px] text-stone-500">{desc}</p>}
+          {status?.detail && <p className="mb-4 text-[13px] text-stone-500">{splitDesc(desc).line}</p>}
           {children}
         </div>
       )}

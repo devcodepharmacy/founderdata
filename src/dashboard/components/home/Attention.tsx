@@ -1,12 +1,18 @@
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, useId, useMemo, useState, type ReactNode } from 'react';
 import { navigate } from '../../App';
 import { currencyDecimals, fmtMoney, fmtNumber } from '../../lib/format';
 import { Favicon } from '../Icons';
+import { InfoTip } from '../InfoTip';
+import { CardHeader } from '../ui';
 import { PhoneGlyph, useEntrance } from './shared';
 import type { ChangesSummary, HomeData, NextAction, SiteRow } from './types';
 
 const CHANGES_NOTE =
   'Changes are the notes you and your agents logged. A verdict comes 7 days after a change, when its window closes, so the verdicts here are for changes made 7 to 14 days ago. Due for review: changes from the last 90 days with a verdict window that closed and no review yet.';
+const ACTIONS_NOTE = 'Computed once a day from Search Console, ads, subscriptions, AI answers and integration health. Each amount is an estimate for about a month.';
+
+/** Rows a list shows before "Show all". */
+const SHOWN = 4;
 
 /** Open a site's Overview at its changes list (ChartNotes.tsx, id "changes"), once the list has rendered. */
 function openChanges(siteId: string) {
@@ -52,7 +58,24 @@ function actionWorth(a: NextAction): string | null {
   return null;
 }
 
-const ACTION_GLYPH = <path d="M5 8h6M8.5 5.5 11 8l-2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />;
+/** What a group of actions is worth together: the sum when every one has the same kind of figure, else nothing. */
+function groupWorth(items: NextAction[]): string | null {
+  if (items.length === 1) return actionWorth(items[0]);
+  const money = items.every((a) => a.value !== null && a.value > 0 && a.currency && a.currency === items[0].currency);
+  if (money) return `${fmtMoney(items.reduce((t, a) => t + a.value!, 0), items[0].currency!, currencyDecimals(items[0].currency!), true)} a month`;
+  if (items.every((a) => a.clicks)) return `${fmtNumber(items.reduce((t, a) => t + a.clicks!, 0))} clicks`;
+  return null;
+}
+
+/**
+ * The server writes one to three sentences per item. The first is the headline (one line, no final period); the rest is
+ * the detail, a muted second line that opens on a click. Dates such as 2026-09-29 stay exactly as the server sent them.
+ */
+export function splitText(text: string): { headline: string; rest: string } {
+  const m = /^(.*?[.!?])(?:\s+([\s\S]*))?$/.exec(text.trim());
+  if (!m) return { headline: text.trim(), rest: '' };
+  return { headline: m[1].replace(/[.!?]+$/, ''), rest: (m[2] ?? '').trim() };
+}
 
 function Arrow() {
   return (
@@ -62,9 +85,160 @@ function Arrow() {
   );
 }
 
+function Glyph({ ring, children }: { ring: string; children: ReactNode }) {
+  return (
+    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${ring}`} aria-hidden="true">
+      <svg width="14" height="14" viewBox="0 0 16 16">
+        {children}
+      </svg>
+    </span>
+  );
+}
+
+type Place = { id: string; name: string; domain: string | undefined; app?: boolean; href: string };
+
+/**
+ * One row of either list: the severity glyph, the site's favicon (several side by side for a group), the headline on one
+ * line and the detail under it. The headline button stretches over the whole row, so a click anywhere opens `href`; the
+ * detail and the group count sit above it as their own buttons. `places` with more than one entry opens a list of links.
+ */
+function AttentionRow({
+  glyph,
+  places,
+  headline,
+  rest,
+  full,
+  href,
+  linkLabel,
+  worth,
+  title,
+}: {
+  glyph: ReactNode;
+  places: Place[];
+  headline: string;
+  rest: string;
+  full: string;
+  href: string;
+  linkLabel: string;
+  worth?: string | null;
+  title?: string;
+}) {
+  const [more, setMore] = useState(false);
+  const [sites, setSites] = useState(false);
+  const list = useId();
+  const group = places.length > 1;
+  return (
+    <li className="group relative rounded-xl transition-colors duration-fast hover:bg-stone-50">
+      <div className="flex min-h-10 items-start gap-3 px-3 py-2">
+        <span className="mt-px">{glyph}</span>
+        <span className="mt-1 shrink-0">{places[0].app ? <PhoneGlyph size={16} /> : <Favicon domain={places[0].domain} size={16} />}</span>
+        <div className="min-w-0 flex-1">
+          <button type="button" className="block w-full text-left text-[13px] leading-6 text-ink after:absolute after:inset-0 after:rounded-xl max-sm:line-clamp-2 sm:truncate" onClick={() => navigate(href)} title={title ?? full}>
+            {headline}
+          </button>
+          {rest && (
+            <button
+              type="button"
+              aria-expanded={more}
+              onClick={() => setMore((o) => !o)}
+              className={`relative z-10 -mt-0.5 block w-full rounded text-left text-xs leading-5 text-stone-400 transition-colors duration-fast hover:text-stone-500 ${more ? '' : 'truncate'}`}
+              title={more ? undefined : full}
+            >
+              {rest}
+            </button>
+          )}
+        </div>
+        {group && (
+          <span className="mt-1 hidden shrink-0 items-center gap-1 sm:flex" aria-hidden="true">
+            {places.slice(0, 4).map((p) => (
+              <span key={p.id}>{p.app ? <PhoneGlyph size={16} /> : <Favicon domain={p.domain} size={16} />}</span>
+            ))}
+          </span>
+        )}
+        {group && (
+          <button
+            type="button"
+            aria-expanded={sites}
+            aria-controls={list}
+            onClick={() => setSites((o) => !o)}
+            className="relative z-10 mt-0.5 inline-flex h-5 shrink-0 items-center gap-1 rounded-md bg-stone-100 px-1.5 text-[11px] font-medium tabular-nums text-stone-500 transition-colors duration-fast hover:text-ink"
+            title={places.map((p) => p.name).join(', ')}
+          >
+            {places.length} sites
+          </button>
+        )}
+        {worth && <span className="mt-1 hidden shrink-0 text-xs font-medium tabular-nums text-stone-500 sm:inline">{worth}</span>}
+        <span className="mt-1 flex shrink-0 items-center gap-1 text-xs text-stone-400 transition-colors duration-fast group-hover:text-ink">
+          <span className="hidden sm:inline">{linkLabel}</span> <Arrow />
+        </span>
+      </div>
+      {group && sites && (
+        <ul id={list} className="relative z-10 mb-1 ml-[3.75rem] mr-3 animate-fade border-t border-stone-200/60 pb-1 pt-1 text-[13px]">
+          {places.map((p) => (
+            <li key={p.id}>
+              <a
+                href={p.href}
+                className="flex h-8 items-center gap-2 rounded-lg px-2 text-stone-600 transition-colors duration-fast hover:bg-stone-100 hover:text-ink"
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                  e.preventDefault();
+                  navigate(p.href);
+                }}
+              >
+                {p.app ? <PhoneGlyph size={16} /> : <Favicon domain={p.domain} size={16} />}
+                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                <span className="shrink-0 text-xs text-stone-400">{linkLabel}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+/** At most `SHOWN` rows, then a quiet toggle for the rest. */
+function ShownList({ rows, label }: { rows: ReactNode[]; label: string }) {
+  const [all, setAll] = useState(false);
+  const entrance = useEntrance();
+  const shown = all ? rows : rows.slice(0, SHOWN);
+  return (
+    <>
+      <ul className={`${entrance} px-2`} aria-label={label}>
+        {shown}
+      </ul>
+      {rows.length > SHOWN && (
+        <div className="px-5 pb-2 pt-1">
+          <button type="button" className="rounded text-xs font-medium text-stone-500 transition-colors duration-fast hover:text-ink" aria-expanded={all} onClick={() => setAll((a) => !a)}>
+            {all ? 'Show fewer' : `Show all ${rows.length}`}
+          </button>
+        </div>
+      )}
+      {rows.length <= SHOWN && <div className="pb-2" />}
+    </>
+  );
+}
+
+/** Heading of one list: the card header with the count on its right. */
+function ListHeader({ id, title, count, info }: { id?: string; title: string; count: number; info?: ReactNode }) {
+  return (
+    <CardHeader
+      className="!pb-1"
+      title={
+        <h2 id={id} className="truncate text-[13px] font-semibold leading-6 text-ink">
+          {title}
+        </h2>
+      }
+      info={info}
+      infoLabel={`About ${title.toLowerCase()}`}
+      right={<span className="text-xs tabular-nums text-stone-400">{count}</span>}
+    />
+  );
+}
+
 /**
  * The agent line: changes logged in the last 7 days, the verdicts that came in, the ones due for review, and the worst
- * change as a link to its site's changes list (pro/worker/changes-summary.ts).
+ * change as a link to its site's changes list (pro/worker/changes-summary.ts). One quiet line in the card's footer.
  */
 function ChangesRow({ changes: c, domain }: { changes: ChangesSummary; domain: Map<string, string> }) {
   const verdicts = c.better + c.worse + c.inconclusive;
@@ -73,16 +247,19 @@ function ChangesRow({ changes: c, domain }: { changes: ChangesSummary; domain: M
     { n: c.worse, text: 'worse', cls: 'text-red-600' },
     { n: c.inconclusive, text: 'inconclusive', cls: 'text-stone-500' },
   ].filter((x) => x.n > 0);
+  const dot = (
+    <span className="hidden text-stone-300 sm:inline" aria-hidden="true">
+      ·
+    </span>
+  );
   return (
-    <div className="flex flex-col gap-2 px-5 py-3 text-[13px] lg:flex-row lg:items-center lg:justify-between" aria-label="Changes in the last 7 days" role="group">
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1" title={CHANGES_NOTE}>
+    <div className="flex flex-col gap-1.5 px-5 py-3 text-[13px] text-stone-500 lg:flex-row lg:items-center lg:justify-between" aria-label="Changes in the last 7 days" role="group">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-medium text-ink">{c.count === 1 ? '1 change' : `${fmtNumber(c.count)} changes`} in 7 days</span>
         {verdicts > 0 && (
           <>
-            <span className="hidden text-stone-300 sm:inline" aria-hidden="true">
-              ·
-            </span>
-            <span className="text-stone-500">
+            {dot}
+            <span>
               Verdicts in:{' '}
               {split.map((x, i) => (
                 <span key={x.text}>
@@ -97,12 +274,11 @@ function ChangesRow({ changes: c, domain }: { changes: ChangesSummary; domain: M
         )}
         {c.due > 0 && (
           <>
-            <span className="hidden text-stone-300 sm:inline" aria-hidden="true">
-              ·
-            </span>
-            <span className="text-stone-500">{fmtNumber(c.due)} due for review</span>
+            {dot}
+            <span>{fmtNumber(c.due)} due for review</span>
           </>
         )}
+        <InfoTip label="How changes and verdicts are counted">{CHANGES_NOTE}</InfoTip>
       </p>
       {c.worst && (
         <button className="group flex min-w-0 items-center gap-2 rounded-lg text-left text-stone-500 transition-colors duration-fast hover:text-ink lg:max-w-[55%]" onClick={() => openChanges(c.worst!.site_id)} title={c.worst.reason}>
@@ -126,90 +302,92 @@ function ChangesRow({ changes: c, domain }: { changes: ChangesSummary; domain: M
   );
 }
 
+/** Consecutive actions with the same words for different sites become one: "Check AI engines" on three sites. */
+function groupActions(actions: NextAction[]): NextAction[][] {
+  const out: NextAction[][] = [];
+  for (const a of actions) {
+    const last = out[out.length - 1];
+    if (last && last[0].title === a.title && last[0].kind === a.kind && !last.some((x) => x.site_id === a.site_id)) last.push(a);
+    else out.push([a]);
+  }
+  return out;
+}
+
 /**
  * What changed and needs a look, in one card: the attention items, the next actions computed once a day (the most money
- * or clicks at stake first), then the changes line under a hairline.
+ * or clicks at stake first), then the changes line under a hairline. Each row is a headline and a muted detail line,
+ * four rows to a list.
  */
 export const WorthALook = memo(function WorthALook({ items, actions = [], changes, sites }: { items: HomeData['attention']; actions?: NextAction[]; changes: ChangesSummary | null | undefined; sites: SiteRow[] }) {
+  const byId = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
   const domain = useMemo(() => new Map(sites.map((s) => [s.id, s.domain])), [sites]);
-  const entrance = useEntrance();
+  const grouped = useMemo(() => groupActions(actions), [actions]);
   const showChanges = !!changes && (changes.count > 0 || changes.better + changes.worse + changes.inconclusive > 0 || changes.due > 0);
   if (!items.length && !actions.length && !showChanges) return null;
+
+  const attention = items.map((a, i) => {
+    const t = TONE[a.kind];
+    const site = byId.get(a.siteId);
+    const href = a.link === 'apps' ? '/apps' : a.link === 'settings' ? `/site/${a.siteId}/settings` : a.link === 'seo' ? `/site/${a.siteId}/seo` : `/site/${a.siteId}`;
+    const { headline, rest } = splitText(a.text);
+    return (
+      <AttentionRow
+        key={`${a.siteId}-${a.kind}-${i}`}
+        glyph={<Glyph ring={t.ring}>{t.glyph}</Glyph>}
+        places={[{ id: a.siteId, name: site?.name ?? a.siteId, domain: site?.domain, app: a.kind === 'apps_no_data', href }]}
+        headline={headline}
+        rest={rest}
+        full={a.text}
+        href={href}
+        linkLabel={a.link === 'apps' ? 'All apps' : a.link === 'settings' ? 'Settings' : a.link === 'seo' ? 'SEO' : 'Open'}
+      />
+    );
+  });
+
+  const next = grouped.map((g, i) => {
+    const a = g[0];
+    const { headline, rest } = splitText(a.title);
+    const failing = a.kind === 'integration_failing';
+    return (
+      <AttentionRow
+        key={`${a.site_id}-${a.kind}-${i}`}
+        glyph={<Glyph ring={failing ? 'bg-red-50 text-red-600' : 'bg-stone-100 text-stone-600'}>{failing ? TONE.webhook_refused.glyph : <path d="M5 8h6M8.5 5.5 11 8l-2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />}</Glyph>}
+        places={g.map((x) => {
+          const s = byId.get(x.site_id);
+          return { id: x.site_id, name: s?.name ?? x.site_id, domain: s?.domain, href: x.link };
+        })}
+        headline={headline}
+        rest={rest}
+        full={a.title}
+        href={a.link}
+        linkLabel={ACTION_TAB[a.kind]}
+        worth={groupWorth(g)}
+        title={a.value_basis ? `${a.title}\n${a.value_basis}` : a.title}
+      />
+    );
+  });
+
   return (
     <section className="card overflow-hidden" aria-labelledby="worth-title">
       {items.length > 0 && (
         <>
-          <div className="flex items-center justify-between px-5 pb-1 pt-4">
-            <h2 id="worth-title" className="text-title">
-              Worth a look
-            </h2>
-            <span className="text-xs tabular-nums text-stone-400">{items.length}</span>
-          </div>
-          <ul className={`${entrance} px-2 pb-2`}>
-            {items.map((a, i) => {
-              const t = TONE[a.kind];
-              return (
-                <li key={`${a.siteId}-${a.kind}-${i}`}>
-                  <button
-                    className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors duration-fast hover:bg-stone-50"
-                    onClick={() => navigate(a.link === 'apps' ? '/apps' : a.link === 'settings' ? `/site/${a.siteId}/settings` : a.link === 'seo' ? `/site/${a.siteId}/seo` : `/site/${a.siteId}`)}
-                  >
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${t.ring}`} aria-hidden="true">
-                      <svg width="14" height="14" viewBox="0 0 16 16">
-                        {t.glyph}
-                      </svg>
-                    </span>
-                    {a.kind === 'apps_no_data' ? <PhoneGlyph size={16} /> : <Favicon domain={domain.get(a.siteId)} size={16} />}
-                    <span className="min-w-0 flex-1 text-ink">{a.text}</span>
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-stone-400 transition-colors duration-fast group-hover:text-ink">
-                      <span className="hidden sm:inline">{a.link === 'apps' ? 'All apps' : a.link === 'settings' ? 'Settings' : a.link === 'seo' ? 'SEO' : 'Open'}</span> <Arrow />
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <ListHeader id="worth-title" title="Worth a look" count={items.length} />
+          <ShownList rows={attention} label="Worth a look" />
         </>
       )}
       {actions.length > 0 && (
         <div className={items.length ? 'border-t border-stone-200/60' : ''}>
-          <div className="flex items-center justify-between px-5 pb-1 pt-4">
-            <h3 id={items.length ? undefined : 'worth-title'} className="text-title" title="Computed once a day from Search Console, ads, subscriptions, AI answers and integration health. Each amount is an estimate for about a month.">
-              Next actions
-            </h3>
-            <span className="text-xs tabular-nums text-stone-400">{actions.length}</span>
-          </div>
-          <ul className={`${entrance} px-2 pb-2`}>
-            {actions.map((a, i) => {
-              const worth = actionWorth(a);
-              return (
-                <li key={`${a.site_id}-${a.kind}-${i}`}>
-                  <button
-                    className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors duration-fast hover:bg-stone-50"
-                    onClick={() => navigate(a.link)}
-                    title={a.value_basis ?? undefined}
-                  >
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${a.kind === 'integration_failing' ? 'bg-red-50 text-red-600' : 'bg-stone-100 text-stone-600'}`} aria-hidden="true">
-                      <svg width="14" height="14" viewBox="0 0 16 16">
-                        {a.kind === 'integration_failing' ? TONE.webhook_refused.glyph : ACTION_GLYPH}
-                      </svg>
-                    </span>
-                    <Favicon domain={domain.get(a.site_id)} size={16} />
-                    <span className="min-w-0 flex-1 text-ink">{a.title}</span>
-                    {worth && <span className="hidden shrink-0 text-xs font-medium tabular-nums text-stone-500 sm:inline">{worth}</span>}
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-stone-400 transition-colors duration-fast group-hover:text-ink">
-                      <span className="hidden sm:inline">{ACTION_TAB[a.kind]}</span> <Arrow />
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <ListHeader id={items.length ? undefined : 'worth-title'} title="Next actions" count={actions.length} info={ACTIONS_NOTE} />
+          <ShownList rows={next} label="Next actions" />
         </div>
       )}
       {showChanges && (
         <div className={items.length || actions.length ? 'border-t border-stone-200/60' : ''}>
-          {!items.length && !actions.length && <h2 id="worth-title" className="sr-only">Changes</h2>}
+          {!items.length && !actions.length && (
+            <h2 id="worth-title" className="sr-only">
+              Changes
+            </h2>
+          )}
           <ChangesRow changes={changes!} domain={domain} />
         </div>
       )}

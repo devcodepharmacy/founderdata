@@ -31,14 +31,14 @@ const CARD_METRICS: Record<'extension' | 'newsletter', MetricKey[]> = {
 };
 
 /** One number on a card: a label, the value, and what is under it. */
-function Metric({ label, dot, value, under, title, muted }: { label: ReactNode; dot?: string; value: ReactNode; under: ReactNode; title?: string; muted: boolean }) {
+function Metric({ label, dot, value, under, title, muted, zero = false }: { label: ReactNode; dot?: string; value: ReactNode; under: ReactNode; title?: string; muted: boolean; zero?: boolean }) {
   return (
     <div className="min-w-0" title={title}>
       <div className="flex items-center gap-1.5 truncate text-xs text-stone-500">
         {dot && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />}
         {label}
       </div>
-      <div className={`mt-0.5 text-[17px] font-semibold leading-6 tracking-[-0.01em] tabular-nums ${muted ? 'text-stone-500' : 'text-ink'}`}>{value}</div>
+      <div className={`mt-0.5 text-[17px] font-semibold leading-6 tracking-[-0.01em] tabular-nums ${zero ? 'text-stone-400' : muted ? 'text-stone-500' : 'text-ink'}`}>{value}</div>
       <div className="mt-0.5 min-h-[18px]">{under}</div>
     </div>
   );
@@ -65,7 +65,7 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
     </span>
   );
   return (
-    <button {...prefetchProps(`/site/${s.id}?period=${period}`)} onClick={() => navigate(`/site/${s.id}?period=${period}`)} className={`card card-hover group flex flex-col p-5 text-left hover:-translate-y-0.5 ${quiet ? 'bg-stone-50/60' : ''}`}>
+    <button {...prefetchProps(`/site/${s.id}?period=${period}`)} onClick={() => navigate(`/site/${s.id}?period=${period}`)} className={`card card-hover group flex h-full flex-col p-5 text-left ${quiet ? 'bg-stone-50/60' : ''}`}>
       <div className="flex w-full items-start gap-3">
         <SiteIcon site={s} size={28} />
         <div className="min-w-0 flex-1">
@@ -77,34 +77,29 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <TrendChip status={s.trend.status} />
-          <span className="flex items-center gap-1.5 text-[11px] text-stone-500" title="Visitors in the last 5 minutes">
-            <LiveDot on={s.online > 0} size={6} />
-            <span className="tabular-nums">{s.online}</span> online
-          </span>
+          {s.online > 0 && (
+            <span className="flex items-center gap-1.5 text-[11px] text-stone-500" title="Visitors in the last 5 minutes">
+              <LiveDot on size={6} />
+              <span className="tabular-nums">{s.online}</span> online
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 w-full" title={`Visitors per ${granularity}, peak ${fmtNumber(peak)}${paid ? `. Revenue per ${granularity} below.` : ''}`}>
-        {c.visitors > 0 || main > 0 ? (
+      {c.visitors > 0 || main > 0 ? (
+        <div className="mt-4 w-full" title={`Visitors per ${granularity}, peak ${fmtNumber(peak)}${hasRevenue ? `. Revenue per ${granularity} below.` : ''}`}>
           <div className={quiet ? 'opacity-50' : ''}>
             <AreaSpark values={visitors} height={56} className="text-visitors" />
-            <div className="mt-1.5 h-5 text-revenue">
-              {hasRevenue ? (
-                <BarStrip values={revenueBars} height={20} />
-              ) : (
-                <div className="flex h-full items-end gap-2">
-                  <div className="mb-[3px] h-0 flex-1 border-t border-dashed border-stone-200" />
-                  <span className="text-[11px] leading-none text-stone-400">{paid ? 'No revenue in this period' : 'No revenue'}</span>
-                </div>
-              )}
-            </div>
+            {/* The strip keeps its height without revenue, so the numbers under it line up from card to card. */}
+            <div className="mt-1.5 h-5 text-revenue">{hasRevenue && <BarStrip values={revenueBars} height={20} />}</div>
           </div>
-        ) : (
-          <div className="flex h-[82px] items-center justify-center rounded-xl border border-dashed border-stone-200 text-xs text-stone-400">
-            {s.kind === 'app' ? 'No app sessions in this period' : 'No visitors in this period'}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        // One compact line in the chart's height, so the numbers under it line up with the cards beside it.
+        <p className="mt-4 flex h-[82px] items-center text-[13px] text-stone-400">
+          {s.lastSeen ? (s.kind === 'app' ? 'No app sessions in this period' : 'No visitors in this period') : s.kind === 'app' ? 'Waiting for the first app session' : 'Waiting for the first visit'}
+        </p>
+      )}
 
       <div className="mt-4 grid w-full grid-cols-3 gap-3">
         {s.product ? (
@@ -131,6 +126,7 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
                 title={REVENUE_NOTE}
                 dot="bg-revenue"
                 label="Revenue"
+                zero={!main}
                 value={money(main, s.currency, true)}
                 under={<Change cur={main} prev={p.revenue[s.currency] ?? 0} minBase={0} fmt={(n) => money(n, s.currency, true)} />}
               />
@@ -143,6 +139,7 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
               title={s.kind === 'app' ? APP_VISITORS_NOTE : undefined}
               dot="bg-visitors"
               label="Visitors"
+              zero={!c.visitors}
               value={fmtNumber(c.visitors)}
               under={<Change cur={c.visitors} prev={p.visitors} minBase={minBase} noData={p.sessions === 0 && !p.visitors} />}
             />
@@ -169,7 +166,7 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
                     muted={quiet}
                     label="Session time"
                     value={c.sessions ? fmtDuration(c.avgDuration) : '–'}
-                    under={<span className="text-xs text-stone-400">{c.sessions && p.sessions ? `${fmtDuration(p.avgDuration)} before` : 'no data before'}</span>}
+                    under={c.sessions && p.sessions ? <span className="text-xs text-stone-400">{fmtDuration(p.avgDuration)} before</span> : null}
                   />
                 )}
               </>
@@ -180,6 +177,7 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
                   title={`${REVENUE_NOTE}${appStore ? `\nApp Store: ${money(appStore, s.currency)}` : ''}`}
                   dot="bg-revenue"
                   label="Revenue"
+                  zero={!main}
                   value={money(main, s.currency, true)}
                   under={
                     other.length > 0 ? (
@@ -196,19 +194,23 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
                     muted={quiet}
                     title={`App Store downloads from Apple's sales report, ${s.appStore.from} to ${s.appStore.to}. First downloads only.`}
                     label="Downloads"
+                    zero={!s.appStore.downloads}
                     value={fmtNumber(s.appStore.downloads)}
-                    under={<span className="text-xs text-stone-500">App Store</span>}
+                    under={<span className="text-xs text-stone-400">App Store</span>}
                   />
                 ) : (
                   <Metric
                     muted={quiet}
                     title={`${fmtNumber(c.customers)} new ${c.customers === 1 ? 'customer' : 'customers'}. ${PAYMENTS_ONLY_NOTE}`}
                     label="Conversion"
+                    zero={!conv}
                     value={c.visitors ? fmtPct(conv, conv >= 0.1 ? 0 : 1) : '–'}
                     under={
-                      <span className="block truncate text-xs text-stone-500">
-                        {fmtNumber(c.customers)} new {c.customers === 1 ? 'customer' : 'customers'}
-                      </span>
+                      c.customers > 0 ? (
+                        <span className="block truncate text-xs text-stone-500">
+                          {fmtNumber(c.customers)} new {c.customers === 1 ? 'customer' : 'customers'}
+                        </span>
+                      ) : null
                     }
                   />
                 )}
@@ -240,7 +242,7 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
       )}
 
       <div className="mt-auto w-full pt-4">
-        <div className="flex w-full items-center justify-between gap-2 border-t border-stone-200/60 pt-3 text-xs text-stone-500">
+        <div className="flex min-h-6 w-full items-center justify-between gap-2 border-t border-stone-200/60 pt-3 text-xs text-stone-500">
           {s.topSource ? (
             <span className="flex min-w-0 items-center gap-1.5">
               <SourceIcon source={s.topSource.label} domain={s.topSource.domain} size={14} />
@@ -249,22 +251,16 @@ const SiteCard = memo(function SiteCard({ site: s, period, minBase, granularity 
               </span>
             </span>
           ) : (
-            <span>
-              {s.lastSeen
-                ? `Last ${s.kind === 'app' ? 'session' : 'visit'} ${fmtAgo(Date.now() - s.lastSeen)} ago`
-                : s.kind === 'app'
-                  ? 'Waiting for the first app session'
-                  : 'Waiting for the first visit'}
-            </span>
+            <span>{s.lastSeen ? `Last ${s.kind === 'app' ? 'session' : 'visit'} ${fmtAgo(Date.now() - s.lastSeen)} ago` : ''}</span>
           )}
           {quiet && s.lastSeen && s.topSource && (
-            <span className="shrink-0 text-amber-800">
+            <span className="shrink-0 text-stone-500">
               Last {s.kind === 'app' ? 'session' : 'visit'} {fmtAgo(Date.now() - s.lastSeen)} ago
             </span>
           )}
           {!quiet && (s.type === 'extension' || s.type === 'newsletter') && tag(TYPE_LABEL[s.type])}
           {!quiet && s.kind === 'app' && tag('iOS app')}
-          {!quiet && s.kind === 'both' && tag(`Web + app${c.visitors ? `, app ${fmtPct(appShare)}` : ''}`, 'Share of visitors who came through the iOS app')}
+          {!quiet && s.kind === 'both' && Math.round(appShare * 100) > 0 && tag(`${fmtPct(appShare)} from the app`, `${fmtPct(appShare)} of this period's visitors came through the iOS app. The rest came through the website.`)}
         </div>
       </div>
     </button>

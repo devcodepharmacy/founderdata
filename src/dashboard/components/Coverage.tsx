@@ -53,8 +53,8 @@ export function CoverageReasons({ c }: { c: ProviderCoverage }) {
 }
 
 /**
- * The line under the overview tiles: "72 of 80 payments ($6,120 of $6,650) are linked to a visit. 8 are not: how to
- * fix". Hidden without payments.
+ * The line under the overview tiles: "72 of 80 payments linked to a visit" and how to fix the rest. Hidden without
+ * payments. The amounts are in the hover text.
  */
 export function CoverageLine({ data, settingsHref }: { data: Coverage | null; settingsHref: string }) {
   const [open, setOpen] = useState(false);
@@ -62,21 +62,16 @@ export function CoverageLine({ data, settingsHref }: { data: Coverage | null; se
   const money = (n: number) => fmtMoney(n, data.currency, data.decimals);
   const missing = data.payments - data.linked;
   const all = missing === 0;
+  const amounts = all ? money(data.amount) : `${money(data.linkedAmount)} of ${money(data.amount)}`;
   return (
-    <div className="border-b border-stone-100 px-5 py-2 text-sm text-stone-500">
-      <span title="Recorded payments in this period, refunds and sandbox purchases left out. Revenue from Apple's sales report that no payment explains is not counted here.">
-        {all
-          ? `All ${plural(data.payments, 'payment', 'payments')} (${money(data.amount)}) are linked to a visit.`
-          : `${fmtNumber(data.linked)} of ${plural(data.payments, 'payment', 'payments')} (${money(data.linkedAmount)} of ${money(data.amount)}) are linked to a visit.`}
+    <div className="flex flex-wrap items-center gap-x-2 border-b border-stone-200/60 px-5 py-2 text-[13px] text-stone-500">
+      <span title={`${amounts}. Recorded payments in this period, refunds and sandbox purchases left out. Revenue from Apple's sales report that no payment explains is not counted here.`}>
+        {all ? `All ${plural(data.payments, 'payment', 'payments')} linked to a visit.` : `${fmtNumber(data.linked)} of ${plural(data.payments, 'payment', 'payments')} linked to a visit.`}
       </span>
       {!all && (
-        <>
-          {' '}
-          {fmtNumber(missing)} {missing === 1 ? 'is' : 'are'} not.{' '}
-          <button className="text-ink underline" onClick={() => setOpen(true)}>
-            How to fix
-          </button>
-        </>
+        <button className="font-medium text-stone-600 underline decoration-stone-300 underline-offset-2 transition-colors duration-fast hover:text-ink hover:decoration-stone-500" onClick={() => setOpen(true)}>
+          How to fix
+        </button>
       )}
       <Modal open={open} onClose={() => setOpen(false)} title="Payments not linked to a visit">
         <div className="space-y-5 text-sm text-stone-600">

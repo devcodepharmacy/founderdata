@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { navigate } from '../../App';
 import { api, type Site } from '../../lib/api';
-import { EmptyState, SkeletonRows, StatusChip } from '../ui';
+import { SetupRow, SkeletonRows, StatusChip } from '../ui';
 import { SetupIcons } from './icons';
 import { InlineError, SettingsCard } from './kit';
 import { useCardStatus } from './status';
@@ -43,14 +43,14 @@ export function AlertsCard({ site }: { site: Site }) {
       title="Alert rules"
       status={status}
       actions={rules?.length ? open : undefined}
-      desc="A rule checks a number every hour or day and posts to a webhook, your channels or the iPhone the first time it crosses its line. An agent's webhook gets the numbers and the chart notes from those days."
+      desc="A rule checks a number every hour or day and posts when it crosses its line. An agent's webhook also gets the numbers and the chart notes from those days."
     >
       {error && <InlineError message={error} onRetry={() => setN((x) => x + 1)} />}
       {!rules && !error && <SkeletonRows rows={2} />}
       {rules && !rules.length && (
-        <EmptyState compact icon={SetupIcons.alerts} title="No rule watches this site" action={open}>
-          A good first one: revenue per visitor falls 15% in 7 days, with at least 50 visitors.
-        </EmptyState>
+        <SetupRow icon={SetupIcons.alerts} title="No rule watches this site" action={open}>
+          A good first one: revenue per visitor falls 15% in 7 days.
+        </SetupRow>
       )}
       {!!rules?.length && (
         <ul className="divide-y divide-stone-200/60">

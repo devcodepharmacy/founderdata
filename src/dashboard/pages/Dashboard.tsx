@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { navigate } from '../App';
 import { GoalsPanel } from '../components/GoalsPanel';
 import { OverviewCard } from '../components/OverviewCard';
@@ -20,6 +20,7 @@ import { SiteTimezoneNote } from '../components/ReportingTimezone';
 import { sectionState, viewsFor, type SectionSetup, type View } from '../lib/sections';
 import { closeVisitor as closeVisitorUrl, openVisitor as openVisitorUrl, useSearchParam } from '../lib/urlState';
 import { EmptyIcons, EmptyState } from '../components/ui/EmptyState';
+import { Segmented } from '../components/ui/Segmented';
 import { BREAKDOWN_CARDS, PLATFORM_CARD, type BreakdownTab } from '../../shared/dashboard-tabs';
 
 /**
@@ -59,22 +60,18 @@ const FILTER_LABELS: Record<string, { label: string; dim: string }> = {
 
 /** Overview for the whole site, the website or the app. It sets the platform filter ("Web" or "iOS"). */
 function PlatformSwitch({ value, onChange }: { value: string | undefined; onChange: (platform: string | null) => void }) {
-  const options: { label: string; value: string | null }[] = [
-    { label: 'Web and app', value: null },
-    { label: 'Web', value: 'Web' },
-    { label: 'App', value: 'iOS' },
-  ];
   return (
-    <div className="seg" role="group" aria-label="Platform">
-      {options.map((o) => {
-        const active = (value ?? null) === o.value;
-        return (
-          <button key={o.label} aria-pressed={active} onClick={() => onChange(o.value)}>
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
+    <Segmented
+      size="sm"
+      label="Platform"
+      options={[
+        { label: 'Web and app', value: 'all' },
+        { label: 'Web', value: 'Web' },
+        { label: 'App', value: 'iOS' },
+      ]}
+      value={value ?? 'all'}
+      onChange={(v) => onChange(v === 'all' ? null : v)}
+    />
   );
 }
 
@@ -155,6 +152,10 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
   );
 
   const filters = Object.entries(q.filters);
+  // A site with a web and an app side switches between them in the Overview's chart header, which also shows the state: no chip for it.
+  // An app with no web visits has nothing to switch to.
+  const platformSwitch = view === 'overview' && !!site.app_bundle_id && !appOnly;
+  const shownFilters = platformSwitch ? filters.filter(([k]) => k !== 'platform') : filters;
   // A section this site cannot use yet (no app, no website, no subscription provider) shows its setup step instead.
   const setup = sectionState(site, view).setup;
   const banner = 'mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-amber-200/60 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900';
@@ -194,9 +195,9 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
           </div>
         )}
 
-        {(filters.length > 0 || (view === 'overview' && site.app_bundle_id && !appOnly)) && (
+        {shownFilters.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            {filters.map(([k, v]) => (
+            {shownFilters.map(([k, v]) => (
               <span key={k} className="flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-200/80 bg-white pl-3 pr-1 text-[13px] shadow-card">
                 <span className="text-stone-400">{FILTER_LABELS[k]?.label ?? propLabel(k) ?? k}</span>
                 <span className="flex items-center gap-1.5 font-medium">{renderLabel(FILTER_LABELS[k]?.dim ?? k, { label: v || null })}</span>
@@ -205,16 +206,10 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
                 </button>
               </span>
             ))}
-            {filters.length > 1 && (
+            {shownFilters.length > 1 && (
               <button className="btn-ghost h-8 px-2" onClick={() => update({ filters: {} })}>
                 Clear all
               </button>
-            )}
-            {/* An app with no web visits has nothing to switch to. */}
-            {view === 'overview' && site.app_bundle_id && !appOnly && (
-              <div className="ml-auto">
-                <PlatformSwitch value={q.filters.platform} onChange={(p) => (p ? addFilter('platform', p) : removeFilter('platform'))} />
-              </div>
             )}
           </div>
         )}
@@ -223,7 +218,11 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
           {setup ? (
             <SectionSetupState setup={setup} siteId={site.id} />
           ) : view === 'overview' ? (
-            <OverviewView overview={overview} platformTabs={platformTabs} />
+            <OverviewView
+              overview={overview}
+              platformTabs={platformTabs}
+              controls={platformSwitch ? <PlatformSwitch value={q.filters.platform} onChange={(p) => (p ? addFilter('platform', p) : removeFilter('platform'))} /> : undefined}
+            />
           ) : (
             // Each section is its own chunk; the toolbar above stays put while it loads.
             <Suspense fallback={<RouteFallback kind="section" />}>
@@ -254,7 +253,7 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
           )}
         </div>
 
-        <p className="mt-8 text-center text-xs text-stone-400">
+        <p className="mt-10 text-center text-xs text-stone-400">
           {/* The SEO tab mixes two clocks: Search Console counts Pacific days, FounderData the site's timezone. */}
           {view === 'seo' ? `Search Console days: Pacific. FounderData: ${site.timezone}` : `Times in ${site.timezone}`} · {site.currency}
           {site.app_bundle_id ? ', App Store gross' : ''} ·{' '}
@@ -291,7 +290,7 @@ function SectionSetupState({ setup, siteId }: { setup: SectionSetup; siteId: str
 }
 
 /** The Overview: KPI row and chart, four breakdowns, revenue by provider, the customers, goals and changes, and email. */
-function OverviewView({ overview, platformTabs }: { overview: Overview | null; platformTabs: BreakdownTab[] }) {
+function OverviewView({ overview, platformTabs, controls }: { overview: Overview | null; platformTabs: BreakdownTab[]; controls?: ReactNode }) {
   const { site } = useDash();
   // Chart notes (ChartNotes.tsx): markers on the chart and the Changes tab under the breakdowns.
   const notes = useChartNotes();
@@ -299,7 +298,7 @@ function OverviewView({ overview, platformTabs }: { overview: Overview | null; p
   const payments = site.payments_connected !== false;
   return (
     <>
-      <OverviewCard data={overview} notes={notes} />
+      <OverviewCard data={overview} notes={notes} controls={controls} />
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {/* The four breakdown cards (src/shared/dashboard-tabs.ts); each keeps its open tab in ?tab=. */}
         {BREAKDOWN_CARDS.map((tabs) => (

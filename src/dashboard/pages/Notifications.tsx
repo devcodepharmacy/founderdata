@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { PageBar } from '../components/home/PageBar';
-import { EmptyIcons, EmptyState, Reveal, Segmented, Skeleton, Spinner } from '../components/ui';
+import { CardHeader, EmptyIcons, Note, Reveal, Segmented, SetupRow, Skeleton, Spinner } from '../components/ui';
+import { Disclosure, Switch } from '../components/setup/kit';
 import { api, type AlertChannel, type AlertKind, type ChannelKind, type Site } from '../lib/api';
 import { ProSlot } from '../components/ProSlot';
 
@@ -56,12 +57,11 @@ const ALERT_LABELS: { key: AlertKind; label: string; hint: string }[] = [
   { key: 'weekly', label: 'Weekly report', hint: 'Mondays at 07:05 UTC: revenue, MRR, visitors, ad spend, Google clicks, trials and next actions per site' },
 ];
 
-function Section({ title, desc, children }: { title: string; desc?: ReactNode; children: ReactNode }) {
+function Section({ title, sub, right, children }: { title: string; sub?: ReactNode; right?: ReactNode; children: ReactNode }) {
   return (
-    <Reveal as="section" className="card p-5 sm:p-6">
-      <h2 className="text-title text-ink">{title}</h2>
-      {desc && <p className="mt-1 text-[13px] text-stone-500">{desc}</p>}
-      <div className="mt-4">{children}</div>
+    <Reveal as="section" className="card">
+      <CardHeader title={title} sub={sub} right={right} />
+      <div className="px-5 pb-5">{children}</div>
     </Reveal>
   );
 }
@@ -103,19 +103,19 @@ function ChannelCard({ ch, sites, onChange, onRemove }: { ch: AlertChannel; site
 
   const only = ch.sites !== null;
   return (
-    <div className="rounded-xl border border-stone-200/80 bg-stone-50/40 p-4 transition-colors duration-fast hover:border-stone-300/80">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="card-inset p-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 font-medium">
+          <div className="flex items-center gap-2 text-sm font-medium text-ink">
             <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-600">{KIND_LABELS[ch.kind]}</span>
             {ch.name}
           </div>
-          <div className="mt-1 truncate font-mono text-xs text-stone-500">
+          <div className="mt-1 max-w-[360px] truncate font-mono text-xs text-stone-400" title={ch.kind === 'telegram' ? undefined : ch.target}>
             {ch.kind === 'telegram' ? `chat ${ch.target}, bot token saved` : ch.target}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <select className="input w-auto" value={what} onChange={(e) => setWhat(e.target.value as 'test' | AlertKind)} aria-label="What to send">
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="input h-9 w-auto py-0 text-[13px]" value={what} onChange={(e) => setWhat(e.target.value as 'test' | AlertKind)} aria-label="What to send">
             <option value="test">Test message</option>
             {ALERT_LABELS.map((a) => (
               <option key={a.key} value={a.key}>
@@ -123,7 +123,7 @@ function ChannelCard({ ch, sites, onChange, onRemove }: { ch: AlertChannel; site
               </option>
             ))}
           </select>
-          <button className="btn" disabled={busy} onClick={send} title="Previews use made-up numbers. The weekly report and the daily numbers are real: last Monday to Sunday, and yesterday.">
+          <button className="btn-ghost" disabled={busy} onClick={send} title="Previews use made-up numbers. The weekly report and the daily numbers are real: last Monday to Sunday, and yesterday.">
             {busy ? (
               <>
                 <Spinner /> Sending
@@ -133,7 +133,7 @@ function ChannelCard({ ch, sites, onChange, onRemove }: { ch: AlertChannel; site
             )}
           </button>
           <button
-            className="btn text-red-600 hover:border-red-200"
+            className="btn-ghost hover:text-red-600"
             onClick={() => {
               if (confirm(`Remove the ${KIND_LABELS[ch.kind]} channel "${ch.name}"?`)) onRemove();
             }}
@@ -144,19 +144,18 @@ function ChannelCard({ ch, sites, onChange, onRemove }: { ch: AlertChannel; site
       </div>
       {result && <p className={`mt-2 text-[13px] ${result.ok ? 'text-emerald-700' : 'text-red-600'}`}>{result.text}</p>}
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {ALERT_LABELS.map((a) => (
-          <label key={a.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg p-1.5 text-sm transition-colors duration-fast hover:bg-stone-100/70">
-            <input type="checkbox" className="mt-1 accent-current" checked={ch.alerts[a.key]} onChange={(e) => patch({ alerts: { ...ch.alerts, [a.key]: e.target.checked } })} />
-            <span>
-              {a.label}
-              <span className="block text-xs text-stone-500">{a.hint}</span>
-            </span>
-          </label>
-        ))}
-      </div>
+      <Disclosure className="mt-3" summary={`Alert types, ${ALERT_LABELS.filter((a) => ch.alerts[a.key]).length} of ${ALERT_LABELS.length} on`}>
+        <div className="grid gap-x-6 sm:grid-cols-2">
+          {ALERT_LABELS.map((a) => (
+            <div key={a.key} className="flex items-center justify-between gap-3 border-b border-stone-200/60 py-2" title={a.hint}>
+              <span className="min-w-0 truncate text-[13px] text-ink">{a.label}</span>
+              <Switch checked={ch.alerts[a.key]} label={a.label} onChange={(v) => patch({ alerts: { ...ch.alerts, [a.key]: v } })} />
+            </div>
+          ))}
+        </div>
+      </Disclosure>
 
-      <div className="mt-4 text-sm">
+      <div className="mt-3 text-[13px] text-stone-600">
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2">
             <input type="radio" name={`sites-${ch.id}`} checked={!only} onChange={() => patch({ sites: null })} />
@@ -168,7 +167,7 @@ function ChannelCard({ ch, sites, onChange, onRemove }: { ch: AlertChannel; site
           </label>
         </div>
         {only && (
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-xl border border-stone-200/60 bg-white p-3">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-xl border border-stone-200/60 bg-white p-3 text-[13px]">
             {sites.map((s) => (
               <label key={s.id} className="flex items-center gap-2">
                 <input
@@ -188,41 +187,51 @@ function ChannelCard({ ch, sites, onChange, onRemove }: { ch: AlertChannel; site
   );
 }
 
-const HELP: Record<ChannelKind, ReactNode> = {
-  slack: (
-    <>
-      In Slack, create an app at api.slack.com/apps, turn on <b>Incoming Webhooks</b>, add a webhook to the channel you want and copy its URL.
-    </>
-  ),
-  discord: (
-    <>
-      In Discord, open the channel's settings, <b>Integrations</b>, <b>Webhooks</b>, <b>New Webhook</b>, and copy the webhook URL.
-    </>
-  ),
-  telegram: (
-    <>
-      Message @BotFather, send <code>/newbot</code> and copy the token. Then send your bot a message, or add it to a group, and open{' '}
-      <code>https://api.telegram.org/bot&lt;token&gt;/getUpdates</code>. The chat id is under <code>chat</code>, <code>id</code>.
-    </>
-  ),
-  webhook: (
-    <>
-      FounderData sends a JSON POST to this URL for each alert, with <code>type</code>, <code>title</code>, <code>text</code> and the alert's fields.
-      The fields are listed in docs/GUIDE.md, Alerts and weekly report. The URL needs https, except <code>http://localhost</code> while you run
-      the Worker with wrangler dev.
-    </>
-  ),
-  email: <>Alerts arrive from the ALERT_EMAIL_FROM address.</>,
+/** One line per channel type; the full steps open under "More". */
+const HELP: Record<ChannelKind, { line: string; more?: ReactNode }> = {
+  slack: {
+    line: 'Add an Incoming Webhook to a Slack channel and paste its URL.',
+    more: (
+      <p>
+        In Slack, create an app at api.slack.com/apps, turn on <b>Incoming Webhooks</b>, add a webhook to the channel you want and copy its URL.
+      </p>
+    ),
+  },
+  discord: {
+    line: 'Create a webhook in a Discord channel and paste its URL.',
+    more: (
+      <p>
+        In Discord, open the channel's settings, <b>Integrations</b>, <b>Webhooks</b>, <b>New Webhook</b>, and copy the webhook URL.
+      </p>
+    ),
+  },
+  telegram: {
+    line: 'Make a bot with @BotFather, then paste its token and your chat id.',
+    more: (
+      <p>
+        Message @BotFather, send <code>/newbot</code> and copy the token. Then send your bot a message, or add it to a group, and open{' '}
+        <code>https://api.telegram.org/bot&lt;token&gt;/getUpdates</code>. The chat id is under <code>chat</code>, <code>id</code>.
+      </p>
+    ),
+  },
+  webhook: {
+    line: 'FounderData sends a JSON POST to this URL for each alert.',
+    more: (
+      <p>
+        The body has <code>type</code>, <code>title</code>, <code>text</code> and the alert's fields, listed in docs/GUIDE.md, Alerts and weekly report. The URL needs https,
+        except <code>http://localhost</code> while you run the Worker with wrangler dev.
+      </p>
+    ),
+  },
+  email: { line: 'Alerts arrive from the ALERT_EMAIL_FROM address.' },
 };
 
-const EMAIL_HELP: Record<'resend' | 'cloudflare', ReactNode> = {
-  resend: <>Alerts arrive from the ALERT_EMAIL_FROM address, sent through Resend.</>,
-  cloudflare: (
-    <>
-      Alerts arrive from the ALERT_EMAIL_FROM address, sent through Cloudflare Email Routing. Cloudflare delivers only to addresses verified under
-      Email Routing, Destination addresses, in your Cloudflare account.
-    </>
-  ),
+const EMAIL_HELP: Record<'resend' | 'cloudflare', { line: string; more?: ReactNode }> = {
+  resend: { line: 'Alerts arrive from the ALERT_EMAIL_FROM address, sent through Resend.' },
+  cloudflare: {
+    line: 'Alerts arrive from the ALERT_EMAIL_FROM address, through Cloudflare Email Routing.',
+    more: <p>Cloudflare delivers only to addresses verified under Email Routing, Destination addresses, in your Cloudflare account.</p>,
+  },
 };
 
 function AddChannel({ email, emailVia, onAdd }: { email: boolean; emailVia: 'resend' | 'cloudflare' | null; onAdd: (c: AlertChannel) => void }) {
@@ -268,25 +277,32 @@ function AddChannel({ email, emailVia, onAdd }: { email: boolean; emailVia: 'res
         />
       </div>
       {emailOff ? (
-        <div className="mt-4 rounded-xl border border-stone-200/60 bg-stone-50 p-4 text-sm text-stone-600">
-          <p className="font-medium text-stone-800">Email is not set up on this Worker, so this option is off.</p>
-          <p className="mt-2">Two ways to turn it on, both with the sender in the <code>ALERT_EMAIL_FROM</code> variable:</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>
-              Cloudflare Email Routing, no other account: add a <code>send_email</code> binding named <code>EMAIL</code> to wrangler.local.jsonc and
-              deploy. It sends only to addresses you verified in Cloudflare, so it fits your own inbox. About 10 minutes.
-            </li>
-            <li>
-              Resend: set the <code>RESEND_API_KEY</code> secret. It sends to any address but needs a domain verified in Resend. About 15 minutes.
-            </li>
-          </ul>
-          <p className="mt-2">
-            The steps are in docs/GUIDE.md, Alerts and weekly report. Slack, Discord and Telegram need only a pasted URL or token.
-          </p>
-        </div>
+        <Note
+          className="mt-4"
+          tone="warn"
+          more={
+            <>
+              <p>Two ways to turn it on, both with the sender in the <code>ALERT_EMAIL_FROM</code> variable:</p>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>
+                  Cloudflare Email Routing, no other account: add a <code>send_email</code> binding named <code>EMAIL</code> to wrangler.local.jsonc and deploy. It sends only
+                  to addresses you verified in Cloudflare, so it fits your own inbox. About 10 minutes.
+                </li>
+                <li>
+                  Resend: set the <code>RESEND_API_KEY</code> secret. It sends to any address but needs a domain verified in Resend. About 15 minutes.
+                </li>
+              </ul>
+              <p>The steps are in docs/GUIDE.md, Alerts and weekly report. Slack, Discord and Telegram need only a pasted URL or token.</p>
+            </>
+          }
+        >
+          Email is not set up on this Worker.
+        </Note>
       ) : (
         <>
-          <p className="mt-4 text-[13px] leading-relaxed text-stone-600">{kind === 'email' && emailVia ? EMAIL_HELP[emailVia] : HELP[kind]}</p>
+          <Note className="mt-4" more={(kind === 'email' && emailVia ? EMAIL_HELP[emailVia] : HELP[kind]).more}>
+            {(kind === 'email' && emailVia ? EMAIL_HELP[emailVia] : HELP[kind]).line}
+          </Note>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {kind === 'telegram' && (
               <div>
@@ -323,10 +339,9 @@ function AddChannel({ email, emailVia, onAdd }: { email: boolean; emailVia: 'res
             </button>
             {error && <span className="text-sm text-red-600">{error}</span>}
           </div>
-          <p className="mt-3 text-xs text-stone-500">
-            A new channel gets new payments, refunds, failed payments, cancellations, worth a look, payments stopped arriving, refused webhooks, the write cap and the weekly report for every site. Daily numbers stays off until you tick it.
-            Change that once it is added.
-          </p>
+          <Note className="mt-4" more={<p>A new channel gets new payments, refunds, failed payments, cancellations, worth a look, payments stopped arriving, refused webhooks, the write cap and the weekly report for every site. Daily numbers stays off until you tick it. Change that once it is added.</p>}>
+            A new channel gets every alert for every site except daily numbers.
+          </Note>
         </>
       )}
     </div>
@@ -349,55 +364,67 @@ export function Notifications() {
     setData((d) => d && { ...d, channels: d.channels.filter((x) => x.id !== id) });
   }
 
+  const [adding, setAdding] = useState(false);
+  const channels = data?.channels ?? [];
+  const showForm = !!data && (adding || !channels.length);
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-3 sm:px-6 sm:pt-4">
       <PageBar current="notifications" />
-      <div className="mx-auto max-w-3xl space-y-5">
-      <div className="mt-5 sm:mt-8">
-        <h1 className="text-display text-ink">Notifications</h1>
-        <p className="mt-1.5 text-[13px] text-stone-500">
-          Payments, quiet sites, payment providers that stopped sending, the write cap and a Monday report, sent to Slack, Discord, Telegram, a
-          webhook or email. These settings cover every site on this deployment.
-        </p>
-      </div>
+      <div className="mx-auto max-w-3xl space-y-4">
+        <div className="mt-5 sm:mt-8">
+          <h1 className="text-display text-ink">Notifications</h1>
+          <p className="mt-1 text-[13px] text-stone-500">Where alerts and the Monday report go. These settings cover every site.</p>
+        </div>
 
-      {error && (
-        <p role="alert" className="text-[13px] text-red-600">
-          {error}
-        </p>
-      )}
+        {error && (
+          <p role="alert" className="text-[13px] text-red-600">
+            {error}
+          </p>
+        )}
 
-      <Section title="Channels">
-        {!data ? (
-          error ? null : (
-            <div className="space-y-3" role="status" aria-busy="true">
-              <span className="sr-only">Loading</span>
-              {[0, 1].map((i) => (
-                <div key={i} className="rounded-xl border border-stone-200/60 p-4" aria-hidden="true">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="mt-2 h-3 w-64" />
-                </div>
+        <Section
+          title="Channels"
+          sub="Slack, Discord, Telegram, a webhook or email."
+          right={
+            !!channels.length ? (
+              <button className="btn" aria-expanded={showForm} onClick={() => setAdding((a) => !a)}>
+                {showForm ? 'Close' : 'Add channel'}
+              </button>
+            ) : undefined
+          }
+        >
+          {!data ? (
+            error ? null : (
+              <div className="space-y-3" role="status" aria-busy="true">
+                <span className="sr-only">Loading</span>
+                {[0, 1].map((i) => (
+                  <div key={i} className="rounded-xl border border-stone-200/60 p-4" aria-hidden="true">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="mt-2 h-3 w-64" />
+                  </div>
+                ))}
+              </div>
+            )
+          ) : channels.length ? (
+            <div className="space-y-4">
+              {channels.map((ch) => (
+                <ChannelCard key={ch.id} ch={ch} sites={sites} onChange={replace} onRemove={() => remove(ch.id)} />
               ))}
             </div>
-          )
-        ) : data.channels.length ? (
-          <div className="space-y-3">
-            {data.channels.map((ch) => (
-              <ChannelCard key={ch.id} ch={ch} sites={sites} onChange={replace} onRemove={() => remove(ch.id)} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState compact icon={EmptyIcons.inbox} title="No channels yet, so nothing is sent">
-            Add one below. The iPhone app's payment pushes work without a channel.
-          </EmptyState>
-        )}
-      </Section>
+          ) : (
+            <SetupRow icon={EmptyIcons.inbox} title="No channels yet, so nothing is sent">
+              The iPhone app's payment pushes work without one.
+            </SetupRow>
+          )}
+          {showForm && (
+            <div className={channels.length ? 'mt-5 border-t border-stone-200/60 pt-5' : 'mt-4'}>
+              <div className="mb-3 text-[13px] font-medium text-ink">Add a channel</div>
+              <AddChannel email={!!data?.email} emailVia={data?.email_via ?? null} onAdd={(c) => (setData((d) => d && { ...d, channels: [...d.channels, c] }), setAdding(false))} />
+            </div>
+          )}
+        </Section>
 
-      <ProSlot name="alertRules" sites={sites} />
-
-      <Section title="Add a channel">
-        <AddChannel email={!!data?.email} emailVia={data?.email_via ?? null} onAdd={(c) => setData((d) => d && { ...d, channels: [...d.channels, c] })} />
-      </Section>
+        <ProSlot name="alertRules" sites={sites} />
       </div>
     </div>
   );

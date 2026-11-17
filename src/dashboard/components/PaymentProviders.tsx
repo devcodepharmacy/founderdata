@@ -3,7 +3,7 @@ import { api, type Site } from '../lib/api';
 import { fmtAgo } from '../lib/format';
 import { Code } from './Code';
 import { InlineError, SecretField, SecretInput, Step, Steps } from './setup/kit';
-import { SkeletonText, Spinner, StatusChip } from './ui';
+import { Note, SkeletonText, Spinner, StatusChip } from './ui';
 
 /** Setup cards for Lemon Squeezy, Polar, Paddle and Gumroad, and the Stripe history import (Settings, Payments). */
 
@@ -55,10 +55,16 @@ await fetch('/api/checkout', { method: 'POST', body: JSON.stringify({ variantId:
   "attributes": { "checkout_data": { "custom": rt } },
   "relationships": { ... } } }`}</Code>
         </div>
-        <p className="mt-2 text-stone-500">
-          Lemon Squeezy repeats the custom data on renewals. Test mode orders are ignored. Without custom data, FounderData tries the customer's
-          earlier payments and the email of a visitor you <code>identify()</code>.
-        </p>
+        <Note
+          className="mt-3"
+          more={
+            <p>
+              Without custom data, FounderData tries the customer's earlier payments and the email of a visitor you <code>identify()</code>.
+            </p>
+          }
+        >
+          Renewals repeat the custom data. Test mode orders are ignored.
+        </Note>
       </Step>
     </Steps>
   );
@@ -96,9 +102,9 @@ const checkout = await polar.checkouts.create({
   metadata: rt,
 });`}</Code>
         </div>
-        <p className="mt-2 text-stone-500">
-          Polar's sandbox is a separate server with its own webhooks. Connect only your live organization, so test orders stay out of revenue.
-        </p>
+        <Note className="mt-3" more={<p>Polar's sandbox is a separate server with its own webhooks, so test orders stay out of revenue.</p>}>
+          Connect only your live Polar organization.
+        </Note>
       </Step>
     </Steps>
   );
@@ -138,9 +144,9 @@ export function PaddleSetup({ site, origin, save }: Props) {
   customData: window.founderdata?.attribution?.() ?? {},
 });`}</Code>
         </div>
-        <p className="mt-2 text-stone-500">
-          A refund counts once Paddle approves it. Paddle's sandbox has its own notification destinations; connect only the live one.
-        </p>
+        <Note className="mt-3" more={<p>Paddle's sandbox has its own notification destinations; connect only the live one.</p>}>
+          A refund counts once Paddle approves it.
+        </Note>
       </Step>
     </Steps>
   );
@@ -165,7 +171,7 @@ export function GumroadSetup({ site, origin, save }: Props) {
               >
                 New URL
               </button>
-              <button className="btn border-red-200 text-red-600" onClick={() => confirm('Turn Gumroad off for this site?') && save({ gumroad_token: '' }, 'Gumroad turned off')}>
+              <button className="btn-ghost hover:text-red-600" onClick={() => confirm('Turn Gumroad off for this site?') && save({ gumroad_token: '' }, 'Gumroad turned off')}>
                 Turn off
               </button>
             </div>
@@ -188,9 +194,7 @@ export function GumroadSetup({ site, origin, save }: Props) {
     -d post_url=${url ?? 'PING_URL'}
 done`}</Code>
         </div>
-        <p className="mt-2 text-stone-500">
-          Each sale must name your seller id. FounderData saves it from the first sale, or you can enter it here:
-        </p>
+        <p className="mt-3 text-[13px] text-stone-500">Each sale must name your seller id. It is saved from the first sale, or enter it here:</p>
         <div className="mt-2 flex gap-2">
           <input className="input font-mono" placeholder="seller id" value={seller} onChange={(e) => setSeller(e.target.value)} />
           <button className="btn" onClick={() => save({ gumroad_seller_id: seller }, 'Seller id saved')}>
@@ -277,13 +281,19 @@ export function StripeImport({ site }: { site: Site }) {
   if (!s) return <SkeletonText lines={3} />;
   return (
     <div className="space-y-4 text-sm">
-      <p className="text-stone-600">
-        The webhook sees payments from the day you connect it. The import reads your Stripe charges from the months before and skips payments the webhook
-        already stored. Imported payments have no visit, so they count under No source unless the buyer's email matches a visitor you <code>identify()</code>.
-      </p>
+      <Note
+        more={
+          <p>
+            The import skips payments the webhook already stored. Imported payments have no visit, so they count under No source unless the buyer's email matches a visitor you{' '}
+            <code>identify()</code>.
+          </p>
+        }
+      >
+        The webhook sees payments from the day you connect it. The import reads the months before.
+      </Note>
 
       {s.status !== 'none' && (
-        <div className="rounded-xl border border-stone-200/80 bg-stone-50 px-4 py-3">
+        <div className="card-inset px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 font-medium text-ink">
               <StatusChip tone={running ? 'info' : s.status === 'done' ? 'ok' : s.status === 'canceled' ? 'neutral' : 'error'}>
@@ -309,7 +319,7 @@ export function StripeImport({ site }: { site: Site }) {
               <div className="h-full origin-left rounded-full bg-emerald-500 transition-transform duration-slow ease-out" style={{ transform: `scaleX(${pct / 100})` }} />
             </div>
           )}
-          <p className="mt-2 tabular-nums text-stone-600">
+          <p className="mt-2 text-[13px] tabular-nums text-stone-500">
             {s.recorded ?? 0} payments imported, {s.skipped ?? 0} charges skipped (already stored, not paid, or test mode)
             {s.cursor_ts ? `, back to ${fmtDay(s.cursor_ts)}` : ''}.
           </p>
@@ -321,9 +331,9 @@ export function StripeImport({ site }: { site: Site }) {
       {!running && (
         <Steps>
           <Step n={1} title="Make a restricted key in Stripe">
-            Open <b>Developers, API keys</b> and create a <b>restricted key</b> with Read access to <b>Charges</b> and <b>Invoices</b>. FounderData keeps the key only
-            while the import runs, and deletes it when the import ends or after 1 hour without a step.
+            Open <b>Developers, API keys</b> and create a <b>restricted key</b> with Read access to <b>Charges</b> and <b>Invoices</b>.
             {s.status === 'stopped' && ' Paste the key again to resume where it stopped.'}
+            <Note className="mt-2">FounderData keeps the key only while the import runs, and deletes it after 1 hour without a step.</Note>
           </Step>
           <Step n={2} title="Paste the key and pick how far back to go">
             <form

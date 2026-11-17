@@ -24,7 +24,7 @@ a `dark:` color variant for anything these cover.
 | Secondary text | `text-stone-500` | Descriptions, column headers. |
 | Muted text | `text-stone-400` | The lightest shade that may carry text (AA 4.5:1 on card and page in both themes). |
 | Decoration | `text-stone-300`, `bg-stone-300` | Dashes for "not measured", off dots. Never text a person must read. |
-| On a fill | `text-onFill` | Text on a solid coral, blue or mint fill (live pills, heatmap cells). Dark in both themes: white on these fills is 3:1 or less. |
+| On a fill | `text-onFill` | Text on a solid coral, blue or mint fill (live pills). Dark in both themes: white on these fills is 3:1 or less. Heatmap cells keep `text-ink` on a fill capped at 70 %. |
 | Visitors | `visitors`, `visitorsSoft` | Blue. Every visitor, session or traffic series. |
 | Revenue | `revenue`, `revenueSoft` | Coral. Every money series. |
 | Brand | `brand`, `brand-text`, `brand-soft`, `brand-navy` | Mint and navy from the logo. `brand-text` for mint text (AA), `brand` for dots and glows. |
@@ -73,6 +73,12 @@ emoji in `src/dashboard`.
 - Elevation, lowest first: `shadow-card` (resting card, button), `shadow-raised` (hover lift, `.card-hover`),
   `shadow-pop` (menus, tooltips, `.pop`), `shadow-overlay` (dialogs). In dark each level is a lit top edge plus a
   darker drop. Do not stack two levels on one element.
+- Surfaces nest one step at a time: page, card, inset (`bg-stone-50`), raised control (`bg-stone-100`). A `.card` inside
+  a `.card` drops to the inset shade by itself, and `.card-inset` is the well for a table frame, a setup row or a note
+  block. A card is never the same surface as its parent.
+- In dark a card also carries a faint white veil at its top (96 px, 2 % white) and a hairline a step brighter than the
+  ramp. It has no hue, so data cards stay flat: no glow, no colored gradient. Buttons, inputs, segmented controls and
+  menus share that hairline (`rgb(255 255 255 / 0.09)`), and hover lifts it to 0.16.
 
 ## Motion
 
@@ -149,9 +155,29 @@ events), and where it applies loading (`Spinner` plus a verb: "Saving") and erro
   `.code` and the `ui/` components before writing a new style.
 - Do keep blue for visitors and coral for money on every screen, including tooltips and legends.
 - Do put a page's header in `StickyBar`.
+- Do show a row of headline numbers as one `StatStrip`, a card header as `CardHeader`, a thin share as `MeterBar`.
 - Do use `NumberTicker` for a headline number that changes with the period, and plain text for numbers in tables.
 - Keep glow for brand moments (sign-in, live). Data cards stay flat.
 - Write copy in sentence case, one idea per sentence, numbers over adjectives, no em dashes.
+
+## Density and words
+
+The dashboard is calm because it says less. Four rules, in the order they bite:
+
+1. **No walls of text.** A card never opens with a paragraph. One short line (about 70 characters, `text-stone-500`) is
+   the most a card shows by itself. Longer explanations go in an `InfoTip` on the card header or behind `Note`'s
+   "More". A footnote under a table becomes an InfoTip.
+2. **Quiet absence.** A comparison shows only when one exists. Missing is a muted dash with a title in a tile and
+   nothing in a table cell; "no change" is a muted `0%`. Zero in a table cell is `text-stone-400`, an empty cell is a
+   stone dash. "none", "no data before" and "no linked visit" do not repeat down a column.
+3. **A number never touches its delta or unit.** A value, its `unit`, its badge and its sub line share one
+   `flex items-baseline gap-2` row. `StatTile` does this; hand-rolled tiles do not.
+4. **Empty states are small.** A missing integration inside a card is one `SetupRow` (about 64 px: icon, title, one
+   muted line, one button). A whole empty section is a small centered `EmptyState`. Setup detail lives in Settings; the
+   button links there.
+
+Copy follows `unslop`: sentence case, one idea per sentence, numbers over adjectives, no em dashes. Shortening a
+visible label moves the full definition into the InfoTip; it never drops it.
 
 ## Components
 
@@ -183,16 +209,67 @@ All in `src/dashboard/components/ui/`, exported from `components/ui/index.ts`.
 <Sparkline values={weeks} tone="revenue" height={28} label="Revenue, last 8 weeks" />
 ```
 
-**StatTile** label, ticking value, change badge, optional sparkline and loading state. `value={null}` shows a dash.
+**StatTile, StatStrip** `StatTile` is the one headline tile: a label, a ticking value with an optional `unit`, a meta
+line (change badge, `sub`, `footer`) and an optional sparkline pinned to the bottom of the tile. `value={null}` shows a
+muted dash. `change` is a fraction: `undefined` means no comparison here and shows nothing, `null` means the period
+before had no data and shows a muted dash with a title. `StatStrip` lays tiles out in one card: one row from lg up with
+hairlines between tiles, two columns on phones (an odd last tile spans both), every tile as tall as the tallest, so
+sparklines and meta lines align. Use it for every row of headline numbers; do not draw your own tile.
 
 ```tsx
-<StatTile label="Visitors" tone="visitors" value={o?.visitors} format={fmtNumber} change={o?.change.visitors} spark={series} loading={loading} />
+<StatStrip label="Search totals">
+  <StatTile label="Clicks" tone="visitors" value={s.clicks} format={fmtNumber} change={s.change} sub="28 days" spark={series} />
+  <StatTile label="Average position" value={s.position} format={(n) => n.toFixed(1)} change={s.positionChange} invertChange />
+</StatStrip>
 ```
 
-**ChangeBadge** arrow and percent against the period before. `change` is a fraction; `invert` where lower is better.
+`columns` sets the tiles per row from lg up; `flat` drops the card for a strip on top of a chart inside a card (it keeps a
+hairline under itself). `display` shows a node instead of the number; `onClick` and `active` make the tiles series pickers.
+
+**ChangeBadge, NoComparison** arrow and percent against the period before. `change` is a fraction; `invert` where lower is
+better. A change under 0.5 % is a muted `0%`. `NoComparison` is the dash for a missing one.
 
 ```tsx
 <ChangeBadge change={0.32} />  <ChangeBadge change={-0.04} invert />
+```
+
+**MeterBar** the 4 px share bar (stone track, fill by tone `visitors`, `revenue` or `muted`) that grows by transform.
+`share` is 0 to 1. `Bar` in `site/primitives` is the same bar.
+
+```tsx
+<MeterBar share={row.visitors / total} tone="visitors" />
+```
+
+**Note** a one-line hint inside a card with a leading icon, 13 px, muted. `more` opens the rest in place under a "More"
+button. Tones: `neutral`, `warn` (amber text), `error` (the one tone with a red box). Never a full-width banner otherwise.
+
+```tsx
+<Note more={<p>Search Console reports a position average, so it moves less than a rank check.</p>}>Positions are a 28-day average.</Note>
+<Note tone="warn">Impressions fell 98 % since Oct 19.</Note>
+```
+
+**SetupRow** a "not connected yet" state inside a card in one row about 64 px tall: icon, one title line, one muted
+line, one action. The row sits on the inset surface and wraps its button under the text on a phone.
+
+```tsx
+<SetupRow icon={EmptyIcons.plug} title="Connect Search Console" action={<a className="btn" href={settingsHref}>Open settings</a>}>Queries and pages appear after the first sync.</SetupRow>
+```
+
+**CardHeader** the header of a card: a 13 px semibold title, an optional `info` (an InfoTip), an optional one-line `sub`,
+and `right` for controls. It has the paddings of `GCard` (`px-5 pb-3 pt-4`) and of `Card` in `site/primitives`, so every
+card's title starts 20 px from the left and sits on the same line. Follow it with a body of `px-5 pb-5`.
+
+```tsx
+<section className="card"><CardHeader title="Top queries" info="Search Console, last 28 days." right={<Segmented ... />} /><div className="px-5 pb-5">...</div></section>
+```
+
+**Tables** (`site/primitives`: `Table`, `Row`, `Num`, `NoValue`, `Card`). The header is `text-xs font-medium text-stone-400`
+at 36 px, rows are 40 px with a `border-stone-200/60` hairline and a `bg-stone-50` hover, numbers are right-aligned and
+tabular. `Row` mutes a cell that is `0` or `'0'` and shows a stone dash for `null`, `undefined` or `''`; `false` renders
+nothing. `Table align={['left', 'right', 'left']}` overrides a column. `Delta` takes `variant="tile"` inside a stat tile.
+
+```tsx
+<Table head={['Page', 'Visitors', 'Revenue']}><Row cells={[path, <Num value={v} />, money(r)]} /></Table>
 ```
 
 **StatusChip** a state in a word or two: `ok`, `warn`, `error`, `info`, `neutral`, `live` (pulses in mint).
@@ -219,7 +296,7 @@ All in `src/dashboard/components/ui/`, exported from `components/ui/index.ts`.
 <Tooltip content="Visitors in the last 5 minutes"><button className="btn-ghost">...</button></Tooltip>
 ```
 
-**EmptyState** what is missing and the next step; `compact` inside a card. Icons in `EmptyIcons`.
+**EmptyState** what is missing and the next step; `compact` inside a card (for a missing integration prefer `SetupRow`). Icons in `EmptyIcons`.
 
 ```tsx
 <EmptyState compact icon={EmptyIcons.chart} title="No visits in this period" />
@@ -253,3 +330,9 @@ toast('Copied the summary', 'ok');
 Shared components outside `ui/` follow the same rules: `Modal` (springs in, traps focus, returns it), `InfoTip`
 (fine print), `CommandPalette` (⌘K), `ThemeToggle` (crossfades the theme through a view transition), `LogoMark`
 (`animated` draws the trail in), `Panel` (breakdown rows whose bars grow by transform).
+
+**Section row** (`Toolbar.tsx`, `SectionNav`) the twelve site sections in four groups on one line from 1280 px up. Inside a
+group the Paid tabs read "Overview", "Meta" and "Apple" (`SECTION_SHORT_LABELS`); the full name stays in the screen
+reader text, the tooltip and the command palette. Below 1280 px the row scrolls sideways under a 40 px fade on each cut
+edge and the current section is centered. New sections need a short label if the row would pass 1100 px.
+

@@ -96,7 +96,7 @@ export function Live() {
             <Sites data={data} />
             <LastHour data={data} hover={hover} setHover={setHover} />
           </section>
-          <section className="lg:min-h-0 lg:[grid-area:feed]">
+          <section className="flex flex-col lg:min-h-0 lg:[grid-area:feed]">
             <Feed data={data} hover={hover} setHover={setHover} />
           </section>
         </main>
@@ -144,6 +144,7 @@ function Header({ live, root, span, setSpan }: { live: ReturnType<typeof useLive
         <Segmented
           label="Globe shows"
           size="sm"
+          className="[&>button]:whitespace-nowrap"
           value={span}
           onChange={setSpan}
           options={(Object.keys(WINDOW_LABEL) as GlobeWindow[]).map((w) => ({
@@ -153,7 +154,7 @@ function Header({ live, root, span, setSpan }: { live: ReturnType<typeof useLive
           }))}
         />
         {canFull && (
-          <button className="btn" onClick={toggle} aria-pressed={full} title={full ? 'Leave fullscreen (Esc)' : 'Fill the screen'}>
+          <button className="btn hidden h-8 px-2.5 sm:inline-flex" onClick={toggle} aria-pressed={full} title={full ? 'Leave fullscreen (Esc)' : 'Fill the screen'}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               {full ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
             </svg>
@@ -195,7 +196,7 @@ const heading = 'text-micro uppercase text-stone-400 2xl:text-[13px]';
 function Hero({ data, loading, span, places }: { data: LiveData | null; loading: boolean; span: GlobeWindow; places: number }) {
   if (loading || !data) {
     return (
-      <div className="pt-2" aria-busy>
+      <div aria-busy>
         <div className="fd-live-skel h-[clamp(56px,7vw,150px)] w-40 rounded-2xl bg-stone-100" />
         <div className="fd-live-skel mt-3 h-4 w-48 rounded bg-stone-100" />
       </div>
@@ -205,7 +206,7 @@ function Hero({ data, loading, span, places }: { data: LiveData | null; loading:
   const appOn = data.visitors.filter((v) => v.platform === 'app').length;
   const customers = data.visitors.filter((v) => v.customer).length;
   return (
-    <div className="pt-1 lg:pt-2">
+    <div>
       <div className="flex items-end gap-3">
         <span className="text-[clamp(64px,7.2vw,168px)] font-semibold leading-[0.85] tracking-[-0.04em]">
           <TickingNumber value={data.online} />
@@ -279,7 +280,7 @@ function LastHour({ data, hover, setHover }: { data: LiveData | null; hover: str
   const totals = paymentTotals(events);
   const count = events.filter((e) => e.kind === 'payment').length;
   return (
-    <div className={`${panel} flex flex-col lg:min-h-0 lg:flex-1`}>
+    <div className={`${panel} flex flex-col lg:min-h-0`}>
       <div className="flex items-baseline justify-between gap-3">
         <div className={heading}>Last hour</div>
         {count > 0 && <div className="text-[12px] text-stone-400">{count === 1 ? '1 payment' : `${count} payments`}</div>}
@@ -293,7 +294,7 @@ function LastHour({ data, hover, setHover }: { data: LiveData | null; hover: str
           ))}
         </div>
       ) : (
-        <div className="mt-2 text-[13px] text-stone-400">No payments in the last hour. A new one shows up here and on the globe.</div>
+        <div className="mt-2 text-[13px] text-stone-400">No payments in the last hour.</div>
       )}
       {rows.length > 0 && (
         <ul className="-mx-2 mt-3 space-y-0.5 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:[mask-image:linear-gradient(to_bottom,black_80%,transparent)]">
@@ -333,7 +334,7 @@ function Feed({ data, hover, setHover }: { data: LiveData | null; hover: string 
   const visitors = data?.visitors ?? [];
   const rows = usePresence(visitors, (v) => v.id, 260);
   return (
-    <div className={`${panel} flex flex-col lg:h-full lg:min-h-0`}>
+    <div className={`${panel} flex flex-col lg:min-h-0 lg:max-h-full`}>
       <div className="flex items-baseline justify-between gap-3">
         <div className={heading}>Visitors now</div>
         {data && data.visitors.length > 0 && <div className="text-[12px] text-stone-400">Newest first</div>}
@@ -345,7 +346,7 @@ function Feed({ data, hover, setHover }: { data: LiveData | null; hover: string 
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="mt-3 text-[13px] leading-relaxed text-stone-400">Nobody here right now. A visitor appears in this list within about 15 seconds of opening a page.</div>
+        <div className="mt-2 text-[13px] text-stone-400">Nobody here right now.</div>
       ) : (
         <ul className="-mx-2 mt-2 min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
           {rows.map(({ item: v, key, leaving }) => (

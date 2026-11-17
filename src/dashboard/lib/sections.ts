@@ -19,6 +19,13 @@ export const SECTION_LABELS = {
 } as const;
 export type View = keyof typeof SECTION_LABELS;
 
+/**
+ * What the section row shows. The group label above a tab already says "Paid", so Paid overview, Meta ads and Apple
+ * Search Ads read "Overview", "Meta" and "Apple" there; a screen reader and the command palette keep the full name
+ * (SECTION_LABELS).
+ */
+export const SECTION_SHORT_LABELS: Record<View, string> = { ...SECTION_LABELS, paid: 'Overview', ads: 'Meta', asa: 'Apple' };
+
 /** The section row's groups, left to right. Every section sits in exactly one. */
 export const SECTION_GROUPS: { id: 'analytics' | 'organic' | 'paid' | 'revenue'; label: string; views: View[] }[] = [
   { id: 'analytics', label: 'Analytics', views: ['overview', 'content', 'dropoff', 'app'] },

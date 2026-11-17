@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, type Site } from '../lib/api';
 import { fmtNumber } from '../lib/format';
 import { ErrorLine, GoalIcon } from './site/primitives';
-import { EmptyState } from './ui/EmptyState';
+import { SetupRow } from './ui/SetupRow';
+import { SettingsCard } from './setup/kit';
 import { Skeleton } from './ui/Skeleton';
 import { Spinner } from './ui/Spinner';
 
@@ -65,15 +66,15 @@ export function PrimaryGoalSection({ site, onSaved }: { site: Site; onSaved?: (n
   const changed = !!data && (name !== (data.name ?? '') || (label.trim() || null) !== (data.custom_label ?? null));
 
   return (
-    <section id="primary-goal" className="card scroll-mt-6 p-6">
-      <h2 className="text-title text-ink">Primary goal</h2>
-      <p className="mt-1 text-sm text-stone-500">
-        The goal Home, the weekly report and the Content tab count for this site. A site without revenue shows it as its main number.
-      </p>
+    <SettingsCard
+      id="primary-goal"
+      title="Primary goal"
+      desc="The goal Home, the weekly report and the Content tab count for this site. A site without revenue shows it as its main number."
+    >
       {!data && loadError ? (
-        <ErrorLine error={loadError} retry={() => setTries((t) => t + 1)} className="mt-4" />
+        <ErrorLine error={loadError} retry={() => setTries((t) => t + 1)} />
       ) : !data ? (
-        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" role="status" aria-busy="true">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" role="status" aria-busy="true">
           <span className="sr-only">Loading</span>
           {[0, 1].map((i) => (
             <div key={i}>
@@ -84,14 +85,11 @@ export function PrimaryGoalSection({ site, onSaved }: { site: Site; onSaved?: (n
           <Skeleton className="h-[42px] w-20 rounded-[10px]" />
         </div>
       ) : listed.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-stone-200/70">
-          <EmptyState compact icon={<GoalIcon size={18} />} title={`No goals in the last ${data.days} days`}>
-            Send one with <code className="rounded bg-stone-100 px-1 text-[12px]">data-rt-goal="signup"</code> on a button or{' '}
-            <code className="rounded bg-stone-100 px-1 text-[12px]">window.founderdata('goal', 'signup')</code>, then pick it here.
-          </EmptyState>
-        </div>
+        <SetupRow icon={<GoalIcon size={18} />} title={`No goals in the last ${data.days} days`}>
+          Put <code className="rounded bg-stone-100 px-1 text-[12px]">data-rt-goal="signup"</code> on a button, then pick it here.
+        </SetupRow>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <div>
             <label className="label" htmlFor="primary-goal-name">
               Goal
@@ -131,11 +129,9 @@ export function PrimaryGoalSection({ site, onSaved }: { site: Site; onSaved?: (n
         </div>
       )}
       {data && listed.length > 0 && (
-        <p className="mt-2 text-sm text-stone-500">
-          Counts visitors who sent the goal in a visit, once each. The list shows the goals of the last {data.days} days, most visitors first.
-        </p>
+        <p className="mt-3 text-[13px] text-stone-500">Counts visitors once each. The list shows the last {data.days} days, most visitors first.</p>
       )}
-      {(state.msg || state.error) && <p className={`mt-2 text-sm ${state.error ? 'text-red-600' : 'text-emerald-700'}`} role={state.error ? 'alert' : 'status'}>{state.error ?? state.msg}</p>}
-    </section>
+      {(state.msg || state.error) && <p className={`mt-2 text-[13px] ${state.error ? 'text-red-600' : 'text-emerald-700'}`} role={state.error ? 'alert' : 'status'}>{state.error ?? state.msg}</p>}
+    </SettingsCard>
   );
 }

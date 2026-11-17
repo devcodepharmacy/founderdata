@@ -88,38 +88,41 @@ export function Home() {
     <div className="mx-auto max-w-7xl px-4 pb-16 pt-3 sm:px-6 sm:pt-4">
       <HomeHeader period={period} onPeriod={setPeriod} hasApps={hasApps} viewer={viewer} showPeriod={!data || hasSites} onLogout={logout} />
 
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 sm:mt-8 sm:flex-nowrap">
-        <div className="min-w-0 flex-1">
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 sm:mt-8">
+        <div className="min-w-0 flex-1 basis-72">
           <h1 className="text-display text-ink">All sites and apps</h1>
-          <div className="mt-1.5 flex min-h-[20px] flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-stone-500">
+          <div className="mt-1 flex min-h-5 items-center text-[13px] text-stone-500">
             {data ? (
               hasSites && (
-                <>
-                  <span className="w-full">
-                    {countLine(data.sites)}, compared with {PREVIOUS[period]}
-                  </span>
-                  <HowCounted tz={data.tz} sites={data.sites} />
-                  <CopySummary />
-                </>
+                <p className="truncate">
+                  {countLine(data.sites)}, against {PREVIOUS[period]}
+                </p>
               )
             ) : error ? null : (
-              <Skeleton className="h-3.5 w-80 max-w-full" />
+              <Skeleton className="h-3.5 w-64 max-w-full" />
             )}
           </div>
         </div>
-        {viewer ? (
-          <StatusChip tone="neutral" title="The viewer login only reads (docs/GUIDE.md, Viewer login).">
-            Read-only login
-          </StatusChip>
-        ) : (
-          hasSites && (
+        <div className="flex flex-wrap items-center gap-2">
+          {viewer ? (
+            <StatusChip tone="neutral" title="The viewer login only reads (docs/GUIDE.md, Viewer login).">
+              Read-only login
+            </StatusChip>
+          ) : null}
+          {data && hasSites && (
+            <>
+              <HowCounted tz={data.tz} sites={data.sites} />
+              <CopySummary />
+            </>
+          )}
+          {!viewer && hasSites && (
             <button className="btn-dark h-9 shrink-0 px-3.5" onClick={() => setAdding(true)}>
               <PlusIcon />
               <span className="sm:hidden">Add</span>
               <span className="hidden sm:inline">Add site or app</span>
             </button>
-          )
-        )}
+          )}
+        </div>
       </div>
 
       <div className="mt-6">
@@ -184,22 +187,28 @@ export function Home() {
                 <VisitorsChart series={data.series} granularity={data.range.granularity} />
               </div>
             </Reveal>
-            <div className={`order-7 mt-6 lg:col-span-12 ${dim}`}>
-              <SiteCards sites={data.sites} period={period} minBase={data.minBase} granularity={data.range.granularity} />
-            </div>
-            <div className={`order-8 mt-6 flex flex-col lg:col-span-7 [&>section]:flex-1 ${dim}`}>
-              <Sources sources={data.sources} />
-            </div>
-            <div className={`order-9 flex flex-col lg:col-span-5 lg:mt-6 [&>section]:flex-1 ${dim}`}>
-              <Payments payments={data.payments} />
-            </div>
+            <Reveal delay={210} className="order-7 mt-6 lg:col-span-12">
+              <div className={dim}>
+                <SiteCards sites={data.sites} period={period} minBase={data.minBase} granularity={data.range.granularity} />
+              </div>
+            </Reveal>
+            <Reveal delay={240} className="order-8 mt-6 flex flex-col lg:col-span-7 [&>div]:flex-1">
+              <div className={`flex flex-col [&>section]:flex-1 ${dim}`}>
+                <Sources sources={data.sources} />
+              </div>
+            </Reveal>
+            <Reveal delay={270} className="order-9 flex flex-col lg:col-span-5 lg:mt-6 [&>div]:flex-1">
+              <div className={`flex flex-col [&>section]:flex-1 ${dim}`}>
+                <Payments payments={data.payments} />
+              </div>
+            </Reveal>
           </div>
         )}
       </div>
 
       {data && hasSites && (
         // Fine print: days counted in the reporting timezone, and today's rows against the shared write pool.
-        <footer className="mt-12 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-stone-200/70 pt-4 text-xs text-stone-500">
+        <footer className="mt-12 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-stone-200/60 pt-4 text-xs text-stone-400">
           <span>
             Days run on {data.tz} time, the reporting timezone.{' '}
             {!viewer && (

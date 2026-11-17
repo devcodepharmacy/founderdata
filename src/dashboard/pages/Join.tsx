@@ -58,7 +58,7 @@ export function Join({ token, onDone }: { token: string; onDone: () => void }) {
           <div className="fd-reveal">
             <h1 className="text-display">Hi {invite.name}</h1>
             <p className="mt-1.5 text-sm text-stone-500">
-              Choose a password to join as {invite.role === 'owner' ? 'an owner' : 'a viewer'}. Next time, sign in with your name or email and this password.
+              Choose a password to join as {invite.role === 'owner' ? 'an owner' : 'a viewer'}. Next time, sign in with your name or email.
             </p>
             <label className="label mt-7" htmlFor="new-pw">
               Password

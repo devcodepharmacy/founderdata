@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, isViewer } from '../lib/api';
 import { useDash } from '../lib/context';
-import { countryName, fmtAgo, fmtDateTime, fmtDuration, shortId } from '../lib/format';
+import { countryName, fmtAgo, fmtDateTime, fmtDuration, fmtNumber, shortId } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { AsaName } from './AsaNameSlot';
 import { Avatar, BrowserIcon, DeviceIcon, Flag, OSIcon, SourceIcon } from './Icons';
@@ -9,6 +9,7 @@ import { PaymentAmount, PaymentSource } from './GoalsPanel';
 import { Modal } from './Modal';
 import { Skeleton } from './ui/Skeleton';
 import { Spinner } from './ui/Spinner';
+import { StatStrip, StatTile } from './ui/StatTile';
 
 interface Profile {
   visitor: { id: string; first_seen: number; name: string | null; email: string | null; user_id: string | null } | null;
@@ -82,32 +83,37 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
           </div>
 
           {/* The story at a glance: where they came from, how often they came back, what they did, and what they paid. */}
-          <ol className="fd-stagger mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-stone-200/80 bg-stone-200/60 sm:grid-cols-4" aria-label="Journey">
-            <StoryStep
-              n={1}
+          <StatStrip className="mt-6" label="Journey">
+            <StatTile
               label="First visit"
-              value={
+              value={null}
+              display={
                 firstSession ? (
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <SourceIcon source={firstSession.source} domain={firstSession.referrer_domain} size={14} />
+                  <span className="flex min-w-0 items-center gap-1.5 text-[17px] leading-7">
+                    <SourceIcon source={firstSession.source} domain={firstSession.referrer_domain} size={16} />
                     <span className="truncate">{firstSession.source}</span>
                   </span>
                 ) : (
-                  <span className="text-stone-300">–</span>
+                  <span className="text-stone-300" title="No visit recorded">–</span>
                 )
               }
               sub={p.visitor ? day(p.visitor.first_seen) : firstSession ? day(firstSession.started_at) : undefined}
             />
-            <StoryStep n={2} label="Visits" value={String(p.sessions.length)} sub={`${pages} ${pages === 1 ? 'page' : 'pages'}`} />
-            <StoryStep n={3} label="Goals" value={String(goals.length)} sub={goals.length ? [...new Set(goals.map((g) => g.name))].slice(0, 2).join(', ') : 'none yet'} />
-            <StoryStep
-              n={4}
-              label="Total spent"
-              value={money(paid)}
-              accent={paid > 0}
-              sub={firstPayment && p.visitor ? `first after ${fmtAgo(firstPayment.ts - p.visitor.first_seen)}` : 'no payment yet'}
+            <StatTile label="Visits" value={p.sessions.length} format={fmtNumber} sub={`${pages} ${pages === 1 ? 'page' : 'pages'}`} />
+            <StatTile
+              label="Goals"
+              value={goals.length}
+              format={fmtNumber}
+              sub={goals.length ? [...new Set(goals.map((g) => g.name))].slice(0, 2).join(', ') : undefined}
             />
-          </ol>
+            <StatTile
+              label="Total spent"
+              tone="revenue"
+              value={paid}
+              format={(n) => money(n)}
+              sub={firstPayment && p.visitor ? `first after ${fmtAgo(firstPayment.ts - p.visitor.first_seen)}` : undefined}
+            />
+          </StatStrip>
 
           <div className="mt-7">
             <div className="mb-3 text-micro uppercase text-stone-400">Timeline, newest first</div>
@@ -189,7 +195,7 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
               })}
             </ol>
             {p.payments.length > 0 && (
-              <div className="mt-6 rounded-xl border border-stone-200/80 bg-stone-50 p-4 text-[13px]">
+              <div className="card-inset mt-6 p-4 text-[13px]">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-semibold text-ink">Payments</span>
                   <span className="font-semibold tabular-nums text-revenue">{money(paid)}</span>
@@ -212,20 +218,6 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
         </div>
       )}
     </Modal>
-  );
-}
-
-/** One step of the journey strip. */
-function StoryStep({ n, label, value, sub, accent }: { n: number; label: string; value: React.ReactNode; sub?: string; accent?: boolean }) {
-  return (
-    <li className="min-w-0 bg-white px-4 py-3 dark:bg-[rgb(var(--stone-50))]">
-      <div className="flex items-center gap-1.5 text-xs text-stone-500">
-        <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-semibold ${accent ? 'bg-revenueSoft text-revenue' : 'bg-stone-100 text-stone-500'}`}>{n}</span>
-        {label}
-      </div>
-      <div className={`mt-1 truncate text-[15px] font-semibold tabular-nums ${accent ? 'text-revenue' : 'text-ink'}`}>{value}</div>
-      {sub && <div className="mt-0.5 truncate text-xs text-stone-400">{sub}</div>}
-    </li>
   );
 }
 
@@ -258,7 +250,7 @@ function ProfileSkeleton() {
           <Skeleton className="h-3 w-64" />
         </div>
       </div>
-      <Skeleton className="mt-6 h-[74px] w-full rounded-xl" />
+      <Skeleton className="mt-6 h-[92px] w-full rounded-2xl" />
       <div className="mt-7 space-y-5">
         {[0, 1, 2].map((i) => (
           <div key={i} className="space-y-2 pl-7">

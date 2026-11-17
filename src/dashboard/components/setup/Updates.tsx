@@ -36,7 +36,7 @@ export function UpdatesCard() {
     <SettingsCard
       id="updates"
       title="Updates"
-      desc={`You run FounderData ${isPro ? 'Pro' : 'core'} ${VERSION}. The check reads the latest release from GitHub when you click.`}
+      desc={`You run FounderData ${isPro ? 'Pro' : 'core'} ${VERSION}. The check reads the latest release from GitHub only when you click.`}
       actions={
         <button className="btn" onClick={run} disabled={check.state === 'busy'}>
           {check.state === 'busy' ? 'Checking' : 'Check for updates'}
@@ -58,7 +58,7 @@ export function UpdatesCard() {
           )}
         </div>
         <div>
-          <p className="mb-2 text-[13px] text-stone-500">Paste this into the AI agent that manages this deployment. It merges the release, resolves conflicts with your changes and deploys.</p>
+          <p className="mb-2 text-[13px] text-stone-500">Paste this into the agent that manages this deployment. It merges the release and deploys.</p>
           <Code>{updatePrompt(edition, check.state === 'newer' ? check.version : undefined)}</Code>
         </div>
       </div>
@@ -72,7 +72,7 @@ export function ProCard() {
     <SettingsCard
       id="pro"
       title="FounderData Pro"
-      desc="One payment, every future update included. Pro runs on your own Cloudflare account like core, and your data stays there."
+      desc="One payment, every future update included. Pro runs on your own Cloudflare account, and your data stays there."
     >
       <ul className="list-disc space-y-1 pl-5 text-[13px] text-stone-600">
         {PRO_LIST.map((x) => (

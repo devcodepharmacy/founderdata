@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api, type Site } from '../lib/api';
 import { Code } from './Code';
 import { SettingsCard } from './setup/kit';
-import { toast } from './ui';
+import { Note, toast } from './ui';
 
 /**
  * Product types (src/worker/product-type.ts, docs/GUIDE.md "Product types"): the type picker in Settings, the type
@@ -167,12 +167,10 @@ export function TypeSetup({ site, type, origin }: { site: Site; type: ProductTyp
   if (type !== 'extension' && type !== 'newsletter') return null;
   return (
     <div className="space-y-3 text-sm">
-      <p className="text-stone-600">
-        {type === 'extension'
-          ? 'The extension sends three goal events to the event API, so it needs no other tracker.'
-          : 'Your newsletter tool sends three goal events through a webhook. A few lines on your server pass them on to the event API.'}
+      <p className="text-[13px] text-stone-500">
+        {type === 'extension' ? 'The extension sends three goal events to the event API, so it needs no other tracker.' : 'Your newsletter tool sends three goal events through a webhook to the event API.'}
       </p>
-      <ul className="space-y-1 text-stone-600">
+      <ul className="space-y-1 text-[13px] text-stone-500">
         {TYPE_EVENTS[type].map((e) => (
           <li key={e.name}>
             <code className="rounded bg-stone-100 px-1">{e.name}</code> {e.when}
@@ -181,9 +179,15 @@ export function TypeSetup({ site, type, origin }: { site: Site; type: ProductTyp
       </ul>
       <Code>{type === 'extension' ? extensionSnippet(site.id, origin, site.domain) : newsletterSnippet(site.id, origin, site.domain)}</Code>
       {type === 'extension' && <Code>{uninstallSnippet.replace('your-domain', site.domain)}</Code>}
-      <p className="text-stone-500">
-        The URL in <code className="rounded bg-stone-100 px-1">u</code> must be on {site.domain}. docs/GUIDE.md, Product types, has the details.
-      </p>
+      <Note
+        more={
+          <p>
+            The URL in <code className="rounded bg-stone-100 px-1">u</code> must be on {site.domain}. docs/GUIDE.md, Product types, has the details.
+          </p>
+        }
+      >
+        The URL in <code className="rounded bg-stone-100 px-1">u</code> must be on {site.domain}.
+      </Note>
     </div>
   );
 }

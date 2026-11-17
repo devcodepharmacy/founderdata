@@ -7,6 +7,7 @@ import { Card, ErrorLine, Row, Table, useSiteApi } from './site/primitives';
 import { EmptyIcons, EmptyState } from './ui/EmptyState';
 import { Segmented } from './ui/Segmented';
 import { Skeleton } from './ui/Skeleton';
+import { StatStrip, StatTile } from './ui/StatTile';
 
 // Core Web Vitals from real visitors: GET /api/sites/:id/vitals (src/worker/vitals.ts, docs/API.md).
 
@@ -50,10 +51,10 @@ export function fmtVital(m: Metric, v: number | null): string {
   return v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`;
 }
 
-function Value({ m, s, min }: { m: Metric; s: MetricSummary; min: number }) {
+function Value({ m, s, min, tile = false }: { m: Metric; s: MetricSummary; min: number; tile?: boolean }) {
   if (s.p75 === null || !s.rating) {
     return (
-      <span className="text-stone-400" title={`A p75 needs ${min} loads that report ${m.toUpperCase()}.`}>
+      <span className={`text-stone-400 ${tile ? 'text-[15px] font-medium' : ''}`} title={`A p75 needs ${min} loads that report ${m.toUpperCase()}.`}>
         {s.samples ? `${fmtNumber(s.samples)} of ${min}` : '–'}
       </span>
     );
@@ -67,7 +68,7 @@ function Value({ m, s, min }: { m: Metric; s: MetricSummary; min: number }) {
 
 /** Good, needs work and poor as one bar. */
 function Shares({ s }: { s: MetricSummary }) {
-  if (s.good === null || s.needs_improvement === null || s.poor === null) return <div className="h-1.5 w-full max-w-[112px] rounded-full bg-stone-100" />;
+  if (s.good === null || s.needs_improvement === null || s.poor === null) return <div className="h-1 w-full rounded-full bg-stone-100" />;
   const parts: [Rating, number][] = [
     ['good', s.good],
     ['needs_improvement', s.needs_improvement],
@@ -75,7 +76,7 @@ function Shares({ s }: { s: MetricSummary }) {
   ];
   return (
     <div
-      className="flex h-1.5 w-28 overflow-hidden rounded-full bg-stone-100"
+      className="flex h-1 w-full overflow-hidden rounded-full bg-stone-100"
       title={parts.map(([r, v]) => `${RATING_LABEL[r]} ${Math.round(v * 100)}%`).join(', ')}
     >
       {parts.map(([r, v]) => (
@@ -88,36 +89,37 @@ function Shares({ s }: { s: MetricSummary }) {
 function Overall({ data }: { data: Vitals }) {
   const t = data.thresholds;
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-3">
-      {METRICS.map((m) => (
-        <div key={m.id} className="rounded-xl border border-stone-200/70 bg-stone-50/50 p-3" title={m.name}>
-          <div className="flex items-center justify-between gap-2 text-xs font-medium text-stone-500">
-            {m.label}
-            {data.overall[m.id].rating && <span className={`h-1.5 w-1.5 rounded-full ${BAR[data.overall[m.id].rating!]}`} aria-hidden="true" />}
-          </div>
-          <div className="pt-1 text-[20px] font-semibold leading-7 tracking-tight tabular-nums">
-            <Value m={m.id} s={data.overall[m.id]} min={data.min_sample} />
-          </div>
-          <div className="pt-2">
-            <Shares s={data.overall[m.id]} />
-          </div>
-          <div className="pt-1.5 text-[11px] text-stone-400">
-            good up to {fmtVital(m.id, t[m.id].good)}
-          </div>
-        </div>
-      ))}
-    </div>
+    <StatStrip columns={5} label="Core Web Vitals">
+      {METRICS.map((m) => {
+        const s = data.overall[m.id];
+        return (
+          <StatTile
+            key={m.id}
+            label={<span title={m.name}>{m.label}</span>}
+            info={s.rating ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${BAR[s.rating]}`} aria-hidden="true" /> : undefined}
+            value={null}
+            display={<Value m={m.id} s={s} min={data.min_sample} tile />}
+            sub={`good up to ${fmtVital(m.id, t[m.id].good)}`}
+            footer={
+              <span className="mt-1 block w-full">
+                <Shares s={s} />
+              </span>
+            }
+          />
+        );
+      })}
+    </StatStrip>
   );
 }
 
 function Empty({ data }: { data: Vitals }) {
   return (
-    <EmptyState compact icon={EmptyIcons.chart} title={data.sample_rate === 0 ? 'Page speed is off' : 'No page loads measured yet'}>
+    <EmptyState compact className="!py-6" icon={EmptyIcons.chart} title={data.sample_rate === 0 ? 'Page speed is off' : 'No page loads measured yet'}>
       {data.sample_rate === 0
-        ? 'Page speed is off for this site. Turn it on in Settings, Daily write cap.'
+        ? 'Turn it on in Settings, Daily write cap.'
         : data.path
-          ? `No page loads of ${data.path} measured in the last ${data.days} days.`
-          : `No page loads measured in the last ${data.days} days. The tracker sends them when a visitor leaves a page, so they show up after the first visits.`}
+          ? `None for ${data.path} in the last ${data.days} days.`
+          : `The tracker reports them as visitors leave a page.`}
     </EmptyState>
   );
 }
@@ -145,22 +147,19 @@ export function WebVitalsCard({ path }: { path?: string }) {
           </span>
         ) : undefined
       }
-      note={`Core Web Vitals measured in visitors' browsers. Each number is the 75th percentile, colored by Google's thresholds. Below ${data?.min_sample ?? 20} page loads a metric shows its count instead. Safari and Firefox report fewer metrics than Chrome, and INP needs a tap or click.`}
+      info={`Core Web Vitals measured in visitors' browsers. Each number is the 75th percentile, colored by Google's thresholds. Below ${data?.min_sample ?? 20} page loads a metric shows its count instead. Safari and Firefox report fewer metrics than Chrome, and INP needs a tap or click.`}
+      infoLabel="How page speed is measured"
     >
       {error && !data ? (
         <ErrorLine error={error} retry={retry} />
       ) : !data ? (
         <div role="status" aria-busy="true">
           <span className="sr-only">Loading</span>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-3">
+          <StatStrip columns={5}>
             {Array.from({ length: 5 }, (_, i) => (
-              <div key={i} className="rounded-xl border border-stone-200/70 p-3">
-                <Skeleton className="h-3 w-10" />
-                <Skeleton className="mt-2 h-6 w-16" />
-                <Skeleton className="mt-3 h-1.5 w-full" />
-              </div>
+              <StatTile key={i} label={<Skeleton className="h-3.5 w-10" />} value={undefined} loading />
             ))}
-          </div>
+          </StatStrip>
         </div>
       ) : data.overall.page_loads === 0 ? (
         <Empty data={data} />

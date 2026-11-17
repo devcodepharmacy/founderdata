@@ -6,7 +6,8 @@ const v = (name) => `rgb(var(--${name}) / <alpha-value>)`;
 const ramp = (palette, shades) => Object.fromEntries(shades.map((s) => [s, v(`${palette}-${s}`)]));
 
 export default {
-  content: ['./src/dashboard/**/*.{ts,tsx,html}'],
+  // The second glob is FounderData Pro's dashboard (docs/PRO.md). It matches nothing in a core checkout.
+  content: ['./src/dashboard/**/*.{ts,tsx,html}', './pro/dashboard/**/*.{ts,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {

@@ -10,8 +10,11 @@ import { ExportButton } from './ExportButton';
 import { Avatar, BrowserIcon, DeviceIcon, Flag, OSIcon, SourceIcon } from './Icons';
 import { GROSS_HINT, isGross, PROVIDER_NAMES } from './RevenuePanel';
 import { ChangesList, type ChartNotes, type NoteImpacts } from './ChartNotes';
-import { GoalIcon, SkeletonTable } from './site/primitives';
+import { GoalIcon, Row, SkeletonTable, Table } from './site/primitives';
 import { EmptyIcons, EmptyState } from './ui/EmptyState';
+import { MeterBar } from './ui/MeterBar';
+import { Note } from './ui/Note';
+import { SetupRow } from './ui/SetupRow';
 import { TabRow } from './ui/Tabs';
 import { Spinner } from './ui/Spinner';
 import { Skeleton } from './ui/Skeleton';
@@ -71,55 +74,37 @@ function Goals({ totalVisitors }: { totalVisitors: number }) {
   if (!data) return <SkeletonTable rows={4} cols={5} />;
   if (!data.length)
     return (
-      <EmptyState compact icon={<GoalIcon size={18} />} title="No goals yet">
-        Add <code className="rounded bg-stone-100 px-1 text-[12px]">data-rt-goal="signup_click"</code> to any button, or call{' '}
-        <code className="rounded bg-stone-100 px-1 text-[12px]">window.founderdata('goal', 'signup')</code>.
+      <EmptyState compact icon={<GoalIcon size={18} />} title="No goals yet" className="!py-6">
+        Add <code className="rounded bg-stone-100 px-1 text-[12px]">data-rt-goal="signup"</code> to a button to count it.
       </EmptyState>
     );
   const top = Math.max(1, ...data.map((g) => g.visitors));
   return (
-    <div className={`overflow-x-auto transition-opacity duration-base ${loading ? 'opacity-60' : ''}`}>
-      <table className="w-full min-w-[520px] text-[13px]">
-        <thead>
-          <tr className="text-left text-xs text-stone-400">
-            <th className="h-8 pl-2 font-medium">Goal</th>
-            <th className="text-right font-medium">Visitors</th>
-            <th className="pl-3 text-right font-medium">Completions</th>
-            <th className="pl-3 text-right font-medium">Conversion</th>
-            <th className="pl-3 pr-2 text-right font-medium">Revenue</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((g) => (
-            <tr
-              key={g.label}
-              className="group cursor-pointer border-t border-stone-200/60 tabular-nums transition-colors duration-fast hover:bg-stone-50 focus-visible:bg-stone-50"
-              onClick={() => addFilter('goal', g.label ?? '')}
-              tabIndex={0}
-              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), addFilter('goal', g.label ?? ''))}
-              title="Filter by visitors who completed this goal"
-            >
-              <td className="h-11 pl-2">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-500">
-                    <GoalIcon size={13} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-ink">{g.label}</div>
-                    <div className="mt-1 h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-stone-100">
-                      <div className="h-full w-full rounded-full bg-visitors/70 transition-transform duration-slower ease-out" style={{ transform: `translateX(${((g.visitors / top - 1) * 100).toFixed(2)}%)` }} />
-                    </div>
-                  </div>
+    <div className={`transition-opacity duration-base ${loading ? 'opacity-60' : ''}`}>
+      <Table head={['Goal', 'Visitors', 'Completions', 'Conversion', 'Revenue']}>
+        {data.map((g) => (
+          <Row
+            key={g.label}
+            onClick={() => addFilter('goal', g.label ?? '')}
+            title="Filter by visitors who completed this goal"
+            cells={[
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-500">
+                  <GoalIcon size={13} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium text-ink">{g.label}</div>
+                  <MeterBar share={g.visitors / top} className="mt-1 max-w-[220px]" />
                 </div>
-              </td>
-              <td className="text-right font-medium text-ink">{fmtNumber(g.visitors)}</td>
-              <td className="pl-3 text-right text-stone-600">{fmtNumber(g.pageviews ?? 0)}</td>
-              <td className="pl-3 text-right text-stone-600">{totalVisitors ? fmtPct(g.visitors / totalVisitors, 1) : <span className="text-stone-300">–</span>}</td>
-              <td className="pl-3 pr-2 text-right text-stone-600">{money(g.revenue)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>,
+              <span className="font-medium text-ink">{fmtNumber(g.visitors)}</span>,
+              g.pageviews ? fmtNumber(g.pageviews) : null,
+              totalVisitors ? fmtPct(g.visitors / totalVisitors, 1) : null,
+              g.revenue ? money(g.revenue) : null,
+            ]}
+          />
+        ))}
+      </Table>
     </div>
   );
 }
@@ -277,7 +262,7 @@ function FunnelForm({ onDone, canCancel }: { onDone: (id?: string) => void; canC
         }
       }}
     >
-      <p className="text-sm text-stone-500">Steps are counted in order per visitor. Page paths support wildcards like <code>/blog/*</code>.</p>
+      <p className="text-[13px] text-stone-500">Steps count in order per visitor. Paths take wildcards like <code>/blog/*</code>.</p>
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Funnel name" />
       {steps.map((s, i) => (
         <div key={i} className="flex gap-2">
@@ -374,20 +359,24 @@ function usePaged(url: string, reloadKey: number) {
 }
 
 function ShowAll({ total, shown, hasMore, loading, onClick, onMore }: { total: number; shown: number; hasMore: boolean; loading: boolean; onClick: () => void; onMore: () => void }) {
-  const cls = 'mx-auto mt-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink disabled:opacity-60';
+  const cls = 'flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink disabled:opacity-60';
   if (total > shown) {
     return (
-      <button className={cls} onClick={onClick}>
-        Show all {total}
-        {hasMore ? '+' : ''}
-      </button>
+      <div className="flex justify-end pt-2">
+        <button className={cls} onClick={onClick}>
+          Show all {total}
+          {hasMore ? '+' : ''}
+        </button>
+      </div>
     );
   }
   if (!hasMore) return null;
   return (
-    <button className={cls} onClick={onMore} disabled={loading}>
-      {loading ? <><Spinner /> Loading</> : 'Load more'}
-    </button>
+    <div className="flex justify-end pt-2">
+      <button className={cls} onClick={onMore} disabled={loading}>
+        {loading ? <><Spinner /> Loading</> : 'Load more'}
+      </button>
+    </div>
   );
 }
 
@@ -430,22 +419,26 @@ function Journey({ search }: { search: string }) {
   const { rows: data, hasMore, more, loading } = usePaged(`/api/sites/${site.id}/customers?${qs(q)}`, reloadKey + version);
   if (!data) return <PeopleSkeleton />;
   if (!data.length)
-    return (
-      <EmptyState compact icon={EmptyIcons.inbox} title="No payments in this period" action={<a className="btn h-8 text-[13px]" href={`/site/${site.id}/settings#payments`}>Connect payments</a>}>
-        Connect Stripe, Dodo Payments or the App Store in site settings to see who paid and where they came from.
-      </EmptyState>
+    return site.payments_connected === false ? (
+      <div className="px-1 pb-1">
+        <SetupRow icon={EmptyIcons.inbox} title="Connect payments" action={<a className="btn h-8 text-[13px]" href={`/site/${site.id}/settings#payments`}>Open settings</a>}>
+          See who paid and where they came from.
+        </SetupRow>
+      </div>
+    ) : (
+      <EmptyState compact icon={EmptyIcons.inbox} title="No payments in this period" className="!py-6" />
     );
   const unmatched = data.filter((r) => !r.visitor_id).length;
   return (
     <div className="overflow-x-auto">
       {unmatched > 0 && (
-        <div className="mx-1 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/60 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900">
-          <span>
-            {unmatched} payment{unmatched > 1 ? 's' : ''} not linked to a visitor yet.{' '}
-            <a className="underline" href={`/site/${site.id}/settings`}>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-2 pb-2">
+          <Note tone="warn">
+            {unmatched} payment{unmatched > 1 ? 's' : ''} not linked to a visitor.{' '}
+            <a className="font-medium underline underline-offset-2" href={`/site/${site.id}/settings`}>
               Why?
             </a>
-          </span>
+          </Note>
           <button
             className="btn h-8 py-1 text-[13px]"
             disabled={rematch === 'working'}
@@ -462,10 +455,10 @@ function Journey({ search }: { search: string }) {
             {rematch === 'working' ? <><Spinner /> Matching</> : rematch ?? 'Try matching again'}
           </button>
           {reasons.length > 0 && (
-            <ul className="w-full space-y-1 border-t border-amber-200 pt-2 text-xs">
+            <ul className="w-full space-y-1 border-t border-stone-200/60 pt-2 text-xs text-stone-500">
               {reasons.map((r) => (
                 <li key={r.id}>
-                  <b>{r.name ?? r.id}</b>: {r.matched ? 'matched' : 'not matched'}
+                  <b className="font-medium text-ink">{r.name ?? r.id}</b>: {r.matched ? 'matched' : 'not matched'}
                   {r.reason ? ` · ${r.reason}` : ''}
                 </li>
               ))}
@@ -476,11 +469,11 @@ function Journey({ search }: { search: string }) {
       <table className="w-full min-w-[760px] text-[13px]">
         <thead>
           <tr className="text-left text-xs text-stone-400">
-            <th className="h-8 px-3 font-medium">Visitor</th>
+            <th className="h-9 pl-2 pr-3 font-medium">Visitor</th>
             <th className="font-medium">Source</th>
             <th className="font-medium">Spent</th>
             <th className="font-medium">Time to complete</th>
-            <th className="pr-3 font-medium">Completed at</th>
+            <th className="pr-2 font-medium">Completed at</th>
           </tr>
         </thead>
         <tbody>
@@ -495,7 +488,7 @@ function Journey({ search }: { search: string }) {
                 tabIndex={r.visitor_id ? 0 : undefined}
                 onKeyDown={(e) => r.visitor_id && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openVisitor(r.visitor_id))}
               >
-                <td className="h-[60px] px-3 py-2">
+                <td className="h-[60px] py-2 pl-2 pr-3">
                   <VisitorCell
                     id={r.visitor_id ?? r.id}
                     name={r.name ?? r.pay_name}
@@ -536,7 +529,7 @@ function Journey({ search }: { search: string }) {
                   {r.first_seen ? fmtAgo(r.ts - r.first_seen) : <span className="text-stone-300">–</span>}
                   {r.visits > 0 && <div className="text-xs text-stone-500">{r.visits} visit{r.visits > 1 ? 's' : ''}</div>}
                 </td>
-                <td className="whitespace-nowrap py-2 pr-3 tabular-nums text-stone-500">{fmtDateTime(r.ts, site.timezone)}</td>
+                <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-stone-500">{fmtDateTime(r.ts, site.timezone)}</td>
               </tr>
             ))}
         </tbody>
@@ -557,13 +550,13 @@ function Users({ search }: { search: string }) {
       <table className="w-full min-w-[760px] text-[13px]">
         <thead>
           <tr className="text-left text-xs text-stone-400">
-            <th className="h-8 px-3 font-medium">Visitor</th>
+            <th className="h-9 pl-2 pr-3 font-medium">Visitor</th>
             <th className="font-medium">Source</th>
             <th className="text-right font-medium">Visits</th>
             <th className="text-right font-medium">Pages</th>
             <th className="text-right font-medium">Time</th>
             <th className="text-right font-medium">Spent</th>
-            <th className="px-3 text-right font-medium">Last seen</th>
+            <th className="pl-3 pr-2 text-right font-medium">Last seen</th>
           </tr>
         </thead>
         <tbody>
@@ -578,7 +571,7 @@ function Users({ search }: { search: string }) {
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openVisitor(r.visitor_id))}
               >
-                <td className="h-[60px] px-3 py-2">
+                <td className="h-[60px] py-2 pl-2 pr-3">
                   <VisitorCell
                     id={r.visitor_id}
                     name={r.name}
@@ -600,7 +593,7 @@ function Users({ search }: { search: string }) {
                 <td className="py-2 text-right">{r.pageviews}</td>
                 <td className="py-2 text-right">{fmtDuration(r.duration)}</td>
                 <td className="py-2 text-right font-medium text-ink">{r.spent ? money(r.spent) : <span className="font-normal text-stone-300">–</span>}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-right text-stone-500">{fmtAgo(Date.now() - r.last_seen)} ago</td>
+                <td className="whitespace-nowrap py-2 pl-3 pr-2 text-right text-stone-500">{fmtAgo(Date.now() - r.last_seen)} ago</td>
               </tr>
             ))}
         </tbody>

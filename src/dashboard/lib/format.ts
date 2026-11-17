@@ -158,3 +158,9 @@ export function changeView(cur: number, prev: number, opts: { minBase?: number; 
   // Half away from zero, like the Home ranking and the iPhone: -10.5% reads 11% down either way.
   return { kind: 'pct', up, text: `${Math.round(Math.abs(((cur - prev) / prev) * 100))}% ${arrow}` };
 }
+
+/**
+ * What a missing comparison says in a title or to a screen reader. A tile shows a muted dash with this title and a
+ * table cell shows nothing, so "no data before" does not repeat down a column (ui/ChangeBadge: NoComparison).
+ */
+export const NO_COMPARISON = 'No data in the period before';

@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { api, type Site } from '../lib/api';
 import { fmtDateTime } from '../lib/format';
 import { isAppOnly } from '../lib/siteKind';
-import { CopyField, InlineError, SettingsCard } from './setup/kit';
+import { CopyField, Disclosure, InlineError, SettingsCard, Switch } from './setup/kit';
 import { useCardStatus, useSetup } from './setup/status';
-import { EmptyState, EmptyIcons, SkeletonRows, Spinner, StatusChip, toast } from './ui';
+import { EmptyIcons, SetupRow, SkeletonRows, Spinner, StatusChip, toast } from './ui';
 
 /** A share link, a read API key, or a read key for all sites (src/worker/share.ts, docs/API.md). */
 interface ShareToken {
@@ -147,21 +147,21 @@ export function ShareSection({ site }: { site: Site }) {
       id="share"
       title="Share links"
       status={status}
-      desc={`A read-only dashboard of ${what} for anyone with the link: visitors, sources, pages, countries and devices, plus revenue if you allow it. It never shows visitor profiles, journeys, names, emails or settings.`}
+      desc={`A read-only dashboard of ${what} for anyone with the link. It shows visitors, sources, pages, countries and devices, plus revenue if you allow it, and never visitor profiles, journeys, names, emails or settings.`}
     >
       <div className="space-y-3">
         {!tokens && !error && <SkeletonRows rows={2} />}
         {error && <InlineError message={error} onRetry={() => setN((x) => x + 1)} />}
         {tokens && !links.length && (
-          <EmptyState compact icon={EmptyIcons.chart} title="No share links yet">
-            Make one for an investor update, a launch post or a public stats page. Revoke it when you're done.
-          </EmptyState>
+          <SetupRow icon={EmptyIcons.chart} title="No share links yet">
+            Make one for an investor update or a public stats page.
+          </SetupRow>
         )}
         {links.map((t) => {
           const expired = !!t.expires_at && t.expires_at < Date.now();
           const badge = `/api/share/${t.token}/badge.svg${t.show_revenue ? '?metric=revenue' : ''}`;
           return (
-            <div key={t.token} className="space-y-3 rounded-xl border border-stone-200/80 p-4">
+            <div key={t.token} className="card-inset space-y-3 p-4">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
                 <span className="font-medium text-ink">{t.label || 'Share link'}</span>
                 {expired ? <StatusChip tone="error">Expired</StatusChip> : <StatusChip tone="ok">Open</StatusChip>}
@@ -170,29 +170,27 @@ export function ShareSection({ site }: { site: Site }) {
                   {t.expires_at && !expired ? ` · expires ${fmtDateTime(t.expires_at, site.timezone)}` : ''}
                 </span>
                 <span className="ml-auto flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-[13px] text-stone-600">
-                    <input type="checkbox" checked={t.show_revenue} onChange={(e) => update(t, { show_revenue: e.target.checked })} /> Show revenue
+                  <label className="flex items-center gap-2 text-[13px] text-stone-600">
+                    <Switch checked={t.show_revenue} label="Show revenue" onChange={(v) => update(t, { show_revenue: v })} /> Show revenue
                   </label>
                   <a className="btn h-8" href={`/share/${t.token}`} target="_blank" rel="noreferrer">
                     Open
                   </a>
-                  <button className="btn h-8 text-red-600" onClick={() => revoke(t)}>
+                  <button className="btn-ghost h-8 hover:text-red-600" onClick={() => revoke(t)}>
                     Revoke
                   </button>
                 </span>
               </div>
               <CopyField value={`${origin}/share/${t.token}`} />
-              <details className="text-sm">
-                <summary className="cursor-pointer text-[13px] font-medium text-stone-500 hover:text-ink">Badge for a README or website</summary>
-                <div className="mt-2 space-y-2">
+              <Disclosure summary="Badge for a README or website">
+                <div className="space-y-2">
                   <img src={badge} alt="" height={20} />
                   <CopyField value={`<a href="${origin}/share/${t.token}"><img src="${origin}${badge}" alt="${what} stats"></a>`} />
                   <p className="text-xs text-stone-500">
-                    Add <code>?metric=revenue</code> or <code>?metric=visitors</code>, and <code>&amp;period=</code> 7d, 30d, 90d, 12m or all. The badge updates every 5
-                    minutes.
+                    Add <code>?metric=revenue</code> or <code>?metric=visitors</code>, and <code>&amp;period=</code> 7d, 30d, 90d, 12m or all. Updates every 5 minutes.
                   </p>
                 </div>
-              </details>
+              </Disclosure>
             </div>
           );
         })}

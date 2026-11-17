@@ -225,13 +225,17 @@ function SettingsBody({ site, setSite, save, origin }: { site: Site; setSite: (s
                   key={g.id}
                   href={`#${g.id}`}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex h-9 items-center gap-2.5 rounded-[10px] px-3 text-[13px] font-medium transition-[background-color,color] duration-fast ${
+                  className={`flex h-9 items-center gap-2.5 rounded-[10px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-fast ${
                     active ? 'bg-white text-ink shadow-card ring-1 ring-inset ring-stone-200/70' : 'text-stone-500 hover:bg-stone-100 hover:text-ink'
                   } ${g.id === 'danger' ? 'mt-3' : ''}`}
                 >
-                  <span className={active ? 'text-ink' : 'text-stone-400'}>{SetupIcons[g.icon]}</span>
-                  <span className="flex-1">{g.label}</span>
-                  {f && <span className={`h-1.5 w-1.5 rounded-full ${f === 'error' ? 'bg-red-500' : 'bg-amber-500'}`} title={f === 'error' ? 'Something here is broken' : 'Something here needs setup'} />}
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${active ? 'text-ink' : 'text-stone-400'}`}>{SetupIcons[g.icon]}</span>
+                  <span className="min-w-0 flex-1 truncate">{g.label}</span>
+                  {f && (
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${f === 'error' ? 'bg-red-500' : 'bg-amber-500'}`} title={f === 'error' ? 'Something here is broken' : 'Something here needs setup'}>
+                      <span className="sr-only">{f === 'error' ? 'Needs a fix' : 'Needs setup'}</span>
+                    </span>
+                  )}
                 </a>
               );
             })}
@@ -259,11 +263,11 @@ function SettingsBody({ site, setSite, save, origin }: { site: Site; setSite: (s
             </div>
           </div>
 
-          <div className="mb-5 mt-6 lg:mt-1">
+          <div className="mb-4 mt-6 lg:mt-1">
             <h2 ref={heading} tabIndex={-1} id={`group-${group.id}`} className="text-[22px] font-semibold leading-7 tracking-tight text-ink outline-none">
               {group.label}
             </h2>
-            <p className="mt-1 max-w-2xl text-sm text-stone-500">{group.desc}</p>
+            <p className="mt-1 text-[13px] text-stone-500">{group.desc}</p>
           </div>
 
           <div key={group.id} className="space-y-4 animate-fade">
@@ -374,7 +378,7 @@ function NotForApps({ what }: { what: string }) {
           </a>
         }
       >
-        This is an iOS app without a domain. Add the app's website under Site, General, and this section opens.
+        This is an iOS app without a domain. Add its website under Site, General.
       </EmptyState>
     </div>
   );

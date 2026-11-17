@@ -13,6 +13,7 @@ import { BrowserIcon, ChannelIcon, DeviceIcon, Favicon, Flag, Glyph, OSIcon, Pla
 import { AsaName } from './AsaNameSlot';
 import { ExportButton } from './ExportButton';
 import { Modal } from './Modal';
+import { Num, Row, Table } from './site/primitives';
 import { EmptyIcons, EmptyState } from './ui/EmptyState';
 import { SkeletonRows } from './ui/Skeleton';
 import { TabRow } from './ui/Tabs';
@@ -160,7 +161,7 @@ function revenueHint(dim: string): string {
 const perVisitor = (r: BreakdownRow) => (r.visitors ? r.revenue / r.visitors : 0);
 
 /** Column headers on the right of the panel: Visitors, Revenue and, for entry pages, revenue per visitor. Click to sort. */
-function Columns({ cols, sort, onSort, dim }: { cols: Sort[]; sort: Sort; onSort?: (s: Sort) => void; dim: string }) {
+function Columns({ cols, sort, onSort, dim, earns }: { cols: Sort[]; sort: Sort; onSort?: (s: Sort) => void; dim: string; earns: boolean }) {
   // The swatches look like the marks in the rows: a soft blue block for visitors, a thin coral line for revenue.
   const meta: Record<Sort, { label: string; swatch?: string; title: string }> = {
     visitors: { label: 'Visitors', swatch: 'h-2 w-2 rounded-[3px] bg-visitors', title: 'Unique visitors. The blue bar behind each row is its visitors against the top row.' },
@@ -168,13 +169,15 @@ function Columns({ cols, sort, onSort, dim }: { cols: Sort[]; sort: Sort; onSort
     perVisitor: { label: 'Per visitor', title: 'Revenue divided by visitors. The page that brings the most money per visit.' },
   };
   return (
-    <div className="flex shrink-0 items-center self-end pr-2.5 text-xs font-medium text-stone-400 sm:self-auto">
+    <div className="flex shrink-0 items-center self-end pr-2.5 text-xs font-medium text-stone-400 sm:self-auto lg:self-end xl:self-auto">
       {cols.map((c) => {
         const m = meta[c];
+        // Nothing earned in this view: the money columns dim, and keep their sort button.
+        const quiet = !earns && c !== 'visitors';
         const body = (
           <>
-            {m.swatch && <span className={`shrink-0 ${m.swatch}`} aria-hidden="true" />}
-            <span className={sort === c ? 'text-ink' : ''}>{m.label}</span>
+            {m.swatch && <span className={`shrink-0 ${m.swatch} ${quiet ? 'opacity-40' : ''}`} aria-hidden="true" />}
+            <span className={sort === c ? 'text-ink' : quiet ? 'text-stone-300' : ''}>{m.label}</span>
             {onSort && sort === c && <span className="text-ink" aria-hidden="true">↓</span>}
           </>
         );
@@ -192,7 +195,7 @@ function Columns({ cols, sort, onSort, dim }: { cols: Sort[]; sort: Sort; onSort
   );
 }
 
-function Bars({ rows, dim, tab, sort, cols, limit, onPick }: { rows: BreakdownRow[]; dim: string; tab: TabDef; sort: Sort; cols: Sort[]; limit?: number; onPick?: (r: BreakdownRow) => void }) {
+function Bars({ rows, dim, tab, sort, cols, limit, onPick, earns }: { rows: BreakdownRow[]; dim: string; tab: TabDef; sort: Sort; cols: Sort[]; limit?: number; onPick?: (r: BreakdownRow) => void; earns: boolean }) {
   const { money, site } = useDash();
   // The row whose menu is open: its hover card stays hidden so the two never overlap.
   const [menuFor, setMenuFor] = useState<number | null>(null);
@@ -203,7 +206,7 @@ function Bars({ rows, dim, tab, sort, cols, limit, onPick }: { rows: BreakdownRo
   const shown = limit ? sorted.slice(0, limit) : sorted;
   const maxV = Math.max(1, ...rows.map((r) => r.visitors));
   const maxR = Math.max(1, ...rows.map((r) => r.revenue));
-  const hasRevenue = !noPay && rows.some((r) => r.revenue > 0);
+  const hasRevenue = earns;
   const dash = <span className="text-stone-300">–</span>;
   // Bars grow from the left on first paint, then glide to new widths. They move by transform only: each bar is as wide
   // as its row and slides in from the left edge, so its rounded end keeps its shape at every width.
@@ -263,13 +266,15 @@ function Bars({ rows, dim, tab, sort, cols, limit, onPick }: { rows: BreakdownRo
                     ? special
                       ? dash
                       : fmtNumber(r.visitors)
-                    : c === 'revenue'
-                      ? r.revenue
-                        ? money(r.revenue, true)
-                        : dash
-                      : r.visitors && r.revenue
-                        ? money(perVisitor(r))
-                        : dash}
+                    : !earns
+                      ? null
+                      : c === 'revenue'
+                        ? r.revenue
+                          ? money(r.revenue, true)
+                          : dash
+                        : r.visitors && r.revenue
+                          ? money(perVisitor(r))
+                          : dash}
                 </span>
               ))}
             </div>
@@ -413,12 +418,14 @@ export function Panel({ tabs }: { tabs: TabDef[] }) {
     addFilter(filterKey, r.label ?? '');
   };
 
+  // A view where no row earned anything shows no column of dashes.
+  const earns = !noPay && (data ?? []).some((r) => r.revenue > 0);
   const filtered = (data ?? []).filter((r) => !search || `${r.label ?? ''} ${r.name ?? ''}`.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="card flex min-h-[220px] min-w-0 flex-col p-3">
       {/* Narrow screens: the column headers on a line of their own under the tabs. */}
-      <div className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-stretch xl:flex-row xl:items-center">
         <TabRow className="min-w-0 overflow-x-auto [scrollbar-width:none]" activeKey={tab.dim} label="Breakdown">
           {tabs.map((t) => (
             <button key={t.dim} role="tab" aria-selected={t.dim === tab.dim} className={`tab whitespace-nowrap ${t.dim === tab.dim ? 'tab-active' : ''}`} onClick={() => setActive(t.dim)}>
@@ -426,75 +433,50 @@ export function Panel({ tabs }: { tabs: TabDef[] }) {
             </button>
           ))}
         </TabRow>
-        <Columns cols={cols} sort={sort} onSort={noPay ? undefined : setSort} dim={tab.dim} />
+        <Columns cols={cols} sort={sort} onSort={noPay ? undefined : setSort} dim={tab.dim} earns={earns || !data} />
       </div>
       <div className={`flex-1 transition-opacity duration-base ${loading && data ? 'opacity-60' : ''}`}>
         {error && <p className="p-3 text-sm text-red-600">{error}</p>}
         {!data && !error && <SkeletonRows rows={6} />}
         {data && data.length === 0 && <EmptyState compact icon={EmptyIcons.chart} title="No visits in this period" />}
-        {data && <Bars key={`${tab.dim}-${model}`} rows={data} dim={tab.dim} tab={filters ? tab : { ...tab, filter: undefined }} sort={sort} cols={cols} limit={10} onPick={pick} />}
+        {data && <Bars key={`${tab.dim}-${model}`} rows={data} dim={tab.dim} tab={filters ? tab : { ...tab, filter: undefined }} sort={sort} cols={cols} limit={10} onPick={pick} earns={earns} />}
       </div>
-      {hasModel && (data?.length ?? 0) > 0 && (
-        <div className="flex justify-center pt-2">
-          <ModelToggle model={model} onChange={setModel} />
-        </div>
-      )}
       {data && data.length > 0 && (
-        <div className="mt-auto flex items-center justify-center gap-4 pt-2">
-          {data.length > 10 && (
-            <button className="rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink" onClick={() => setDetails(true)}>
-              Show all {fmtNumber(data.length)}
-            </button>
-          )}
-          <ExportButton url={`/api/sites/${site.id}/breakdown?${qs(q, { ...params, format: 'csv' })}`} />
+        // One footer row in every card: the credit model on the left, the list actions on the right.
+        <div className="mt-auto flex min-h-8 items-center justify-between gap-3 pt-2">
+          {hasModel ? <ModelToggle model={model} onChange={setModel} /> : <span />}
+          <div className="flex items-center gap-1">
+            {data.length > 10 && (
+              <button className="rounded-md px-2 py-1 text-xs font-medium text-stone-400 transition-colors duration-fast hover:bg-stone-100 hover:text-ink" onClick={() => setDetails(true)}>
+                Show all {fmtNumber(data.length)}
+              </button>
+            )}
+            <ExportButton url={`/api/sites/${site.id}/breakdown?${qs(q, { ...params, format: 'csv' })}`} />
+          </div>
         </div>
       )}
       <Modal open={details} onClose={() => setDetails(false)} title={tab.label} width="max-w-3xl">
         <input className="input mb-4" placeholder="Search" aria-label={`Search ${tab.label.toLowerCase()}`} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-stone-500">
-                <th className="pb-2 font-medium">{tab.label}</th>
-                <th className="pb-2 text-right font-medium">Visitors</th>
-                {!noPay && (
-                  <>
-                    <th className="pb-2 text-right font-medium">Revenue</th>
-                    <th className="pb-2 text-right font-medium">Conv.</th>
-                    <th className="pb-2 text-right font-medium">Rev/visitor</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, i) => (
-                <tr key={i} className={`group border-t border-stone-200/60 tabular-nums transition-colors duration-fast ${filters ? 'cursor-pointer hover:bg-stone-50' : ''}`} onClick={() => pick(r)}
-                  // A row that filters is a control: reachable by keyboard, Enter or Space applies it.
-                  tabIndex={filters ? 0 : undefined}
-                  onKeyDown={filters ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pick(r)) : undefined}>
-                  <td className="max-w-[320px] py-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      {renderLabel(tab.dim, r)}
-                      {!r.appStore && !r.noVisit && (
-                        <span className="ml-auto">
-                          <RowMenu label={r.name ?? r.label ?? ''} actions={rowActions(site, tab.dim, r, window.location.search)} onFilter={filters ? () => pick(r) : undefined} />
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2 text-right">{fmtNumber(r.visitors)}</td>
-                  {!noPay && (
-                    <>
-                      <td className="py-2 text-right">{money(r.revenue)}</td>
-                      <td className="py-2 text-right">{r.visitors ? fmtPct(r.customers / r.visitors, 1) : '–'}</td>
-                      <td className="py-2 text-right">{r.visitors ? money(r.revenue / r.visitors) : '–'}</td>
-                    </>
+        <Table head={[tab.label, 'Visitors', ...(noPay ? [] : ['Revenue', 'Conv.', 'Rev/visitor'])]}>
+          {filtered.map((r, i) => (
+            <Row
+              key={i}
+              onClick={filters && !r.appStore && !r.noVisit ? () => pick(r) : undefined}
+              cells={[
+                <div className="flex min-w-0 items-center gap-2">
+                  {renderLabel(tab.dim, r)}
+                  {!r.appStore && !r.noVisit && (
+                    <span className="ml-auto">
+                      <RowMenu label={r.name ?? r.label ?? ''} actions={rowActions(site, tab.dim, r, window.location.search)} onFilter={filters ? () => pick(r) : undefined} />
+                    </span>
                   )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </div>,
+                <Num value={r.visitors} />,
+                ...(noPay ? [] : [<Num value={r.revenue} format={(n) => money(n)} />, r.visitors ? fmtPct(r.customers / r.visitors, 1) : null, r.visitors ? <Num value={r.revenue / r.visitors} format={(n) => money(n)} /> : null]),
+              ]}
+            />
+          ))}
+        </Table>
       </Modal>
     </div>
   );

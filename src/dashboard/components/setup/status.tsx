@@ -22,17 +22,17 @@ const inEdition = (x: Edition) => (isPro ? !x.core : !x.pro);
 
 const ALL_GROUPS: (Edition & { id: GroupId; label: string; icon: SetupIconName; desc: string })[] = [
   { id: 'overview', label: 'Overview', icon: 'overview', desc: 'What is connected, what is not, and the next step.' },
-  { id: 'install', label: 'Install', icon: 'install', desc: 'The tracker or SDK, and the prompt that lets a coding agent add it for you.' },
+  { id: 'install', label: 'Install', icon: 'install', desc: 'The tracker or SDK, and a prompt for your coding agent.' },
   { id: 'site', label: 'Site', icon: 'site', desc: 'Name, domain, timezone, currency and what the site counts as its goal.' },
-  { id: 'payments', label: 'Payments', icon: 'payments', desc: 'Connect the provider that takes the money. Each payment is linked to the visitor who paid and credited to the source that brought them.' },
-  { id: 'appstore', label: 'App Store', icon: 'appstore', desc: isPro ? 'Purchases from Apple, the commission, sandbox purchases and Apple Search Ads.' : 'Purchases from Apple, the commission and sandbox purchases.' },
-  { id: 'seo', label: 'Search and SEO', icon: 'seo', pro: true, desc: 'Google Search Console queries, clicks and positions, pulled by the server every day.' },
-  { id: 'ads', label: 'Ads and social', icon: 'ads', pro: true, desc: 'Meta ads spend next to the customers they brought, spend from your other ad channels, and visits from your X posts.' },
-  { id: 'agents-api', label: 'Agents and API', icon: 'agents', desc: isPro ? 'Keys for your agents and scripts, the MCP server, and the iPhone app.' : 'Keys for your agents and scripts.' },
+  { id: 'payments', label: 'Payments', icon: 'payments', desc: 'Connect a provider so each sale is credited to the source that brought it.' },
+  { id: 'appstore', label: 'App Store', icon: 'appstore', desc: isPro ? 'Purchases, commission, sandbox purchases and Apple Search Ads.' : 'Purchases, commission and sandbox purchases.' },
+  { id: 'seo', label: 'Search and SEO', icon: 'seo', pro: true, desc: 'Search Console queries, clicks and positions, pulled every day.' },
+  { id: 'ads', label: 'Ads and social', icon: 'ads', pro: true, desc: 'Ad spend next to the customers it brought, and visits from X posts.' },
+  { id: 'agents-api', label: 'Agents and API', icon: 'agents', desc: isPro ? 'Keys for your agents and scripts, the MCP server and the iPhone app.' : 'Keys for your agents and scripts.' },
   { id: 'alerts', label: 'Alerts', icon: 'alerts', pro: true, desc: 'Rules that post to a webhook or your phone when a number crosses a line.' },
   { id: 'imports', label: 'Imports', icon: 'imports', desc: 'Bring in history from before this site used FounderData.' },
   { id: 'sharing', label: 'Sharing and team', icon: 'sharing', desc: 'Read-only links for other people, and logins for your teammates.' },
-  { id: 'privacy', label: 'Data and privacy', icon: 'privacy', desc: 'Where the data lives, how much a day the site may write, and every erase request.' },
+  { id: 'privacy', label: 'Data and privacy', icon: 'privacy', desc: 'Where the data lives, the daily write cap and the erase log.' },
   { id: 'product', label: isPro ? 'Updates' : 'Updates and Pro', icon: 'sparkle', desc: isPro ? 'The version you run and the latest release.' : 'The version you run, the latest release and what FounderData Pro adds.' },
   { id: 'danger', label: 'Danger zone', icon: 'danger', desc: 'Delete the site and everything it recorded.' },
 ];
@@ -156,7 +156,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString
 /** A payment provider's state from its secret, its last payment and refused deliveries. */
 function providerStatus(site: Site, key: string, configured: boolean): CardStatus {
   const refused = site.refused_webhooks?.[key];
-  if (refused) return { tone: 'error', label: 'Refused', detail: `${plural(refused.count, 'delivery', 'deliveries')} refused for a bad signature` };
+  if (refused) return { tone: 'error', label: 'Refused', detail: `${plural(refused.count, 'delivery', 'deliveries')} refused, bad signature` };
   if (!configured) return { tone: 'neutral', label: 'Not connected' };
   const last = site.last_payments?.[key];
   return { tone: 'ok', label: 'Connected', detail: last ? `Last payment ${agoMs(last)}` : 'Connected, no payment yet' };
@@ -168,11 +168,11 @@ export function statusFor(id: string, site: Site, d: SetupData): CardStatus | nu
     case 'tracker':
     case 'ios-sdk': {
       if (!row) return null;
-      if (id === 'ios-sdk' && row.app_rejected_at) return { tone: 'error', label: 'Refused', detail: `App events refused ${agoMs(row.app_rejected_at)}: no bundle id` };
-      if (row.capped_at) return { tone: 'warn', label: 'Capped', detail: `Daily write cap reached ${agoMs(row.capped_at)}` };
+      if (id === 'ios-sdk' && row.app_rejected_at) return { tone: 'error', label: 'Refused', detail: `Events refused ${agoMs(row.app_rejected_at)}` };
+      if (row.capped_at) return { tone: 'warn', label: 'Capped', detail: `Write cap hit ${agoMs(row.capped_at)}` };
       const v = row.visitors24h ?? 0;
-      if (v > 0) return { tone: 'ok', label: 'Receiving data', detail: `${plural(v, 'visitor')} in the last 24 hours${row.online ? `, ${row.online} online now` : ''}` };
-      return { tone: 'warn', label: 'Needs setup', detail: 'No visits in the last 24 hours' };
+      if (v > 0) return { tone: 'ok', label: 'Receiving data', detail: `${plural(v, 'visitor')} in 24 hours${row.online ? `, ${row.online} online` : ''}` };
+      return { tone: 'warn', label: 'Needs setup', detail: 'No visits in 24 hours' };
     }
     case 'stripe':
       return providerStatus(site, 'stripe', !!site.stripe_webhook_secret);
@@ -190,37 +190,37 @@ export function statusFor(id: string, site: Site, d: SetupData): CardStatus | nu
       return providerStatus(site, 'revenuecat', !!site.revenuecat_auth);
     case 'api': {
       const last = site.last_payments?.api;
-      return last ? { tone: 'ok', label: 'In use', detail: `Last payment ${agoMs(last)}` } : { tone: 'neutral', label: 'Not used', detail: 'No payment sent with the API key yet' };
+      return last ? { tone: 'ok', label: 'In use', detail: `Last payment ${agoMs(last)}` } : { tone: 'neutral', label: 'Not used', detail: 'No payment sent yet' };
     }
     case 'app-store': {
-      if (!site.app_bundle_id) return { tone: isAppOnly(site) ? 'warn' : 'neutral', label: isAppOnly(site) ? 'Needs setup' : 'Not connected', detail: 'Add the app\'s bundle id under Site, General' };
+      if (!site.app_bundle_id) return { tone: isAppOnly(site) ? 'warn' : 'neutral', label: isAppOnly(site) ? 'Needs setup' : 'Not connected', detail: 'Needs a bundle id' };
       const refused = site.refused_webhooks?.app_store;
       if (refused) return { tone: 'error', label: 'Refused', detail: `${plural(refused.count, 'notification')} refused` };
       const last = site.last_payments?.app_store;
-      return { tone: 'ok', label: 'Ready', detail: last ? `Last purchase ${agoMs(last)}` : `Bundle id ${site.app_bundle_id}, no purchase yet` };
+      return { tone: 'ok', label: 'Ready', detail: last ? `Last purchase ${agoMs(last)}` : 'No purchase yet' };
     }
     case 'apple-search-ads': {
       const a = d.asa;
       if (!a) return null;
       if (a.error) return { tone: 'error', label: 'Import failed', detail: a.error };
-      if (!a.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs the four ASA_* server secrets' };
+      if (!a.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs ASA_* secrets' };
       return { tone: 'ok', label: 'Connected', detail: a.importedAt ? `Imported ${agoMs(a.importedAt)}` : 'Waiting for the first daily import' };
     }
     case 'google': {
       const g = d.google;
       if (!g) return null;
       const mine = g.sites.find((s) => s.site_id === site.id);
-      if (!g.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs the two GOOGLE_* server secrets' };
+      if (!g.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs GOOGLE_* secrets' };
       if (g.error) return { tone: 'error', label: 'Error', detail: g.error };
-      if (!g.connected) return { tone: 'neutral', label: 'Not connected', detail: 'Sign in with Google once to pull Search Console' };
-      if (!mine) return { tone: 'warn', label: 'Pick a property', detail: 'Google is connected. Pick this site\'s property.' };
+      if (!g.connected) return { tone: 'neutral', label: 'Not connected', detail: 'Sign in with Google' };
+      if (!mine) return { tone: 'warn', label: 'Pick a property', detail: 'Pick this site\'s property' };
       if (mine.error) return { tone: 'error', label: 'Error', detail: mine.error };
       return { tone: 'ok', label: 'Connected', detail: mine.last_run_at ? `${mine.property}, synced ${agoMs(mine.last_run_at)}` : `${mine.property}, first sync pending` };
     }
     case 'meta-ads': {
       const m = d.meta;
       if (!m) return null;
-      if (!m.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs the META_ACCESS_TOKEN server secret' };
+      if (!m.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs META_ACCESS_TOKEN' };
       if (!m.settings.adAccountId) return { tone: 'warn', label: 'Needs setup', detail: 'Pick the ad account' };
       if (m.settings.capiLastError) return { tone: 'warn', label: 'Check', detail: m.settings.capiLastError };
       return { tone: 'ok', label: 'Connected', detail: `Ad account ${m.settings.adAccountId}` };
@@ -228,29 +228,29 @@ export function statusFor(id: string, site: Site, d: SetupData): CardStatus | nu
     case 'x-posts': {
       const x = d.x;
       if (!x) return null;
-      if (!x.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs X credentials on the server' };
-      if (!x.username) return { tone: 'neutral', label: 'Not connected', detail: 'Type your X handle to start' };
+      if (!x.configured) return { tone: 'neutral', label: 'Not connected', detail: 'Needs X credentials' };
+      if (!x.username) return { tone: 'neutral', label: 'Not connected', detail: 'Add your X handle' };
       if (x.last_error) return { tone: 'error', label: 'Error', detail: x.last_error };
       return { tone: 'ok', label: 'Connected', detail: x.last_polled_at ? `@${x.username}, read ${agoMs(Date.parse(x.last_polled_at))}` : `@${x.username}, first read pending` };
     }
     case 'agents': {
       if (!d.keys) return null;
       const mine = d.keys.filter((k) => !k.expired && (!k.sites || k.sites.includes(site.id)));
-      if (!mine.length) return { tone: 'neutral', label: 'No keys', detail: 'Make a key and paste one command into your agent' };
+      if (!mine.length) return { tone: 'neutral', label: 'No keys', detail: 'Make a key for your agent' };
       const used = mine.map((k) => k.last_used_at ?? 0).reduce((a, b) => Math.max(a, b), 0);
       return { tone: 'ok', label: plural(mine.length, 'key'), detail: used ? `Last call ${agoMs(used)}` : 'No calls yet' };
     }
     case 'iphone-app':
     case 'devices': {
       if (!d.devices) return null;
-      if (!d.devices.length) return { tone: 'neutral', label: 'Not connected', detail: 'Scan a code to sign in on your iPhone' };
+      if (!d.devices.length) return { tone: 'neutral', label: 'Not connected', detail: 'Scan a code to sign in' };
       const seen = Math.max(...d.devices.map((x) => x.lastSeenAt));
       return { tone: 'ok', label: plural(d.devices.length, 'phone'), detail: `Last seen ${agoMs(seen)}` };
     }
     case 'alert-rules': {
       if (!d.rules) return null;
       const n = d.rules.filter((r) => r.site_id === site.id || r.site_id === '*').length;
-      return n ? { tone: 'ok', label: plural(n, 'rule'), detail: `${plural(n, 'rule')} watch this site` } : { tone: 'neutral', label: 'No rules', detail: 'No rule watches this site yet' };
+      return n ? { tone: 'ok', label: plural(n, 'rule'), detail: `${plural(n, 'rule')} watch this site` } : { tone: 'neutral', label: 'No rules', detail: 'No rule yet' };
     }
     case 'share': {
       if (!d.shares) return null;
@@ -260,7 +260,7 @@ export function statusFor(id: string, site: Site, d: SetupData): CardStatus | nu
     case 'team': {
       if (!d.team) return null;
       const n = d.team.filter((m) => m.status !== 'expired').length;
-      return n ? { tone: 'ok', label: plural(n, 'person', 'people'), detail: `${plural(n, 'teammate')} besides you` } : { tone: 'neutral', label: 'Just you', detail: 'Invite a teammate with a link' };
+      return n ? { tone: 'ok', label: plural(n, 'person', 'people'), detail: `${plural(n, 'teammate')} besides you` } : { tone: 'neutral', label: 'Just you', detail: 'Invite with a link' };
     }
     case 'write-cap': {
       if (site.write_cap_on === 0) return { tone: 'warn', label: 'Off', detail: 'No daily limit on rows written' };

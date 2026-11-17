@@ -5,7 +5,8 @@ import { isAppOnly } from '../../lib/siteKind';
 import { Code } from '../Code';
 import { COVERAGE_GUIDE, CoverageReasons, coverageStatus } from '../Coverage';
 import { GumroadSetup, LemonSqueezySetup, PaddleSetup, PolarSetup } from '../PaymentProviders';
-import { Callout, CopyButton, Mark, SecretField, Step, Steps } from './kit';
+import { Note } from '../ui';
+import { Callout, CopyButton, Disclosure, Mark, SecretField, SettingRow, Step, Steps, Switch } from './kit';
 import { Integration } from './Integration';
 
 export type Save = (patch: Partial<Site>, msg?: string) => Promise<void>;
@@ -48,7 +49,7 @@ export function PaymentsGroup({ site, origin, save, onKey }: { site: Site; origi
   // For an app without a website, RevenueCat comes first.
   if (isAppOnly(site)) cards.sort((a, b) => Number(a.web) - Number(b.web));
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {cards.map((c) => {
         const refused = refusedLine(c.id, site.refused_webhooks?.[c.id.replace('-', '_')]);
         const cv = covOf(c.id);
@@ -57,10 +58,17 @@ export function PaymentsGroup({ site, origin, save, onKey }: { site: Site; origi
           <Integration key={c.id} id={c.id} site={site} mark={<Mark>{c.mark}</Mark>} title={c.title} desc={c.desc}>
             <div className="space-y-4">
               {refused && (
-                <Callout tone="error">
-                  {refused}. FounderData did not record the payments in them. Check that the secret below matches the one in {c.title}. Most providers retry for a
-                  day or more, so a fixed secret recovers them.
-                </Callout>
+                <Note
+                  tone="error"
+                  more={
+                    <p>
+                      FounderData did not record the payments in them. Check that the secret below matches the one in {c.title}. Most providers retry for a day or more, so a
+                      fixed secret recovers them.
+                    </p>
+                  }
+                >
+                  {refused}.
+                </Note>
               )}
               {cv && cv.linked !== cv.payments && (
                 <Callout tone="warn">
@@ -97,7 +105,7 @@ function DodoSetup({ site, origin, save }: { site: Site; origin: string; save: S
         <SecretField saved={site.dodo_webhook_secret} placeholder="whsec_..." onSave={(v) => save({ dodo_webhook_secret: v }, 'Webhook secret saved')} />
       </Step>
       <Step n={3} title="Send the visitor's ids with each checkout">
-        This makes attribution exact. The script sets no cookies by default, so read the ids in the browser and send them with the checkout request:
+        Read the ids in the browser and send them with the checkout request. This makes attribution exact.
         <div className="mt-2">
           <Code>{`// Browser
 const rt = window.founderdata?.attribution?.() ?? {};
@@ -113,15 +121,24 @@ const session = await dodo.checkoutSessions.create({
   },
 });`}</Code>
         </div>
-        <p className="mt-2 text-stone-500">
-          Using Dodo <b>payment links</b> (checkout.dodopayments.com/buy/...) instead? The script adds the metadata to those links when they are clicked, but it
-          doesn't always reach the payment, so also set the return URL (step 4).
-        </p>
-        <p className="mt-2 text-stone-500">
-          Without metadata, FounderData still links the payment when the buyer lands back on your site, when their email matches a visitor you{' '}
-          <code>identify()</code>, when it renews an earlier payment, or when exactly one visitor clicked a checkout link shortly before paying. The Customers tab
-          shows how each payment was matched.
-        </p>
+        <Note
+          className="mt-3"
+          more={
+            <>
+              <p>
+                Using Dodo <b>payment links</b> (checkout.dodopayments.com/buy/...) instead? The script adds the metadata to those links when they are clicked, but it
+                doesn't always reach the payment, so also set the return URL (step 4).
+              </p>
+              <p>
+                Without metadata, FounderData still links the payment when the buyer lands back on your site, when their email matches a visitor you <code>identify()</code>,
+                when it renews an earlier payment, or when exactly one visitor clicked a checkout link shortly before paying. The Customers tab shows how each payment was
+                matched.
+              </p>
+            </>
+          }
+        >
+          Without metadata, FounderData falls back to other matches.
+        </Note>
       </Step>
       <Step n={4} title="Set the return URL (recommended)">
         In Dodo, set your product's return or redirect URL to a page on your site, such as <code>https://{site.domain}/thanks</code>. Dodo adds{' '}
@@ -135,9 +152,7 @@ function ApiSetup({ site, origin, onKey }: { site: Site; origin: string; onKey: 
   const [busy, setBusy] = useState(false);
   return (
     <div className="space-y-4 text-sm">
-      <p className="text-stone-600">
-        Send payments or goals from your backend with this site's API key. For an agent, make a scoped key under Agents and API instead.
-      </p>
+      <p className="text-[13px] text-stone-500">Send payments or goals from your backend. For an agent, make a scoped key under Agents and API.</p>
       <div>
         <div className="label">Site API key</div>
         <div className="flex gap-2">
@@ -171,10 +186,9 @@ curl -X POST ${origin}/api/v1/goals \\
   -H "Authorization: Bearer ${site.api_key}" \\
   -H "Content-Type: application/json" \\
   -d '{"visitor_id":"<rt_visitor_id from attribution()>","name":"signup"}'`}</Code>
-      <p className="text-stone-500">
-        Ad, affiliate or sponsorship money: send it with <code>"kind":"income"</code>. It adds to revenue under Other revenue, and never counts as a customer or a
-        conversion.
-      </p>
+      <Note>
+        Ad, affiliate or sponsorship money: send it with <code>"kind":"income"</code>. It counts as Other revenue, never as a customer.
+      </Note>
       <Code>{`curl -X POST ${origin}/api/v1/payments \\
   -H "Authorization: Bearer ${site.api_key}" \\
   -H "Content-Type: application/json" \\
@@ -206,27 +220,35 @@ function StripeSetup({ site, origin, save }: { site: Site; origin: string; save:
   return (
     <Steps>
       <Step n={1} title="Add the endpoint in Stripe">
-        Open <b>Developers, Webhooks</b>, add an endpoint with this URL and select the {STRIPE_EVENTS.length} events below.
+        Open <b>Developers, Webhooks</b>, add an endpoint with this URL and select the {STRIPE_EVENTS.length} events.
         <div className="mt-2 space-y-2">
           <Code>{`${origin}/api/webhooks/stripe/${site.id}`}</Code>
-          <Code>{STRIPE_EVENTS.join('\n')}</Code>
+          <Disclosure summary={`The ${STRIPE_EVENTS.length} events`}>
+            <Code>{STRIPE_EVENTS.join('\n')}</Code>
+          </Disclosure>
         </div>
       </Step>
       <Step n={2} title="Paste the signing secret" done={!!site.stripe_webhook_secret}>
         It starts with <code>whsec_</code>.
         <SecretField saved={site.stripe_webhook_secret} placeholder="whsec_..." onSave={(v) => save({ stripe_webhook_secret: v }, 'Stripe secret saved')} />
-        <label className="mt-3 flex items-start gap-2.5">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={site.stripe_unpinned !== 0}
-            onChange={(e) => save({ stripe_unpinned: e.target.checked ? 1 : 0 }, e.target.checked ? 'Untagged Stripe payments go to this site' : 'Untagged Stripe payments skip this site')}
-          />
-          <span>
-            Record payments that nothing ties to a site: no <code>rt_site_id</code> in the metadata, and no visitor, customer or subscription FounderData already
-            knows. If several sites share one Stripe account, leave this on for one of them and off for the others, so each payment lands on one site.
-          </span>
-        </label>
+        <div className="card-inset mt-3 px-4 py-3">
+          <SettingRow
+            title="Record payments with no site tag"
+            help="Payments that nothing ties to a site land here."
+            info={
+              <>
+                No <code>rt_site_id</code> in the metadata, and no visitor, customer or subscription FounderData already knows. If several sites share one Stripe account,
+                leave this on for one of them and off for the others, so each payment lands on one site.
+              </>
+            }
+          >
+            <Switch
+              checked={site.stripe_unpinned !== 0}
+              label="Record payments with no site tag"
+              onChange={(v) => save({ stripe_unpinned: v ? 1 : 0 }, v ? 'Untagged Stripe payments go to this site' : 'Untagged Stripe payments skip this site')}
+            />
+          </SettingRow>
+        </div>
       </Step>
       <Step n={3} title="Put the visitor's ids in the checkout's metadata">
         Read them in the browser and send them with your checkout request:
@@ -244,14 +266,24 @@ const session = await stripe.checkout.sessions.create({
   subscription_data: { metadata: rt }, // renewals keep the link; leave out for one-time payments
 });`}</Code>
         </div>
-        <p className="mt-2 text-stone-500">
-          Without metadata, FounderData tries the customer's earlier payments and the email of a visitor you <code>identify()</code>. Refunds and lost disputes are
-          subtracted from revenue. A failed or canceled refund, or a won dispute, adds the money back.
-        </p>
+        <Note
+          className="mt-3"
+          more={
+            <p>
+              Without metadata, FounderData tries the customer's earlier payments and the email of a visitor you <code>identify()</code>. Refunds and lost disputes are
+              subtracted from revenue. A failed or canceled refund, or a won dispute, adds the money back.
+            </p>
+          }
+        >
+          Without metadata, FounderData falls back to other matches.
+        </Note>
       </Step>
       <Step n={4} title="Import past payments (optional)">
-        The webhook sees payments from today on. Imports, <a className="font-medium text-ink underline underline-offset-2" href="#stripe-import">Import past Stripe payments</a>, reads the months
-        before.
+        The webhook sees payments from today on.{' '}
+        <a className="font-medium text-ink underline underline-offset-2" href="#stripe-import">
+          Import past Stripe payments
+        </a>{' '}
+        reads the months before.
       </Step>
     </Steps>
   );
@@ -267,10 +299,12 @@ const REVENUECAT_EVENTS = [
 function RevenueCatSetup({ site, origin, save }: { site: Site; origin: string; save: Save }) {
   return (
     <>
-      <p className="mb-4 text-sm text-stone-600">
-        For apps that sell through RevenueCat. Each purchase links to the app session it came from. A purchase the app also reports through RevenueCat or App
-        Store notifications is counted once.
-      </p>
+      <Note
+        className="mb-4"
+        more={<p>A purchase the app also reports through RevenueCat or App Store notifications is counted once.</p>}
+      >
+        Each purchase links to the app session it came from.
+      </Note>
       <Steps>
         <Step n={1} title="Add the webhook in RevenueCat">
           Open the project, then <b>Integrations, Webhooks</b>, and add a webhook with this URL:
@@ -289,21 +323,20 @@ function RevenueCatSetup({ site, origin, save }: { site: Site; origin: string; s
   "founderDataVisitorId": FounderData.appAccountToken.uuidString.lowercased()
 ])`}</Code>
           </div>
-          <p className="mt-2 text-stone-500">Without it, FounderData links App Store purchases through the subscription's earlier payments, and renewals through the first payment.</p>
+          <Note className="mt-3">Without it, purchases link through the subscription's earlier payments.</Note>
         </Step>
       </Steps>
-      <details className="mt-4 text-sm text-stone-500">
-        <summary className="cursor-pointer font-medium text-stone-600 hover:text-ink">What FounderData does with each event</summary>
-        <ul className="mt-2 list-disc space-y-1 pl-5">
+      <Disclosure className="mt-4" summary="What FounderData does with each event">
+        <ul className="list-disc space-y-1 pl-5 text-[13px] text-stone-500">
           {REVENUECAT_EVENTS.map((e) => (
             <li key={e}>{e}</li>
           ))}
         </ul>
-        <p className="mt-2">
-          Amounts are the customer price in the purchase currency, before the store's commission, so the dashboard labels them gross. Sandbox events count only
-          when sandbox purchases are on (App Store, App Store purchases), and never as revenue.
+        <p className="mt-2 text-[13px] text-stone-500">
+          Amounts are the customer price in the purchase currency, before the store's commission, so the dashboard labels them gross. Sandbox events count only when
+          sandbox purchases are on (App Store, App Store purchases), and never as revenue.
         </p>
-      </details>
+      </Disclosure>
     </>
   );
 }

@@ -4,6 +4,7 @@ import { TREND_RULES } from '../../../shared/trend-rules';
 import { fmtNumber } from '../../lib/format';
 import { prefetchProps } from '../../lib/prefetch';
 import { headlineOf, METRIC_NOTE, type ProductNumbers } from '../ProductType';
+import { CardHeader } from '../ui';
 import { WeekSpark } from './Spark';
 import {
   Change,
@@ -50,12 +51,12 @@ function biggestDrop(rows: SiteRow[]): Drop | null {
 
 const COLS = 'sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)_76px_minmax(0,1fr)]';
 
-/** One fact in the summary on the right of the title: a muted label over a value. */
-function Fact({ label, children }: { label: string; children: ReactNode }) {
+/** One fact of the highlight group: a muted label over one line of text, a name and its change on a shared baseline. */
+function Fact({ label, children, title }: { label: string; children: ReactNode; title?: string }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 px-4 py-3" title={title}>
       <dt className="text-micro uppercase text-stone-400">{label}</dt>
-      <dd className="mt-0.5 truncate text-[13px] font-medium text-ink">{children}</dd>
+      <dd className="mt-1 flex min-w-0 items-baseline gap-2 text-[13px] font-medium text-ink">{children}</dd>
     </div>
   );
 }
@@ -81,50 +82,54 @@ export const Ranking = memo(function Ranking({ sites, period, minBase, tz }: { s
   const drop = useMemo(() => biggestDrop(rows), [rows]);
   const quiet = rows.filter((r) => r.trend.status === 'quiet');
   const entrance = useEntrance();
+  const showQuiet = quiet.slice(0, 2);
+  const quietTitle = quiet.map((r) => `${r.name}${r.lastSeen !== null ? `, last ${r.kind === 'app' ? 'session' : 'visit'} ${shortDate(r.lastSeen)}` : ''}`).join('\n');
   return (
     <section className="card overflow-hidden" aria-labelledby="ranking-title">
-      <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-4 px-5 pb-4 pt-4">
-        <div>
-          <h2 id="ranking-title" className="text-title">
+      <CardHeader
+        title={
+          <h2 id="ranking-title" className="truncate text-[13px] font-semibold leading-6 text-ink">
             Ranked by revenue change
           </h2>
-          <p className="text-[13px] text-stone-500">
+        }
+        sub={
+          <>
             {PERIOD_PHRASE[period]} against {PREVIOUS[period]}
-          </p>
-        </div>
-        <dl className="flex flex-wrap gap-x-8 gap-y-3">
-          <Fact label="Biggest gain">
-            {gain ? (
-              <>
-                {gain.name} <RevenueChange site={gain} />
-              </>
-            ) : (
-              <span className="font-normal text-stone-500">No gains</span>
-            )}
-          </Fact>
-          <Fact label="Biggest drop">
-            {drop ? (
-              <>
-                {drop.site.name} {drop.what}
-              </>
-            ) : (
-              <span className="text-emerald-700">No drops</span>
-            )}
-          </Fact>
-          {quiet.length > 0 && (
-            <Fact label="Quiet">
-              {quiet.map((r, i) => (
-                <span key={r.id}>
-                  {i > 0 && ', '}
-                  <span className="text-amber-800">{r.name}</span>
-                  {r.lastSeen !== null && <span className="text-xs font-normal text-stone-500"> last {r.kind === 'app' ? 'session' : 'visit'} {shortDate(r.lastSeen)}</span>}
-                </span>
-              ))}
-            </Fact>
+          </>
+        }
+        info={`Each site's revenue change in its own currency. ${STATUS_NOTE}`}
+        infoLabel="How the ranking works"
+      />
+      <dl className={`card-inset mx-5 mb-4 grid divide-y divide-stone-200/60 sm:divide-x sm:divide-y-0 ${quiet.length ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+        <Fact label="Biggest gain">
+          {gain ? (
+            <>
+              <span className="min-w-0 truncate">{gain.name}</span>
+              <RevenueChange site={gain} />
+            </>
+          ) : (
+            <span className="font-normal text-stone-400">No gains</span>
           )}
-        </dl>
-      </div>
-      <div className={`hidden gap-x-6 border-y border-stone-200/60 bg-stone-50/60 px-5 py-2 text-xs font-medium text-stone-500 ${earning.length ? 'sm:grid' : ''} ${COLS}`}>
+        </Fact>
+        <Fact label="Biggest drop">
+          {drop ? (
+            <>
+              <span className="min-w-0 truncate">{drop.site.name}</span>
+              {drop.what}
+            </>
+          ) : (
+            <span className="font-normal text-stone-400">No drops</span>
+          )}
+        </Fact>
+        {quiet.length > 0 && (
+          <Fact label="Quiet" title={quietTitle}>
+            <span className="h-1.5 w-1.5 shrink-0 self-center rounded-full bg-amber-500" aria-hidden="true" />
+            <span className="min-w-0 truncate">{showQuiet.map((r) => r.name).join(', ')}</span>
+            {quiet.length > showQuiet.length && <span className="shrink-0 text-xs font-normal text-stone-400">+{quiet.length - showQuiet.length}</span>}
+          </Fact>
+        )}
+      </dl>
+      <div className={`hidden gap-x-6 border-y border-stone-200/60 px-5 text-xs font-medium text-stone-400 ${earning.length ? 'sm:grid' : ''} ${COLS} h-9 items-center`}>
         <span>Site or app</span>
         <span className="text-right">Revenue</span>
         <span className="text-right" title={MRR_NOTE}>
@@ -135,7 +140,7 @@ export const Ranking = memo(function Ranking({ sites, period, minBase, tz }: { s
         <span title="Weekly revenue, or visitors without revenue, over the last 8 full weeks">8 weeks</span>
         <span title={STATUS_NOTE}>Status</span>
       </div>
-      <ul className={`${entrance} divide-y divide-stone-200/60 border-t border-stone-200/60 sm:border-t-0`}>
+      <ul className={`${entrance} divide-y divide-stone-200/60 sm:border-t-0`}>
         {earning.map((s) => (
           <RankRow key={s.id} site={s} period={period} minBase={minBase} tz={tz} />
         ))}
@@ -147,9 +152,9 @@ export const Ranking = memo(function Ranking({ sites, period, minBase, tz }: { s
 
 function NoRevenue({ sites, period, first }: { sites: SiteRow[]; period: string; first: boolean }) {
   return (
-    <div className={`px-5 pb-4 pt-3 ${first ? '' : 'border-t border-stone-200/60'}`}>
-      <div className="pb-2 text-micro uppercase text-stone-400">No revenue · {sites.length}</div>
-      <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+    <div className={`px-5 pb-5 pt-4 ${first ? '' : 'border-t border-stone-200/60'}`}>
+      <div className="pb-2.5 text-micro uppercase text-stone-400">No revenue · {sites.length}</div>
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
         {sites.map((s) => {
           const h = s.product ? headlineOf(s.product) : null;
           const n = h ? h.value : s.current.visitors;
@@ -161,12 +166,19 @@ function NoRevenue({ sites, period, first }: { sites: SiteRow[]; period: string;
                 {...prefetchProps(`/site/${s.id}?period=${period}`)}
                 onClick={() => navigate(`/site/${s.id}?period=${period}`)}
                 title={`${s.name}: ${fmtNumber(n)} ${what}, ${statusLabel(s.trend.status).toLowerCase()}`}
-                className="flex h-10 w-full items-center gap-2.5 rounded-lg border border-stone-200/60 px-3 text-left text-[13px] transition-colors duration-fast hover:border-stone-300/80 hover:bg-stone-50"
+                className="card-inset flex h-10 w-full items-center gap-2.5 px-3 text-left text-[13px] transition-colors duration-fast hover:border-stone-300/80 hover:bg-stone-100"
               >
                 <SiteIcon site={s} size={16} />
                 <span className={`min-w-0 flex-1 truncate ${quiet ? 'text-stone-500' : 'font-medium text-ink'}`}>{s.name}</span>
-                {quiet && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />}
-                <span className="shrink-0 tabular-nums text-stone-500">{fmtNumber(n)}</span>
+                {quiet && (
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                    title={`Quiet: no visit or app session for ${TREND_RULES.quietHours} hours`}
+                    role="img"
+                    aria-label={`Quiet: no visit or app session for ${TREND_RULES.quietHours} hours`}
+                  />
+                )}
+                <span className={`shrink-0 tabular-nums ${n ? 'text-ink' : 'text-stone-400'}`}>{fmtNumber(n)}</span>
                 <span className="shrink-0 text-[11px] text-stone-400">{what}</span>
               </button>
             </li>
@@ -183,7 +195,11 @@ const RankRow = memo(function RankRow({ site: s, period, minBase, tz }: { site: 
   const paid = s.payments !== false;
   const rev = c.revenue[s.currency] ?? 0;
   const quiet = s.trend.status === 'quiet';
-  const dash = <span className="text-stone-300">–</span>;
+  const dash = (
+    <span className="text-stone-300" title="Not measured here">
+      –
+    </span>
+  );
   const cell = 'hidden items-baseline justify-end gap-2 tabular-nums sm:flex';
   // Home counts days in the viewer's timezone, the site's page in the site's: the totals can differ (HowCounted).
   const otherTz = paid && s.timezone && s.timezone !== tz ? `${s.name}'s own page counts days in ${s.timezone} time and Home in ${tz} time, so its revenue there can differ.` : null;
@@ -193,12 +209,12 @@ const RankRow = memo(function RankRow({ site: s, period, minBase, tz }: { site: 
       <button
         {...prefetchProps(`/site/${s.id}?period=${period}`)}
                 onClick={() => navigate(`/site/${s.id}?period=${period}`)}
-        className={`grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 px-5 py-3 text-left text-sm transition-colors duration-fast hover:bg-stone-50 sm:gap-x-6 ${COLS}`}
+        className={`grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 px-5 py-3 text-left text-[13px] transition-colors duration-fast hover:bg-stone-50 sm:min-h-10 sm:gap-x-6 sm:py-1.5 ${COLS}`}
       >
         <span className="flex min-w-0 items-center gap-3">
           <SiteIcon site={s} size={20} />
           <span className="min-w-0">
-            <span className={`block truncate font-medium ${quiet ? 'text-stone-500' : 'text-ink'}`}>{s.name}</span>
+            <span className={`block truncate text-sm font-medium sm:text-[13px] ${quiet ? 'text-stone-500' : 'text-ink'}`}>{s.name}</span>
             {/* Narrow screens: the revenue and its change, and the MRR change, under the name. */}
             <span className="flex flex-wrap items-baseline gap-x-2 text-[13px] text-stone-500 sm:hidden">
               {paid ? (
@@ -266,7 +282,7 @@ const RankRow = memo(function RankRow({ site: s, period, minBase, tz }: { site: 
         <span className={cell}>
           {paid ? (
             <>
-              <span className="text-ink">{fmtNumber(c.customers)}</span>
+              <span className={c.customers ? 'text-ink' : 'text-stone-400'}>{fmtNumber(c.customers)}</span>
               <Change cur={c.customers} prev={p.customers} minBase={minBase} />
             </>
           ) : (
@@ -274,7 +290,7 @@ const RankRow = memo(function RankRow({ site: s, period, minBase, tz }: { site: 
           )}
         </span>
         <span className={cell}>
-          <span className="text-ink">{fmtNumber(c.visitors)}</span>
+          <span className={c.visitors ? 'text-ink' : 'text-stone-400'}>{fmtNumber(c.visitors)}</span>
           <Change cur={c.visitors} prev={p.visitors} minBase={minBase} noData={p.sessions === 0 && !p.visitors} />
         </span>
         <span className="flex items-center">

@@ -12,7 +12,7 @@ import { LiveDot } from './ui/LiveDot';
 import { SegTrack } from './ui/Segmented';
 import { StickyBar } from './ui/StickyBar';
 import { isPro } from '../lib/pro';
-import { SECTION_GROUPS, SECTION_LABELS, sectionState, sectionUrl, type View } from '../lib/sections';
+import { SECTION_GROUPS, SECTION_LABELS, SECTION_SHORT_LABELS, sectionState, sectionUrl, type View } from '../lib/sections';
 
 export const PERIODS: { value: string; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -332,31 +332,37 @@ export function Toolbar({
 }
 
 /**
- * Every section of the site in one row, grouped as Analytics, Organic, Paid and Revenue, each one click away. A
- * section the site cannot use yet (no app, no website, no Meta account) stays in the row, muted with a hollow dot, and
- * opens its setup step. It scrolls sideways on a phone.
+ * Every section of the site in one row, grouped as Analytics, Organic, Paid and Revenue, each one click away. The
+ * twelve fit on one line from 1280 px up; below that the row scrolls sideways under a fade, with the current section
+ * scrolled into view. A section the site cannot use yet (no app, no website, no Meta account) stays in the row, muted
+ * with a hollow dot, and opens its setup step. In core every section after the Overview is the Pro card: those tabs
+ * carry a small Pro mark and the group labels step aside to keep the row on one line.
  */
 export function SectionNav({ site, view }: { site: Site; view: View }) {
   return (
     <nav aria-label="Sections" className="mt-3 border-b border-stone-200/80 pb-2">
       <ScrollRow active={view}>
-        <div className="flex w-max items-center gap-x-1">
+        <div className="flex w-max items-center">
           {SECTION_GROUPS.map((g, i) => (
-            <div key={g.id} role="group" aria-label={g.label} className={`flex items-center gap-0.5 ${i ? 'ml-1 border-l border-stone-200/80 pl-2' : ''}`}>
-              <span className="hidden px-1.5 text-micro uppercase text-stone-400 lg:inline" aria-hidden="true">
-                {g.label}
-              </span>
+            <div key={g.id} role="group" aria-label={g.label} className={`flex items-center gap-px ${i ? 'ml-1.5 border-l border-stone-200/80 pl-1.5' : ''}`}>
+              {isPro && (
+                <span className="hidden px-1.5 text-[10px] font-medium uppercase tracking-[0.06em] text-stone-400 lg:inline" aria-hidden="true">
+                  {g.label}
+                </span>
+              )}
               {g.views.map((v) => {
                 const on = v === view;
                 const muted = sectionState(site, v).muted;
                 const href = sectionUrl(site.id, v);
+                const full = SECTION_LABELS[v];
+                const short = SECTION_SHORT_LABELS[v];
                 return (
                   <a
                     key={v}
                     href={href}
                     aria-current={on ? 'page' : undefined}
-                    title={muted ? `${SECTION_LABELS[v]} is not set up yet. Click for the setup step.` : undefined}
-                    className={`tab flex items-center gap-1.5 whitespace-nowrap ${on ? 'tab-active' : muted ? 'text-stone-400' : 'text-stone-500'}`}
+                    title={muted ? `${full} is not set up yet. Click for the setup step.` : short !== full ? full : undefined}
+                    className={`tab flex items-center gap-1.5 whitespace-nowrap px-2 ${on ? 'tab-active' : muted ? 'text-stone-400' : 'text-stone-500'}`}
                     onClick={(e) => {
                       // A new tab or window keeps the browser's own behavior.
                       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -365,8 +371,15 @@ export function SectionNav({ site, view }: { site: Site; view: View }) {
                     }}
                   >
                     {muted && <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-stone-400" aria-hidden="true" />}
-                    {SECTION_LABELS[v]}
-                    {!isPro && v !== 'overview' && <span className="rounded border border-stone-200 px-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-stone-400">Pro</span>}
+                    {short === full ? (
+                      full
+                    ) : (
+                      <>
+                        <span aria-hidden="true">{short}</span>
+                        <span className="sr-only">{full}</span>
+                      </>
+                    )}
+                    {!isPro && v !== 'overview' && <span className="rounded border border-stone-200 px-[3px] text-[9px] font-medium uppercase leading-[14px] tracking-wide text-stone-400">Pro</span>}
                     {muted && <span className="sr-only"> (not set up)</span>}
                   </a>
                 );
@@ -380,10 +393,10 @@ export function SectionNav({ site, view }: { site: Site; view: View }) {
 }
 
 /**
- * A row of tabs that scrolls sideways when it does not fit (a phone), bleeding into the page's px-3 gutter, and keeps
- * the active tab (`.tab-active`) in view whenever `active` changes. Each edge with more tabs behind it fades out over
- * 40 px and gets a chevron button that scrolls one view further, so a cut label always reads as "more this way". From
- * sm up it is a plain row.
+ * A row of tabs that scrolls sideways when it does not fit (a phone, a narrow window), bleeding into the page's px-3
+ * gutter on phones, and keeps the active tab (`.tab-active`) in view, centered, whenever `active` changes. Each edge
+ * with more tabs behind it fades out over 40 px, so a cut label always reads as "more this way"; on phones that edge
+ * also gets a chevron button that scrolls one view further. When the row fits it is a plain row with no mask.
  */
 export function ScrollRow({ active, children }: { active: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -395,14 +408,17 @@ export function ScrollRow({ active, children }: { active: string; children: Reac
     const right = row.scrollLeft + row.clientWidth < row.scrollWidth - 8;
     setMore((m) => (m.left === left && m.right === right ? m : { left, right }));
   };
-  useEffect(() => {
+  const reveal = () => {
     const row = ref.current;
     const tab = row?.querySelector<HTMLElement>('.tab-active');
-    if (row && tab) {
-      const r = row.getBoundingClientRect();
-      const t = tab.getBoundingClientRect();
-      if (t.left < r.left || t.right > r.right) row.scrollLeft += t.left - r.left - 24;
-    }
+    if (!row || !tab || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect();
+    const t = tab.getBoundingClientRect();
+    // Only when the tab is cut or touches a fade, then centered.
+    if (t.left < r.left + 48 || t.right > r.right - 56) row.scrollLeft += (t.left + t.right) / 2 - (r.left + r.right) / 2;
+  };
+  useEffect(() => {
+    reveal();
     measure();
   }, [active]);
   useEffect(() => {
@@ -411,6 +427,11 @@ export function ScrollRow({ active, children }: { active: string; children: Reac
     const ro = new ResizeObserver(measure);
     ro.observe(row);
     if (row.firstElementChild) ro.observe(row.firstElementChild);
+    // Labels change width when the web font arrives: place the active tab again once it has.
+    document.fonts?.ready.then(() => {
+      reveal();
+      measure();
+    });
     return () => ro.disconnect();
   }, []);
   const mask = `linear-gradient(to right, transparent, #000 ${more.left ? 40 : 0}px, #000 calc(100% - ${more.right ? 48 : 0}px), transparent)`;
@@ -432,7 +453,7 @@ export function ScrollRow({ active, children }: { active: string; children: Reac
       <div
         ref={ref}
         onScroll={measure}
-        className="snap-x snap-mandatory scroll-px-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_.tab]:snap-start sm:snap-none sm:px-0 sm:![mask-image:none]"
+        className="snap-x snap-mandatory scroll-px-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_.tab]:snap-start sm:snap-none sm:px-0"
         style={more.left || more.right ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
       >
         {children}

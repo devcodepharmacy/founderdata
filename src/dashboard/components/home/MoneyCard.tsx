@@ -3,7 +3,8 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { bucketLabel, fmtDuration, fmtNumber, fmtPct } from '../../lib/format';
 import { BasisChip } from '../BasisChip';
 import { APP_VISITORS_NOTE, NEW_INSTALLS_NOTE } from '../OverviewCard';
-import { chartAnim, chartDefs, chartGrid, chartTooltip, chartXAxis, chartYAxis, ChartTooltip, NumberTicker, Segmented, SERIES } from '../ui';
+import { InfoTip } from '../InfoTip';
+import { chartAnim, chartDefs, chartGrid, chartTooltip, chartXAxis, chartYAxis, ChartTooltip, NumberTicker, Segmented, SERIES, StatStrip, StatTile } from '../ui';
 import { AreaSpark } from './Spark';
 import {
   currenciesOf,
@@ -42,7 +43,7 @@ function Tip({ detail, pos = 'left-0', className = '', children }: { detail?: Re
 
 function Label({ children, info, swatch }: { children: ReactNode; info?: boolean; swatch?: string }) {
   return (
-    <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-stone-500">
+    <div className="flex h-5 items-center gap-1.5 whitespace-nowrap text-[13px] font-medium leading-5 text-stone-500">
       {swatch && <span className={`h-2 w-2 shrink-0 rounded-[3px] ${swatch}`} aria-hidden="true" />}
       {children}
       {info && <InfoIcon />}
@@ -125,8 +126,6 @@ const RevenueChart = memo(function RevenueChart({ series, granularity, currency 
   );
 });
 
-type Tile = { key: string; label: ReactNode; swatch?: string; value: number; format: (n: number) => string; delta: ReactNode; detail?: ReactNode; spark?: number[] };
-
 const fmtCount = (n: number) => fmtNumber(Math.round(n));
 
 /**
@@ -159,7 +158,7 @@ export function MoneyCard({ data }: { data: HomeData }) {
 
   return (
     <section className="card flex h-full flex-col overflow-hidden lg:h-[360px]" aria-label="Revenue and MRR">
-      <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+      <div className="flex min-h-0 flex-1 flex-col p-5">
         <div className={`grid gap-x-8 gap-y-5 ${mrrList ? 'grid-cols-1 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]' : ''}`}>
           <Tip
             pos="left-0"
@@ -179,13 +178,13 @@ export function MoneyCard({ data }: { data: HomeData }) {
               <NumberTicker value={revenue[0]?.[1] ?? 0} format={fmtMain} />
             </div>
             <OtherCurrencies list={revenue} />
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
               {revenue.length || Object.keys(p.revenue).length ? (
                 <Delta cur={c.revenue[main] ?? 0} prev={p.revenue[main] ?? 0} minBase={0} fmt={(v) => money(v, main, true)} />
               ) : (
-                <span className="text-xs text-stone-400">no payments yet</span>
+                <span className="text-xs text-stone-400">No payments yet</span>
               )}
-              {p.revenue[main] ? <span className="whitespace-nowrap text-[13px] text-stone-500">{money(p.revenue[main], main, true)} before</span> : null}
+              {p.revenue[main] ? <span className="whitespace-nowrap text-xs text-stone-400">{money(p.revenue[main], main, true)} before</span> : null}
             </div>
           </Tip>
           {mrrList && (
@@ -215,9 +214,9 @@ export function MoneyCard({ data }: { data: HomeData }) {
                 )}
               </div>
               <OtherCurrencies list={mrrList} />
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <Delta cur={data.totals.mrr![mrrMain] ?? 0} prev={data.totals.mrrStart?.[mrrMain] ?? 0} minBase={0} fmt={(v) => money(v, mrrMain, true)} />
-                {data.totals.mrrStart?.[mrrMain] ? <span className="whitespace-nowrap text-[13px] text-stone-500">{money(data.totals.mrrStart[mrrMain], mrrMain, true)} at the start</span> : null}
+                {data.totals.mrrStart?.[mrrMain] ? <span className="whitespace-nowrap text-xs text-stone-400">{money(data.totals.mrrStart[mrrMain], mrrMain, true)} at the start</span> : null}
               </div>
               {data.totals.mrrMovement && <MrrMovementLine m={data.totals.mrrMovement} currency={mrrMain} />}
             </Tip>
@@ -237,7 +236,6 @@ export function MoneyCard({ data }: { data: HomeData }) {
           </div>
         </div>
       </div>
-
     </section>
   );
 }
@@ -260,117 +258,87 @@ export function PulseStrip({ data }: { data: HomeData }) {
   // No web sessions before: rates and times had nothing to measure, so there is nothing to compare.
   const webNoSessions = web.previous.sessions === 0;
   const conversion = hasWeb ? web : app;
-  const visitorSpark = useMemo(() => data.series.map((b) => b.visitors), [data.series]);
-  const tiles: Tile[] = [
-    ...(hasWeb
-      ? [
-          {
-            key: 'web',
-            label: 'Web visitors',
-            swatch: 'bg-visitors',
-            value: web.current.visitors,
-            format: fmtCount,
-            spark: visitorSpark,
-            delta: <Delta cur={web.current.visitors} prev={web.previous.visitors} minBase={min} noData={webNoSessions && !web.previous.visitors} />,
-            detail: (
-              <>
-                <p>{VISITOR_SUM_NOTE}</p>
-                <p>
-                  Bounce rate {fmtPct(web.current.bounceRate)}
-                  {webNoSessions ? '' : `, ${fmtPct(web.previous.bounceRate)} before`}. Session time {fmtDuration(web.current.avgDuration)}
-                  {webNoSessions ? '' : `, ${fmtDuration(web.previous.avgDuration)} before`}.
-                </p>
-              </>
-            ),
-          },
-        ]
-      : []),
-    ...(hasApps
-      ? [
-          {
-            key: 'app',
-            label: 'App visitors',
-            value: app.current.visitors,
-            format: fmtCount,
-            delta: <Delta cur={app.current.visitors} prev={app.previous.visitors} minBase={min} noData={app.previous.sessions === 0 && !app.previous.visitors} />,
-            detail: (
-              <>
-                {app.current.newInstalls > 0 && (
-                  <p className="font-medium text-ink">
-                    {fmtNumber(app.current.newInstalls)} new {app.current.newInstalls === 1 ? 'install' : 'installs'} with consent.
-                  </p>
-                )}
-                <p>Each app's visitors, added up. {APP_VISITORS_NOTE}</p>
-                <p>{NEW_INSTALLS_NOTE}</p>
-              </>
-            ),
-          },
-        ]
-      : []),
-    {
-      key: 'customers',
-      label: 'New customers',
-      value: c.customers,
-      format: fmtCount,
-      delta: <Delta cur={c.customers} prev={p.customers} minBase={min} />,
-      detail: <p>{NEW_CUSTOMERS_NOTE}</p>,
-    },
-    {
-      key: 'conversion',
-      label: hasWeb && hasApps ? 'Web conversion' : 'Conversion',
-      value: conversion.current.conversionRate,
-      format: rate,
-      // Percentage points, never a percent of a percent.
-      delta: (
-        <Delta
-          cur={conversion.current.conversionRate * 100}
-          prev={conversion.previous.conversionRate * 100}
-          minBase={Infinity}
-          fmt={(n) => `${n.toFixed(2)} pts`}
-          noData={!conversion.previous.visitors}
-        />
-      ),
-      detail: (
-        <>
-          {conversion.previous.visitors > 0 && (
-            <p className="font-medium text-ink">
-              {rate(conversion.previous.conversionRate)} before{hasWeb && hasApps ? `. App: ${rate(app.current.conversionRate)} of app visitors` : ''}.
-            </p>
-          )}
-          <p>
-            {hasWeb ? 'New customers whose first payment is linked to a web visit, over web visitors.' : 'New customers whose first payment is linked to an app session, over app visitors.'}{' '}
-            Payments with no linked visit count in neither. {PAYMENTS_ONLY_NOTE}
-          </p>
-        </>
-      ),
-    },
-  ];
-  const cols: Record<number, string> = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4' };
-
+  // No tile has a sparkline: the only series Home has is every visitor on every platform, which the chart below it draws.
   return (
-      <section className={`card grid grid-cols-2 overflow-hidden ${cols[tiles.length] ?? 'lg:grid-cols-4'}`} aria-label="Visitors, customers and conversion">
-      {tiles.map((t, i) => (
-        <Tip
-          key={t.key}
-          detail={t.detail}
-          // Panels open toward the inside of the screen.
-          pos={`${i % 2 ? 'right-0' : 'left-0'} ${i >= tiles.length - 2 ? 'lg:left-auto lg:right-0' : 'lg:left-0 lg:right-auto'}`}
-          className={`rounded-none px-5 py-4 sm:px-6 ${i % 2 ? 'border-l border-stone-200/60' : ''} ${i >= 2 ? 'border-t border-stone-200/60 lg:border-t-0' : ''} ${i > 0 && i % 2 === 0 ? 'lg:border-l' : ''}`}
-        >
-          <Label info={!!t.detail} swatch={t.swatch}>
-            {t.label}
-          </Label>
-          <div className="mt-1.5 flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-ink">
-                <NumberTicker value={t.value} format={t.format} />
-              </div>
-              <div className="mt-1.5 flex h-5 items-center">{t.delta}</div>
-            </div>
-            {t.spark && t.spark.some((v) => v) && <AreaSpark values={t.spark} height={34} className="mb-1 hidden w-24 shrink-0 text-visitors sm:block" />}
-          </div>
-        </Tip>
-      ))}
-    </section>
+    <StatStrip label="Visitors, customers and conversion">
+      {hasWeb && (
+        <StatTile
+          label="Web visitors"
+          tone="visitors"
+          value={web.current.visitors}
+          format={fmtCount}
+          info={
+            <InfoTip label="How web visitors are counted">
+              <p>{VISITOR_SUM_NOTE}</p>
+              <p>
+                Bounce rate {fmtPct(web.current.bounceRate)}
+                {webNoSessions ? '' : `, ${fmtPct(web.previous.bounceRate)} before`}. Session time {fmtDuration(web.current.avgDuration)}
+                {webNoSessions ? '' : `, ${fmtDuration(web.previous.avgDuration)} before`}.
+              </p>
+            </InfoTip>
+          }
+          footer={<Delta cur={web.current.visitors} prev={web.previous.visitors} minBase={min} noData={webNoSessions && !web.previous.visitors} />}
+        />
+      )}
+      {hasApps && (
+        <StatTile
+          label="App visitors"
+          tone="visitors"
+          value={app.current.visitors}
+          format={fmtCount}
+          info={
+            <InfoTip label="How app visitors are counted">
+              {app.current.newInstalls > 0 && (
+                <p className="font-medium text-ink">
+                  {fmtNumber(app.current.newInstalls)} new {app.current.newInstalls === 1 ? 'install' : 'installs'} with consent.
+                </p>
+              )}
+              <p>Each app's visitors, added up. {APP_VISITORS_NOTE}</p>
+              <p>{NEW_INSTALLS_NOTE}</p>
+            </InfoTip>
+          }
+          footer={<Delta cur={app.current.visitors} prev={app.previous.visitors} minBase={min} noData={app.previous.sessions === 0 && !app.previous.visitors} />}
+        />
+      )}
+      <StatTile
+        label="New customers"
+        value={c.customers}
+        format={fmtCount}
+        info={
+          <InfoTip label="How new customers are counted">
+            <p>{NEW_CUSTOMERS_NOTE}</p>
+          </InfoTip>
+        }
+        footer={<Delta cur={c.customers} prev={p.customers} minBase={min} />}
+      />
+      <StatTile
+        label={hasWeb && hasApps ? 'Web conversion' : 'Conversion'}
+        value={conversion.current.conversionRate}
+        format={rate}
+        info={
+          <InfoTip label="How conversion is counted">
+            {conversion.previous.visitors > 0 && (
+              <p className="font-medium text-ink">
+                {rate(conversion.previous.conversionRate)} before{hasWeb && hasApps ? `. App: ${rate(app.current.conversionRate)} of app visitors` : ''}.
+              </p>
+            )}
+            <p>
+              {hasWeb ? 'New customers whose first payment is linked to a web visit, over web visitors.' : 'New customers whose first payment is linked to an app session, over app visitors.'}{' '}
+              Payments with no linked visit count in neither. {PAYMENTS_ONLY_NOTE}
+            </p>
+          </InfoTip>
+        }
+        // Percentage points, never a percent of a percent.
+        footer={
+          <Delta
+            cur={conversion.current.conversionRate * 100}
+            prev={conversion.previous.conversionRate * 100}
+            minBase={Infinity}
+            fmt={(n) => `${n.toFixed(2)} pts`}
+            noData={!conversion.previous.visitors}
+          />
+        }
+      />
+    </StatStrip>
   );
 }

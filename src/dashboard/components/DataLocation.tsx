@@ -1,8 +1,8 @@
 import type { Site } from '../lib/api';
 import { hasWebsite } from '../lib/siteKind';
-import { CopyButton, SettingsCard } from './setup/kit';
+import { CopyButton, Disclosure, SettingsCard } from './setup/kit';
 import { useCardStatus } from './setup/status';
-import { toast } from './ui';
+import { Note, toast } from './ui';
 
 type Location = NonNullable<Site['data_location']>;
 
@@ -55,35 +55,40 @@ export function DataLocation({ site, location }: { site: Site; location: Locatio
   const pinned = !!location.jurisdiction;
   const text = dpaText(site, location);
   return (
-    <div className="space-y-3 text-sm">
+    <div className="space-y-4 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 font-medium text-ink">
+        <div className="flex items-center gap-2 text-[13px] font-medium text-ink">
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${pinned ? 'bg-emerald-500' : 'bg-stone-300'}`} aria-hidden />
           Stored in: {location.stored}
         </div>
         <CopyButton value={text} label="Copy for DPA" className="btn h-8 text-xs" onCopied={() => toast('DPA paragraph copied', 'ok')} />
       </div>
-      <div className="space-y-1 text-[13px] text-stone-500">
-        <p>{location.processed}</p>
-        {location.retention_days !== undefined && (
-          <p>
-            A daily job deletes visits and events after {location.retention_days} days.
-            {location.pii_retention_days ? ` It clears names and emails after ${location.pii_retention_days} days.` : ''}
-          </p>
-        )}
-        {!pinned && (
-          <p>
-            A new database created with <code className="whitespace-nowrap font-mono">npm run setup -- --jurisdiction eu</code> stays in the EU.
-          </p>
-        )}
-      </div>
-      <details className="text-[13px] text-stone-500">
-        <summary className="cursor-pointer select-none font-medium text-stone-600 hover:text-ink">Show the DPA paragraph</summary>
-        <p className="mt-2 rounded-xl bg-stone-50 px-3 py-2.5 leading-relaxed text-stone-600">{text}</p>
-      </details>
-      <a className="inline-block text-[13px] text-stone-500 underline underline-offset-2" href="https://github.com/founderdata/founderdata/blob/main/docs/PRIVACY.md#keep-the-database-in-the-eu" target="_blank" rel="noreferrer">
-        How the EU setting works
-      </a>
+      <Note
+        more={
+          <>
+            <p>{location.processed}</p>
+            {location.retention_days !== undefined && (
+              <p>
+                A daily job deletes visits and events after {location.retention_days} days.
+                {location.pii_retention_days ? ` It clears names and emails after ${location.pii_retention_days} days.` : ''}
+              </p>
+            )}
+            {!pinned && (
+              <p>
+                A new database created with <code className="whitespace-nowrap font-mono">npm run setup -- --jurisdiction eu</code> stays in the EU.{' '}
+                <a className="underline underline-offset-2" href="https://github.com/founderdata/founderdata/blob/main/docs/PRIVACY.md#keep-the-database-in-the-eu" target="_blank" rel="noreferrer">
+                  How the EU setting works
+                </a>
+              </p>
+            )}
+          </>
+        }
+      >
+        {location.retention_days !== undefined ? `Requests run near the visitor. Data is deleted after ${location.retention_days} days.` : 'Requests run near the visitor.'}
+      </Note>
+      <Disclosure summary="Show the DPA paragraph">
+        <p className="card-inset px-3.5 py-3 text-[13px] leading-relaxed text-stone-500">{text}</p>
+      </Disclosure>
     </div>
   );
 }
@@ -93,7 +98,7 @@ export function DataLocationCard({ site }: { site: Site }) {
   const status = useCardStatus('data-location', site);
   if (!site.data_location) return null;
   return (
-    <SettingsCard id="data-location" title="Data location" status={status} desc="One answer for every site: where the D1 database sits, where requests run, and how long data stays.">
+    <SettingsCard id="data-location" title="Data location" status={status} desc="One answer for every site: where the database sits and how long data stays.">
       <DataLocation site={site} location={site.data_location} />
     </SettingsCard>
   );

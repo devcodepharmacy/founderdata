@@ -3,8 +3,12 @@ export { Skeleton, SkeletonChart, SkeletonRows, SkeletonText, SkeletonTile } fro
 export { NumberTicker } from './NumberTicker';
 export { Reveal, Stagger } from './Reveal';
 export { Sparkline, type SeriesTone } from './Sparkline';
-export { StatTile } from './StatTile';
-export { ChangeBadge } from './ChangeBadge';
+export { StatTile, StatStrip } from './StatTile';
+export { ChangeBadge, NoComparison } from './ChangeBadge';
+export { MeterBar, type MeterTone } from './MeterBar';
+export { Note, type NoteTone } from './Note';
+export { SetupRow } from './SetupRow';
+export { CardHeader } from './CardHeader';
 export { StatusChip, type StatusTone } from './StatusChip';
 export { Segmented, SegTrack, type SegmentOption } from './Segmented';
 export { Tabs, TabRow, type TabItem } from './Tabs';

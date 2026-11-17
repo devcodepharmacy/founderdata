@@ -3,6 +3,7 @@ import { api, type Site } from '../lib/api';
 import { aggregate, type DayRow, type ImportPreview } from '../../shared/plausible-import';
 import { readZip } from '../../shared/zip';
 import { DataFastImport } from './DataFastImport';
+import { Note } from './ui';
 
 interface ImportItem {
   id: string;
@@ -185,14 +186,20 @@ export function ImportHistory({ site }: { site: Site }) {
   return (
     <div className="text-sm">
       {items.length === 0 && !preview && (
-        <p className="rounded-xl bg-stone-50 px-3 py-3 text-stone-600">
-          No imported history yet. From DataFast, use the API import below. From Plausible, open Site settings, Imports and exports, then Export data, and choose the zip here. Another tool's
-          export works if it uses the same CSV files, but only Plausible's is tested. Imported days show in the chart and in the panels for the dates before this site's first visit.
-        </p>
+        <Note
+          more={
+            <>
+              <p>From DataFast, use the API import below. From Plausible, open Site settings, Imports and exports, then Export data, and choose the zip here.</p>
+              <p>Another tool's export works if it uses the same CSV files, but only Plausible's is tested. Imported days show in the chart and in the panels for the dates before this site's first visit.</p>
+            </>
+          }
+        >
+          No imported history yet. Choose a Plausible export, or use the DataFast import below.
+        </Note>
       )}
 
       {items.length > 0 && (
-        <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200/70">
+        <ul className="card-inset divide-y divide-stone-200/60">
           {items.map((i) => (
             <li key={i.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
               <span className="font-medium">
@@ -219,7 +226,7 @@ export function ImportHistory({ site }: { site: Site }) {
                   Resume with the same file
                 </button>
               )}
-              <button className={`btn ${i.status === 'importing' ? '' : 'ml-auto'}`} disabled={!!busy} onClick={() => remove(i)}>
+              <button className={`btn-ghost hover:text-red-600 ${i.status === 'importing' ? '' : 'ml-auto'}`} disabled={!!busy} onClick={() => remove(i)}>
                 Delete
               </button>
             </li>
@@ -227,9 +234,7 @@ export function ImportHistory({ site }: { site: Site }) {
         </ul>
       )}
       {list?.native_from && items.length > 0 && (
-        <p className="mt-2 text-stone-500">
-          This site has its own data from {list.native_from}. Imported days from that date on are kept but not shown, so no day counts twice.
-        </p>
+        <Note className="mt-2">This site has its own data from {list.native_from}. Imported days from then on are kept but not shown.</Note>
       )}
 
       <div className="mt-4">
@@ -240,15 +245,15 @@ export function ImportHistory({ site }: { site: Site }) {
           }}>
           Choose the export zip or CSV files
         </button>
-        {busy && <span className="ml-3 text-stone-500">{busy}</span>}
+        {busy && <span className="ml-3 text-[13px] text-stone-500">{busy}</span>}
       </div>
 
       {p && (
-        <div className="mt-4 rounded-xl bg-stone-50 px-3 py-3">
+        <div className="card-inset mt-4 px-4 py-3.5">
           <div className="font-medium">
             {p.from} to {p.to}: {n(p.days)} days, {n(p.totals.visitors)} visitors, {n(p.totals.pageviews)} pageviews
           </div>
-          <div className="mt-1 text-stone-600">
+          <div className="mt-1 text-[13px] text-stone-500">
             Stores {n(p.dayRows)} day-rows, each one database row: {Object.entries(p.perKind)
               .map(([k, v]) => `${n(v!)} ${KIND_NAMES[k] ?? k}`)
               .join(', ')}.
@@ -257,15 +262,23 @@ export function ImportHistory({ site }: { site: Site }) {
             <div className="mt-1 text-stone-600">Days from {list.native_from} on are stored but not shown, because this site has its own data for them.</div>
           )}
           {p.warnings.map((w) => (
-            <div key={w} className="mt-1 text-amber-700">
+            <Note key={w} tone="warn" className="mt-2">
               {w}
-            </div>
+            </Note>
           ))}
           {list && p.dayRows > left && (
-            <div className="mt-1 text-amber-700">
-              The free plan leaves room for {n(list.allowance.limit)} imported rows a day, and {n(left)} are left today. This import needs {n(p.dayRows)}, so
-              it stops when the allowance is used. Resume it after 00:00 UTC{daysNeeded > 1 ? `, about ${daysNeeded} days in all` : ''}.
-            </div>
+            <Note
+              tone="warn"
+              className="mt-2"
+              more={
+                <p>
+                  The free plan leaves room for {n(list.allowance.limit)} imported rows a day, and {n(left)} are left today. This import needs {n(p.dayRows)}, so it stops when the allowance
+                  is used. Resume it after 00:00 UTC{daysNeeded > 1 ? `, about ${daysNeeded} days in all` : ''}.
+                </p>
+              }
+            >
+              This import needs {n(p.dayRows)} rows, more than the {n(left)} left today.
+            </Note>
           )}
           <details className="mt-2 text-stone-500">
             <summary className="cursor-pointer">{p.files.length} files</summary>

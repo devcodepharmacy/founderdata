@@ -5,7 +5,8 @@ import { Code } from './Code';
 import { CopyButton, CopyField, InlineError, SettingsCard } from './setup/kit';
 import { SetupIcons } from './setup/icons';
 import { useCardStatus, useSetup } from './setup/status';
-import { EmptyState, SkeletonRows, Spinner, StatusChip, Tabs, toast } from './ui';
+import { InfoTip } from './InfoTip';
+import { SetupRow, SkeletonRows, Spinner, StatusChip, Tabs, toast } from './ui';
 
 /**
  * Settings, "Agents" (src/worker/keys.ts, docs/API.md "API keys", docs/MCP.md): one key per agent or script, with the
@@ -397,7 +398,7 @@ function NewKey({ made, site, onDone }: { made: ApiKey & { key: string }; site: 
         <h4 ref={heading} tabIndex={-1} className="text-[15px] font-semibold text-ink outline-none">
           {made.name} is ready. Copy the key now.
         </h4>
-        <p className="mt-0.5 text-[13px] text-stone-600">FounderData stores only a hash of it, so this page can't show it again. A lost key is replaced, not recovered.</p>
+        <p className="mt-0.5 text-[13px] text-stone-500">Shown once. FounderData keeps only a hash, so a lost key is replaced, not recovered.</p>
       </div>
       <CopyField label="Key" value={made.key} />
       <div>
@@ -506,7 +507,7 @@ function AgentRow({ name, k, actor, site, siteName, onRevoke }: { name: string; 
         {/* The same width with or without a key, so the numbers line up from row to row. */}
         <div className="w-full text-right sm:w-16">
           {k && (
-            <button className="btn h-8 text-red-600" onClick={onRevoke}>
+            <button className="btn-ghost h-8 hover:text-red-600" onClick={onRevoke}>
               Revoke
             </button>
           )}
@@ -533,12 +534,11 @@ function LegacyRow({ t, site, onRevoke }: { t: LegacyKey; site: Site; onRevoke: 
             {t.show_revenue && <ScopeChip scope="read:revenue" />}
           </div>
           <div className="mt-1 text-xs text-stone-500">
-            {t.kind === 'all' ? 'All sites' : 'This site'} · created {fmtDateTime(t.created_at, site.timezone)}. Reads only, and has no usage log. A new key with the
-            Read scope replaces it.
+            {t.kind === 'all' ? 'All sites' : 'This site'} · created {fmtDateTime(t.created_at, site.timezone)} · reads only, no usage log
           </div>
         </div>
         <CopyButton value={t.token} className="btn h-8" />
-        <button className="btn h-8 text-red-600" onClick={onRevoke}>
+        <button className="btn-ghost h-8 hover:text-red-600" onClick={onRevoke}>
           Revoke
         </button>
       </div>
@@ -622,7 +622,7 @@ export function ApiKeysSection({ site }: { site: Site }) {
       id="agents"
       title="Agents"
       status={status}
-      desc="Your agents read these numbers and log what they change, through the MCP server or the REST API. Give each agent its own key with only what it needs, and revoke it alone."
+      desc="Your agents read these numbers and log what they change. Each agent gets its own key with only what it needs, and you revoke it alone."
       actions={
         !creating &&
         !made && (
@@ -669,8 +669,7 @@ export function ApiKeysSection({ site }: { site: Site }) {
         {error && <InlineError message={error} onRetry={() => setN((x) => x + 1)} />}
 
         {keys && !rows.length && !creating && !made && (
-          <EmptyState
-            compact
+          <SetupRow
             icon={SetupIcons.agents}
             title="Connect your first agent"
             action={
@@ -679,15 +678,19 @@ export function ApiKeysSection({ site }: { site: Site }) {
               </button>
             }
           >
-            Make a key, paste one command into Claude Code, Cursor or Codex, then ask it where this week's customers came from.
-          </EmptyState>
+            Make a key and paste one command into your agent.
+          </SetupRow>
         )}
 
         {rows.length > 0 && (
           <div>
-            <p className="mb-3 text-xs text-stone-500">
-              {plural(keys?.length ?? 0, 'key')} · {plural(actors.length, 'actor')} with changes on {site.name} in the last 90 days
+            <p className="mb-3 flex items-center gap-1.5 text-xs text-stone-400">
+              {plural(keys?.length ?? 0, 'key')} · {plural(actors.length, 'actor')} with changes in 90 days
               {worse ? ` · ${plural(worse, 'change')} came out worse` : ''}
+              <InfoTip label="How agent changes are counted" className="text-stone-400">
+                Changes are the notes each actor logged on {site.name} in the last 90 days, judged 7 days after each. Usage is saved at most once a minute per key. The site API
+                key under Payments keeps working too. Four workflows (weekly review, log a change, SEO opportunities, ASO check) come with the server as MCP prompts.
+              </InfoTip>
             </p>
             <ul className="divide-y divide-stone-200/60">
               {rows.map((r) => (
@@ -708,10 +711,6 @@ export function ApiKeysSection({ site }: { site: Site }) {
           </div>
         )}
 
-        <p className="text-xs text-stone-400">
-          Changes are the notes each actor logged on this site in the last 90 days, judged 7 days after each. Usage is saved at most once a minute per key. The site API key
-          under Payments keeps working too. Four workflows (weekly review, log a change, SEO opportunities, ASO check) come with the server as MCP prompts.
-        </p>
       </div>
     </SettingsCard>
   );

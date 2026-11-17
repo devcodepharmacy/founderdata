@@ -5,8 +5,8 @@ import { useApi } from '../../lib/useApi';
 import { fmtAgo, fmtDateTime } from '../../lib/format';
 import { isAppOnly } from '../../lib/siteKind';
 import { Code } from '../Code';
-import { EmptyState, EmptyIcons, SkeletonRows, Spinner, StatusChip, toast } from '../ui';
-import { CopyField, InlineError, SettingsCard } from './kit';
+import { EmptyIcons, SetupRow, SkeletonRows, Spinner, StatusChip, toast } from '../ui';
+import { CopyField, InlineError, SettingRow, SettingsCard, Switch } from './kit';
 import { useCardStatus, useSetup } from './status';
 import type { Save } from './Payments';
 
@@ -27,7 +27,7 @@ export function GeneralCard({ site, save }: { site: Site; save: Save }) {
   const showDomain = !appOnly || addDomain;
   const ids = { name: useId(), domain: useId(), tz: useId(), cur: useId(), bundle: useId(), store: useId() };
   return (
-    <SettingsCard id="general" title="General" desc="How the site is named and counted. The timezone sets where each day starts on this site's pages.">
+    <SettingsCard id="general" title="General" desc="Name, domain, timezone and currency. The timezone sets where each day starts on this site's pages.">
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -82,7 +82,7 @@ export function GeneralCard({ site, save }: { site: Site; save: Save }) {
               iOS app bundle id
             </label>
             <input id={ids.bundle} className="input font-mono" placeholder="com.example.app" value={form.bundle} onChange={set('bundle')} spellCheck={false} />
-            <p className="mt-1.5 text-xs text-stone-500">The server takes app events and Apple notifications only from this bundle id. Leave it empty for a website without an app.</p>
+            <p className="mt-1.5 text-xs text-stone-500">The only bundle id the server accepts app events and Apple notifications from.</p>
           </div>
           {(site.app_bundle_id || form.bundle.trim()) && (
             <div className="sm:col-span-2">
@@ -99,14 +99,12 @@ export function GeneralCard({ site, save }: { site: Site; save: Save }) {
                 spellCheck={false}
               />
               <p className="mt-1.5 text-xs text-stone-500">
-                {site.asc_app_id
-                  ? `The App Store sales import found ${site.asc_app_id}. Leave this empty unless that is wrong.`
-                  : "The number in the app's App Store link, apps.apple.com/app/id123456789. Apple Search Ads and ASO use it to find the app. The App Store sales import fills it in on its own."}
+                {site.asc_app_id ? `The sales import found ${site.asc_app_id}. Leave this empty unless that is wrong.` : 'The number in your App Store link, apps.apple.com/app/id123456789.'}
               </p>
             </div>
           )}
         </div>
-        <button className="btn-dark mt-5" disabled={busy}>
+        <button className="btn-dark mt-4" disabled={busy}>
           {busy ? (
             <>
               <Spinner /> Saving
@@ -180,7 +178,7 @@ export function LinkBuilderCard({ domain }: { domain: string }) {
         </div>
       )}
       <p className="mt-2 text-xs text-stone-500">
-        Shorter: <code>?ref=launch-tweet</code> works too and shows up as the referrer.
+        Shorter: <code>?ref=launch-tweet</code> shows up as the referrer.
       </p>
     </SettingsCard>
   );
@@ -201,97 +199,91 @@ export function WriteCapCard({ site, save }: { site: Site; save: Save }) {
       id="write-cap"
       title="Daily write cap"
       status={status}
-      desc="Anyone who can read the site id in your script tag or app can send events to this site. The cap keeps fake traffic from using up Cloudflare's free plan for the day or running up a Workers Paid bill."
+      desc="Stops fake traffic from using up Cloudflare's free plan. Anyone who can read the site id in your script tag or app can send events to this site, and a flood would use up the day's free rows or run up a Workers Paid bill."
     >
       {usage && (
-        <div className="mb-5">
-          <div className="flex items-baseline justify-between gap-3 text-sm">
+        <div className="mb-4 border-b border-stone-200/60 pb-4">
+          <div className="flex items-baseline justify-between gap-3 text-[13px]">
             <span className="font-medium text-ink">Today</span>
             {used !== null && <span className="tabular-nums text-stone-500">{used}%</span>}
           </div>
           {used !== null && (
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-100" aria-hidden="true">
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-stone-100" aria-hidden="true">
               <div className={`h-full origin-left rounded-full ${used >= 100 ? 'bg-red-500' : used >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ transform: `scaleX(${used / 100})` }} />
             </div>
           )}
-          <p className="mt-2 text-[13px] text-stone-600">
+          <p className="mt-2 text-[13px] text-stone-500">
             {usage.shared && usage.pool_rows !== undefined ? (
               <>
-                This site wrote {rows(usage.rows)} rows. All sites wrote {rows(usage.pool_rows)} of the {rows(usage.auto)} shared rows.
-                {usage.site_max ? ` This site can use up to ${rows(usage.site_max)} of them.` : ''}
-                {usage.capped_at ? ` The shared rows ran out at ${fmtDateTime(usage.capped_at, site.timezone)}.` : ''}
+                This site {rows(usage.rows)} rows, all sites {rows(usage.pool_rows)} of {rows(usage.auto)}.
+                {usage.site_max ? ` Up to ${rows(usage.site_max)} for this site.` : ''}
+                {usage.capped_at ? ` Ran out at ${fmtDateTime(usage.capped_at, site.timezone)}.` : ''}
               </>
             ) : usage.cap !== null ? (
               <>
                 {rows(usage.rows)} of {rows(usage.cap)} rows.
-                {usage.capped_at ? ` Cap reached at ${fmtDateTime(usage.capped_at, site.timezone)}.` : ''}
+                {usage.capped_at ? ` Reached at ${fmtDateTime(usage.capped_at, site.timezone)}.` : ''}
               </>
             ) : (
               <>{rows(usage.rows)} rows.</>
             )}{' '}
-            The count resets at 00:00 UTC.
+            Resets at 00:00 UTC.
           </p>
         </div>
       )}
-      <label className="flex items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-1" checked={on} onChange={(e) => save({ write_cap_on: e.target.checked ? 1 : 0 }, e.target.checked ? 'Write cap on' : 'Write cap off')} />
-        <span>
-          <span className="font-medium text-ink">Limit the rows this site writes per day</span>
-          <span className="mt-0.5 block text-[13px] text-stone-500">
-            At the cap, website events are dropped, and the iPhone app holds its events on the phone and sends them after the reset at 00:00 UTC. Payments from
-            webhooks are always recorded.
-          </span>
-        </span>
-      </label>
-      {on && (
-        <form
-          className="mt-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save({ write_cap: cap ? Number(cap) : null }, cap ? 'Cap saved' : 'Cap set to automatic');
-          }}
+      <div className="divide-y divide-stone-200/60">
+        <SettingRow
+          title="Limit the rows this site writes per day"
+          help="At the cap, web events are dropped and the app holds its events until the reset."
+          info="The iPhone app sends its held events after the reset at 00:00 UTC. Payments from webhooks are always recorded."
         >
-          <label className="label" htmlFor="write-cap-rows">
-            Rows a day
-          </label>
-          <div className="flex max-w-md gap-2">
-            <input
-              id="write-cap-rows"
-              className="input"
-              inputMode="numeric"
-              placeholder={`Automatic: shared ${rows(usage?.auto ?? 80_000)}`}
-              value={cap}
-              onChange={(e) => setCap(e.target.value.replace(/[^0-9]/g, ''))}
-            />
-            <button className="btn-dark">Save</button>
-          </div>
-          <p className="mt-2 text-[13px] text-stone-500">
-            Leave it empty for the automatic cap. Sites on automatic share {rows(usage?.auto ?? 80_000)} rows a day, 80% of the free plan, so a busy site can use what
-            quiet sites leave. With more than one site, one site on automatic stops at half of them. Sites with their own number, or with the cap off, count toward the
-            same rows. A website visit writes about 32 rows and an app session about 36. On Workers Paid, set the number you're willing to pay for.
-          </p>
-        </form>
-      )}
-      <div className="mt-5 border-t border-stone-200/60 pt-4">
-        <label className="label" htmlFor="vitals-sample">
-          Page speed samples
-        </label>
-        <select
-          id="vitals-sample"
-          className="input max-w-xs"
-          value={String(site.vitals_sample ?? 100)}
-          onChange={(e) => save({ vitals_sample: Number(e.target.value) }, Number(e.target.value) ? 'Page speed sample saved' : 'Page speed off')}
+          <Switch checked={on} label="Limit the rows this site writes per day" onChange={(v) => save({ write_cap_on: v ? 1 : 0 }, v ? 'Write cap on' : 'Write cap off')} />
+        </SettingRow>
+        {on && (
+          <SettingRow
+            title="Rows a day"
+            htmlFor="write-cap-rows"
+            help="Empty means automatic."
+            info={`Sites on automatic share ${rows(usage?.auto ?? 80_000)} rows a day, 80% of the free plan, so a busy site can use what quiet sites leave. With more than one site, one site on automatic stops at half of them. Sites with their own number, or with the cap off, count toward the same rows. A website visit writes about 32 rows and an app session about 36. On Workers Paid, set the number you're willing to pay for.`}
+          >
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                save({ write_cap: cap ? Number(cap) : null }, cap ? 'Cap saved' : 'Cap set to automatic');
+              }}
+            >
+              <input
+                id="write-cap-rows"
+                className="input w-44"
+                inputMode="numeric"
+                placeholder="Automatic"
+                value={cap}
+                onChange={(e) => setCap(e.target.value.replace(/[^0-9]/g, ''))}
+              />
+              <button className="btn-dark">Save</button>
+            </form>
+          </SettingRow>
+        )}
+        <SettingRow
+          title="Page speed samples"
+          htmlFor="vitals-sample"
+          help="The share of page loads the tracker measures."
+          info="Each stored load writes 1 row. Keep 100% unless the site gets thousands of page loads a day. At a lower share, a page takes more visits to reach the 20 loads behind a p75."
         >
-          {[100, 50, 25, 10, 0].map((n) => (
-            <option key={n} value={n}>
-              {n ? `${n}% of page loads` : 'Off'}
-            </option>
-          ))}
-        </select>
-        <p className="mt-2 text-[13px] text-stone-500">
-          The tracker measures how fast each page loads in the visitor's browser. Each stored load writes 1 row. Keep 100% unless the site gets thousands of page
-          loads a day. At a lower share, a page takes more visits to reach the 20 loads behind a p75.
-        </p>
+          <select
+            id="vitals-sample"
+            className="input w-44"
+            value={String(site.vitals_sample ?? 100)}
+            onChange={(e) => save({ vitals_sample: Number(e.target.value) }, Number(e.target.value) ? 'Page speed sample saved' : 'Page speed off')}
+          >
+            {[100, 50, 25, 10, 0].map((n) => (
+              <option key={n} value={n}>
+                {n ? `${n}% of page loads` : 'Off'}
+              </option>
+            ))}
+          </select>
+        </SettingRow>
       </div>
     </SettingsCard>
   );
@@ -306,26 +298,15 @@ export function DatacenterCard({ site, save }: { site: Site; save: Save }) {
       id="datacenter"
       title="Datacenter visits"
       status={status}
-      desc="A browser that runs on a cloud server is almost always a bot: an uptime check, a scraper or an AI agent. FounderData tags visits from AWS, Google Cloud, Azure, Hetzner and 10 other hosting networks. Visitor counts, pages, funnels and alerts leave them out. The CSV export keeps them."
+      desc="A browser on a cloud server is almost always a bot. FounderData tags visits from AWS, Google Cloud, Azure, Hetzner and 10 other hosting networks, and leaves them out of visitor counts, pages, funnels and alerts. The CSV export keeps them."
     >
-      <p className="mb-4 text-[13px] text-stone-600">
-        {n ? `${n.toLocaleString('en')} ${n === 1 ? 'visit' : 'visits'} from hosting networks in the last 30 days.` : 'No visits from hosting networks in the last 30 days.'}
-      </p>
-      <label className="flex items-start gap-2.5 text-sm">
-        <input
-          type="checkbox"
-          className="mt-1"
-          checked={site.show_datacenter === 1}
-          onChange={(e) => save({ show_datacenter: e.target.checked ? 1 : 0 }, e.target.checked ? 'Datacenter visits counted' : 'Datacenter visits hidden')}
-        />
-        <span>
-          <span className="font-medium text-ink">Count datacenter visits</span>
-          <span className="mt-0.5 block text-[13px] text-stone-500">
-            Turn this on if real people reach the site through a cloud server, such as a company VPN. Payments always count. The tag stays on each visit, so you can
-            turn it off again.
-          </span>
-        </span>
-      </label>
+      <SettingRow
+        title="Count datacenter visits"
+        help={n ? `${n.toLocaleString('en')} ${n === 1 ? 'visit' : 'visits'} from hosting networks in the last 30 days.` : 'No visits from hosting networks in the last 30 days.'}
+        info="Turn this on if real people reach the site through a cloud server, such as a company VPN. Payments always count. The tag stays on each visit, so you can turn it off again."
+      >
+        <Switch checked={site.show_datacenter === 1} label="Count datacenter visits" onChange={(v) => save({ show_datacenter: v ? 1 : 0 }, v ? 'Datacenter visits counted' : 'Datacenter visits hidden')} />
+      </SettingRow>
     </SettingsCard>
   );
 }
@@ -354,21 +335,26 @@ export function ErasuresCard({ site }: { site: Site }) {
     <SettingsCard
       id="erase-log"
       title="Erase log"
-      desc="One line per erase request: when, how the person was found, who handled it and how many rows went. It stores no visitor id, email or user id, so you can show when you answered a request without keeping the person. Deleting the site keeps its erase log."
+      desc="One line per erase request, with no visitor id, email or user id. It shows when you answered a request without keeping the person. Deleting the site keeps its erase log."
       actions={
-        !!data?.length && (
-          <a className="btn" href={`/api/sites/${site.id}/erasures?format=csv`} download>
-            Export CSV
+        <>
+          {!!data?.length && (
+            <a className="btn" href={`/api/sites/${site.id}/erasures?format=csv`} download>
+              Export CSV
+            </a>
+          )}
+          <a className="btn-ghost" href="/api/erasures?format=csv" download>
+            All sites CSV
           </a>
-        )
+        </>
       }
     >
       {error && <InlineError message={error} onRetry={() => setN((x) => x + 1)} />}
       {!data && !error && <SkeletonRows rows={2} />}
       {data && !data.length && (
-        <EmptyState compact icon={EmptyIcons.inbox} title="No erase requests yet">
+        <SetupRow icon={EmptyIcons.inbox} title="No erase requests yet">
           Erase a person from their profile, or with POST /api/sites/:id/erase.
-        </EmptyState>
+        </SetupRow>
       )}
       {!!data?.length && (
         <ul className="divide-y divide-stone-200/60">
@@ -388,13 +374,6 @@ export function ErasuresCard({ site }: { site: Site }) {
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-stone-500">
-        The log of every site, deleted ones included:{' '}
-        <a className="underline" href="/api/erasures?format=csv" download>
-          all sites as CSV
-        </a>
-        .
-      </p>
     </SettingsCard>
   );
 }
@@ -436,13 +415,13 @@ export function DevicesCard() {
   }
 
   return (
-    <SettingsCard id="devices" title="Devices" desc="Phones signed in to the iPhone app. They see every site here. Revoking a phone signs it out and stops its notifications.">
+    <SettingsCard id="devices" title="Devices" desc="Phones signed in to the iPhone app. Every phone sees every site. Revoking one signs it out and stops its notifications.">
       {error && <InlineError message={error} onRetry={load} />}
       {!devices && !error && <SkeletonRows rows={2} />}
       {devices && !devices.length && (
-        <EmptyState compact icon={EmptyIcons.plug} title="No phone has signed in yet">
-          Scan the code in the iPhone app card above to sign in.
-        </EmptyState>
+        <SetupRow icon={EmptyIcons.plug} title="No phone has signed in yet">
+          Scan the code in the iPhone app card above.
+        </SetupRow>
       )}
       <ul className="divide-y divide-stone-200/60">
         {(devices ?? []).map((d) => (
@@ -455,7 +434,7 @@ export function DevicesCard() {
                 {d.push ? 'Notifications on' : 'Notifications off'}
               </div>
             </div>
-            <button className="btn text-red-600" onClick={() => revoke(d)}>
+            <button className="btn-ghost hover:text-red-600" onClick={() => revoke(d)}>
               Revoke
             </button>
           </li>
@@ -515,7 +494,7 @@ export function TeamCard() {
       id="team"
       title="Team"
       status={status}
-      desc="People who sign in with their own password, on every site. A viewer reads. An owner changes everything. Revoking one person signs out only them."
+      desc="People who sign in with their own password, on every site. A viewer reads, an owner changes everything. Revoking one person signs out only them."
     >
       {error && <InlineError message={error} onRetry={load} />}
       {!members && !error && <SkeletonRows rows={2} />}
@@ -551,7 +530,7 @@ export function TeamCard() {
                 Make {m.role === 'owner' ? 'viewer' : 'owner'}
               </button>
               <button
-                className="btn h-8 text-red-600"
+                className="btn-ghost h-8 hover:text-red-600"
                 disabled={busy}
                 onClick={() => {
                   if (
@@ -570,9 +549,9 @@ export function TeamCard() {
       </ul>
 
       {link && (
-        <div className="mt-4 rounded-xl bg-emerald-50 p-3.5 text-sm ring-1 ring-inset ring-emerald-200/60">
-          <p className="mb-2 text-emerald-900">
-            Send this link to {link.who}. It works once and expires {new Date(link.expires).toLocaleDateString()}. It is not shown again.
+        <div className="card-inset mt-4 p-3.5">
+          <p className="mb-2 text-[13px] text-stone-500">
+            Send this link to {link.who}. It works once, expires {new Date(link.expires).toLocaleDateString()} and is not shown again.
           </p>
           <CopyField value={link.url} />
         </div>
@@ -627,13 +606,11 @@ export function DeleteSiteCard({ site }: { site: Site }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
-    <section id="delete-site" className="card scroll-mt-24 border-red-200/80 p-5" aria-labelledby="delete-site-title">
-      <h3 id="delete-site-title" className="text-title text-ink">
+    <section id="delete-site" className="card scroll-mt-24 border-red-200/80 bg-red-50/40 p-5" aria-labelledby="delete-site-title">
+      <h3 id="delete-site-title" className="text-[15px] font-semibold leading-6 text-red-700">
         Delete this {appOnly ? 'app' : 'site'}
       </h3>
-      <p className="mt-1 max-w-2xl text-sm text-stone-500">
-        Deletes every visit, event, payment and setting of {site.name}. Its erase log stays. There is no undo.
-      </p>
+      <p className="mt-0.5 text-[13px] text-stone-500">Deletes every visit, event, payment and setting of {site.name}. The erase log stays. No undo.</p>
       <form
         className="mt-4 flex max-w-lg flex-wrap items-end gap-2"
         onSubmit={async (e) => {

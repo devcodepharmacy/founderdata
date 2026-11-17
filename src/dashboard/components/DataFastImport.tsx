@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { estimateCalls, lastDay, planRevenue, runDataFastImport, type ApiAnswer, type Granularity, type Plan, type Progress, type RevenueChoice } from '../../shared/datafast-import';
 import { SecretInput } from './setup/kit';
+import { Note } from './ui';
 
 interface Item {
   id: string;
@@ -148,14 +149,21 @@ export function DataFastImport({
 
   const pct = progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
   return (
-    <div className="mt-6 border-t border-stone-100 pt-4 text-sm">
-      <div className="font-medium">Import from DataFast</div>
-      <p className="mt-1 text-stone-600">
-        DataFast has no export file, so this page reads its API with your key. The key goes to DataFast, directly or through your Worker if the browser is blocked, and is never stored.
-        Imported days show before this site's first own visit, and filtering by a source answers from them.
-      </p>
+    <div className="mt-6 border-t border-stone-200/60 pt-5 text-sm">
+      <div className="text-[13px] font-semibold text-ink">Import from DataFast</div>
+      <Note
+        className="mt-1"
+        more={
+          <p>
+            DataFast has no export file, so this page reads its API with your key. The key goes to DataFast, directly or through your Worker if the browser is blocked. Imported days
+            show before this site's first own visit, and filtering by a source answers from them.
+          </p>
+        }
+      >
+        Reads the DataFast API with your key. The key is never stored.
+      </Note>
       {unfinished.map((i) => (
-        <div key={i.id} className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-stone-50 px-3 py-2">
+        <div key={i.id} className="card-inset mt-2 flex flex-wrap items-center gap-2 px-3 py-2">
           <span>
             Not finished: {i.from} to {i.to}
           </span>
@@ -171,7 +179,7 @@ export function DataFastImport({
         </button>
       )}
       {open && (
-        <div className="mt-3 grid max-w-xl gap-3 rounded-xl bg-stone-50 px-3 py-3">
+        <div className="card-inset mt-3 grid max-w-xl gap-3 p-4">
           <SecretInput className="w-full" label="DataFast API key or account token" placeholder="DataFast API key (df_...) or account token (dft_...)" value={key} onChange={setKey} />
           <input className="input" placeholder="Website id (only for a dft_ account token)" value={websiteId} onChange={(e) => setWebsiteId(e.target.value)} />
           <div className="flex flex-wrap items-center gap-2">
@@ -184,22 +192,30 @@ export function DataFastImport({
             <label className="flex items-start gap-2">
               <input type="radio" checked={g === 'week'} onChange={() => setG('week')} className="mt-1" />
               <span>
-                <b>Weekly breakdowns</b>, up to {weekly.calls.toLocaleString('en')} calls, about {weekly.minutes} min. Breakdowns are stored per week. A date range that starts inside a week leaves that week out; one that
-                ends inside a week counts all of it. Day totals and the chart stay daily.
+                <b>Weekly breakdowns</b>, up to {weekly.calls.toLocaleString('en')} calls, about {weekly.minutes} min.
+                <span className="block text-xs text-stone-500">Stored per week. Day totals and the chart stay daily.</span>
               </span>
             </label>
             <label className="flex items-start gap-2">
               <input type="radio" checked={g === 'day'} onChange={() => setG('day')} className="mt-1" />
               <span>
-                <b>Daily breakdowns</b>, up to {daily.calls.toLocaleString('en')} calls, about {mmss(daily.minutes * 60)}. Exact for any date range and a filtered chart. Slow: DataFast allows 60 calls a minute, and
-                days with no visitors are skipped. Visitors are summed per day.
+                <b>Daily breakdowns</b>, up to {daily.calls.toLocaleString('en')} calls, about {mmss(daily.minutes * 60)}.
+                <span className="block text-xs text-stone-500">Exact for any date range and a filtered chart. Slower.</span>
               </span>
             </label>
           </fieldset>
+          <Note
+            more={
+              <>
+                <p>A date range that starts inside a week leaves that week out; one that ends inside a week counts all of it.</p>
+                <p>DataFast allows 60 calls a minute, and days with no visitors are skipped. Visitors are summed per day.</p>
+              </>
+            }
+          >
+            Weekly is faster, daily is exact.
+          </Note>
           {clipped && (
-            <p className="text-stone-500">
-              This site's own data starts {nativeFrom}, so the import stops on {end}. Days FounderData measured itself are never read twice.
-            </p>
+            <Note>This site's own data starts {nativeFrom}, so the import stops on {end}.</Note>
           )}
           <label className="flex flex-wrap items-center gap-2">
             <span className="text-stone-500">DataFast writes revenue as</span>
@@ -214,10 +230,16 @@ export function DataFastImport({
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1" />
             <span>DataFast's revenue is in {currency}. Needed only when DataFast does not report its currency.</span>
           </label>
-          <p className="text-stone-500">
-            Revenue from DataFast is stored as imported revenue per source and day. It shows next to the imported days, labelled, and never joins this site's own revenue, customers or conversion.
-            Compare one source's revenue with your DataFast dashboard after the import, and delete and redo it if the unit was wrong.
-          </p>
+          <Note
+            more={
+              <p>
+                It shows next to the imported days, labelled, and never joins this site's own revenue, customers or conversion. Compare one source's revenue with your DataFast
+                dashboard after the import, and delete and redo it if the unit was wrong.
+              </p>
+            }
+          >
+            Revenue is stored as imported revenue per source and day.
+          </Note>
           <div className="flex gap-2">
             <button className="btn-dark" disabled={!valid || busy || !unit} onClick={start}>
               Start import
@@ -235,7 +257,7 @@ export function DataFastImport({
           </div>
           <div className="mt-1 text-stone-600">
             {progress.message}: {progress.done.toLocaleString('en')} of {progress.total.toLocaleString('en')} {g === 'day' ? 'days' : 'weeks'}, {progress.calls.toLocaleString('en')} calls
-            {progress.etaSeconds ? `, about ${mmss(progress.etaSeconds)} left` : ''}. Keep this page open; after a reload, Resume continues where it stopped.
+            {progress.etaSeconds ? `, about ${mmss(progress.etaSeconds)} left` : ''}. Keep this page open; Resume continues after a reload.
           </div>
           <button className="btn mt-2" onClick={() => (stop.current.aborted = true)}>
             Stop
