@@ -2,8 +2,8 @@
 
 > Web and iOS analytics with revenue attribution, self-hosted on Cloudflare. This deployment answers a JSON API. Each key reaches what its scopes allow.
 
-Full reference: https://github.com/datPascal/founderdata/blob/main/docs/API.md
-OpenAPI 3.1: `/api/v1/openapi.json` on this deployment. MCP server: `POST /mcp` with the same key, 29 tools over these routes (https://github.com/datPascal/founderdata/blob/main/docs/MCP.md).
+Full reference: https://github.com/founderdata/founderdata/blob/main/docs/API.md
+OpenAPI 3.1: `/api/v1/openapi.json` on this deployment. MCP server: `POST /mcp` with the same key, 29 tools over these routes (https://github.com/founderdata/founderdata/blob/main/docs/MCP.md).
 
 ## Auth
 

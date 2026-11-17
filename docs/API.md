@@ -1595,7 +1595,7 @@ call it, including one without `read`, so a push script can check its key before
            "all_sites": false, "expires_at": null },
   "sites": [ { "id": "SITE_ID", "name": "Acme", "domain": "acme.example", "app": true } ],
   "deployment": { "edition": "pro", "version": "1.0.0", "version_id": "8c0f...", "version_tag": null, "deployed_at": "2026-11-06T10:00:00Z" },
-  "docs": "https://github.com/datPascal/founderdata/blob/main/docs/API.md" }
+  "docs": "https://github.com/founderdata/founderdata/blob/main/docs/API.md" }
 ```
 
 `type` is `scoped` for an `fdk_` key and `read_key` for an `rtr_` key, which has no `id`. An all-sites key lists every
@@ -1868,7 +1868,7 @@ the health of each integration. An agent can call it first.
   "definitions": { "revenue": "Every payment net of refunds: ...", "currency_conversion": "...", "app_store": "...",
                    "visitor_id": "...", "customers": "...", "conversion_rate": "New customers over visitors.",
                    "attribution": "...", "mrr": "...", "churn": "...", "...": "..." },
-  "docs": "https://github.com/datPascal/founderdata/blob/main/docs/API.md" }
+  "docs": "https://github.com/founderdata/founderdata/blob/main/docs/API.md" }
 ```
 
 `data_location.jurisdiction` is `eu`, `fedramp` or `null`. It comes from the `DATA_JURISDICTION` variable that

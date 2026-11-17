@@ -43,7 +43,7 @@ First find out which payment providers this codebase uses. Search for: "stripe",
 - Do not add Dodo webhook code. I add ${origin}/api/webhooks/dodo/${site.id} in the Dodo dashboard myself.
 
 ### iOS app with StoreKit (App Store purchases)
-- Add the FounderDataKit Swift package (https://github.com/datPascal/founderdata, product FounderDataKit) to the app target.
+- Add the FounderDataKit Swift package (https://github.com/founderdata/founderdata, product FounderDataKit) to the app target.
 - In the App init: FounderData.configure(siteId: "${site.id}", host: "${origin}"), then FounderData.observeTransactions(). On the root view: .onOpenURL { FounderData.handle(url: $0) }.
 - Buy with try await FounderData.purchase(product, source: .onboarding) (or .settings, .featureGate: where the paywall opened). It adds the app account token, sends the purchase goals and records the verified purchase. Code that calls product.purchase itself adds .appAccountToken(FounderData.appAccountToken) to the options and passes a verified result to FounderData.track(purchase:).
 - The site's bundle id in FounderData must match the app's${site.app_bundle_id ? ` (currently ${site.app_bundle_id})` : ' (not set yet; tell me to set it in the site settings)'}. I point App Store Server Notifications at ${origin}/api/webhooks/apple/${site.id} myself.

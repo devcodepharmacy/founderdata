@@ -9,7 +9,7 @@ import { PROVIDER_NAMES } from './RevenuePanel';
  * payments are linked to a visit, and per provider why the others are not.
  */
 
-export const COVERAGE_GUIDE = 'https://github.com/datPascal/founderdata/blob/main/docs/GUIDE.md#payments-not-linked-to-a-visit';
+export const COVERAGE_GUIDE = 'https://github.com/founderdata/founderdata/blob/main/docs/GUIDE.md#payments-not-linked-to-a-visit';
 
 /** What links a payment to its visit, per provider, for payments that arrived with no visitor id. */
 const LINK_FIX: Record<string, string> = {

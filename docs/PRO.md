@@ -7,7 +7,8 @@ Polar, Lemon Squeezy, Paddle, Gumroad, the App Store and RevenueCat, and ties ea
 buyer. It also has goals, funnels, page speed, alerts, the weekly report, CSV export, GDPR erasure, share links, the
 read API and an MCP server with 9 tools.
 
-**Pro** is core plus a `pro/` folder from a private repository. You pay once and get every future update. Pro adds:
+**Pro** is core plus a `pro/` folder from a private repository. You pay €19.99 or $19.99 once and get every future
+update. Pro adds:
 
 - MRR and its movement, trials, churn, LTV and a retention grid per source, plan and provider, with history imports
   from ChartMogul and RevenueCat
@@ -44,7 +45,7 @@ Settings, click **Already bought? Install Pro** and paste the prompt into the AI
 By hand:
 
 ```bash
-git remote add pro https://github.com/datPascal/founderdata-pro.git
+git remote add pro https://github.com/founderdata/founderdata-pro.git
 git fetch pro
 git merge pro/main
 npm install && npm run typecheck && npm test

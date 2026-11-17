@@ -73,9 +73,10 @@ are an owner or a viewer for every site. It has no session replay and no heatmap
 
 ## FounderData Pro
 
-Pro is a lifetime license: one payment, and every future update. It adds the reports below to your own deployment, on
-your own Cloudflare account. Core already stores every page view, app event, payment and subscription, so the Pro
-reports cover your history from the first day.
+Pro is a lifetime license for €19.99 or $19.99: you pay once and get every future update
+([buy it on Polar](https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtp)). It adds the reports below to your
+own deployment, on your own Cloudflare account. Core already stores every page view, app event, payment and
+subscription, so the Pro reports cover your history from the first day.
 
 Open any Pro section in the dashboard to buy it or to get the install prompt for your AI agent. Installing is a
 `git merge`, so changes you made to your copy stay. [docs/PRO.md](docs/PRO.md) explains buying, installing and updates.
@@ -154,7 +155,7 @@ Open any Pro section in the dashboard to buy it or to get the install prompt for
 You need Node.js 20 or later and a Cloudflare account (the free plan is enough).
 
 ```bash
-git clone https://github.com/datPascal/founderdata.git
+git clone https://github.com/founderdata/founderdata.git
 cd founderdata
 npm install
 npm run setup
@@ -228,7 +229,7 @@ Step-by-step instructions for each provider are in the [guide](docs/GUIDE.md#rev
 ## iOS apps
 
 `FounderDataKit` is a Swift package with no dependencies for iOS 17 and later, built with Xcode 26 or later. In Xcode,
-choose File > Add Package Dependencies, paste `https://github.com/datPascal/founderdata` and pin a commit, since there are
+choose File > Add Package Dependencies, paste `https://github.com/founderdata/founderdata` and pin a commit, since there are
 no release tags yet. Then:
 
 ```swift

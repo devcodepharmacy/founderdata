@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PRO_CHECKOUT_URL, PRO_PAGE } from '../../shared/product';
+import { PRO_CHECKOUT_URL, PRO_PAGE, PRO_PRICE } from '../../shared/product';
 import { PRO_INSTALL_PROMPT } from '../../shared/pro-prompts';
 import { PRO_APPS_PAGE, PRO_LIST, PRO_SECTIONS } from '../lib/proFeatures';
 import { matchRoute } from '../lib/routes';
@@ -19,6 +19,7 @@ export function ProActions({ compact = false }: { compact?: boolean }) {
         <button className="btn btn-ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           {open ? 'Hide the install prompt' : 'Already bought? Install Pro'}
         </button>
+        <span className="text-[13px] text-stone-500">{PRO_PRICE}, paid once</span>
       </div>
       {open && (
         <div className="mt-4 text-left">

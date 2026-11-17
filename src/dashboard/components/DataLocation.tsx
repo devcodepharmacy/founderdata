@@ -81,7 +81,7 @@ export function DataLocation({ site, location }: { site: Site; location: Locatio
         <summary className="cursor-pointer select-none font-medium text-stone-600 hover:text-ink">Show the DPA paragraph</summary>
         <p className="mt-2 rounded-xl bg-stone-50 px-3 py-2.5 leading-relaxed text-stone-600">{text}</p>
       </details>
-      <a className="inline-block text-[13px] text-stone-500 underline underline-offset-2" href="https://github.com/datPascal/founderdata/blob/main/docs/PRIVACY.md#keep-the-database-in-the-eu" target="_blank" rel="noreferrer">
+      <a className="inline-block text-[13px] text-stone-500 underline underline-offset-2" href="https://github.com/founderdata/founderdata/blob/main/docs/PRIVACY.md#keep-the-database-in-the-eu" target="_blank" rel="noreferrer">
         How the EU setting works
       </a>
     </div>

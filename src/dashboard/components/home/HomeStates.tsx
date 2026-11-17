@@ -71,7 +71,7 @@ export function HomeError({ message, onRetry, inline }: { message: string; onRet
   );
 }
 
-const GUIDE = 'https://github.com/datPascal/founderdata/blob/main/docs/GUIDE.md';
+const GUIDE = 'https://github.com/founderdata/founderdata/blob/main/docs/GUIDE.md';
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (

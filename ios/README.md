@@ -6,7 +6,7 @@ frameworks and needs iOS 17 and Xcode 26 or later. It never reads the IDFA,
 and by default it stores nothing on the device.
 
 In Xcode, choose File > Add Package Dependencies, paste
-`https://github.com/datPascal/founderdata` and link `FounderDataKit` to the app
+`https://github.com/founderdata/founderdata` and link `FounderDataKit` to the app
 target. Then follow the path that matches how your app sells.
 
 Both paths need the app's bundle id in FounderData first. Add the app on Home
@@ -243,7 +243,7 @@ so events sent before the setting exists are lost.
 ## Add the package
 
 In Xcode, choose File > Add Package Dependencies and paste
-`https://github.com/datPascal/founderdata`. Then link `FounderDataKit` to the app
+`https://github.com/founderdata/founderdata`. Then link `FounderDataKit` to the app
 target. A local checkout works too: add its `ios` folder.
 
 The repository has no release tags yet, so there is no version to pin. Pin a
@@ -252,7 +252,7 @@ In the dependency rule menu, choose Commit and paste the commit hash. In a
 `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/datPascal/founderdata", revision: "<commit hash>")
+.package(url: "https://github.com/founderdata/founderdata", revision: "<commit hash>")
 ```
 
 Update by pasting a newer hash after you read [CHANGELOG.md](CHANGELOG.md).

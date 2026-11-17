@@ -10,7 +10,7 @@ import { SkeletonRows, Spinner, StatusChip, type StatusTone } from './ui';
 // owner sees it; secrets appear by name and never by value. It reads as progress: what needs a look first, with the one
 // next action, then what works, then what is optional and off.
 
-const DOCS = 'https://github.com/datPascal/founderdata/blob/main/';
+const DOCS = 'https://github.com/founderdata/founderdata/blob/main/';
 
 interface Row {
   id: string;

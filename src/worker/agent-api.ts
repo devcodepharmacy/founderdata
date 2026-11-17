@@ -285,7 +285,7 @@ async function definitions(c: Context<AppEnv>) {
   const tok = tokenOf(c);
   const showRevenue = !!tok.show_revenue;
   const head = { show_revenue: showRevenue, scopes: scopesOf(tok), data_location: dataLocation(c.env) };
-  const tail = { definitions: DEFINITIONS, docs: 'https://github.com/datPascal/founderdata/blob/main/docs/API.md' };
+  const tail = { definitions: DEFINITIONS, docs: 'https://github.com/founderdata/founderdata/blob/main/docs/API.md' };
   const many = allSitesOf(c);
   if (many) {
     const trust = await siteTrust(c.env, many);
@@ -372,7 +372,7 @@ async function whoami(c: Context<AppEnv>) {
         version: VERSION,
         ...(v?.id ? { version_id: v.id, version_tag: v.tag || null, deployed_at: v.timestamp || null } : {}),
       },
-      docs: 'https://github.com/datPascal/founderdata/blob/main/docs/API.md',
+      docs: 'https://github.com/founderdata/founderdata/blob/main/docs/API.md',
     },
     200,
     { 'cache-control': 'private, no-store' },

@@ -7,19 +7,19 @@ import pkg from '../../package.json';
 export const VERSION: string = pkg.version;
 
 /** The public core repository. Updates to core are merged from here. */
-export const CORE_REPO = 'https://github.com/datPascal/founderdata';
+export const CORE_REPO = 'https://github.com/founderdata/founderdata';
 
 /** The private FounderData Pro repository. A buyer's GitHub account gets read access when they buy. */
-export const PRO_REPO = 'https://github.com/datPascal/founderdata-pro';
+export const PRO_REPO = 'https://github.com/founderdata/founderdata-pro';
 
 /** The latest release, as JSON ({ version, date, notes }). The Updates card in Settings reads it in the browser. */
-export const RELEASE_URL = 'https://raw.githubusercontent.com/datPascal/founderdata/main/release.json';
+export const RELEASE_URL = 'https://raw.githubusercontent.com/founderdata/founderdata/main/release.json';
 
-/**
- * The Polar checkout for the lifetime license. Empty until the product exists on Polar: the Pro card then links to
- * PRO_PAGE instead.
- */
-export const PRO_CHECKOUT_URL = '';
+/** The Polar checkout for the lifetime license. When it is empty, the Pro card links to PRO_PAGE instead. */
+export const PRO_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtp';
+
+/** The price of the lifetime license, in both currencies the checkout takes. */
+export const PRO_PRICE = '€19.99 or $19.99';
 
 /** What Pro adds and costs, in the core README. */
 export const PRO_PAGE = `${CORE_REPO}#founderdata-pro`;

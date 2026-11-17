@@ -11,8 +11,8 @@ import { Integration } from './Integration';
 import { CopyButton, Mark, Step, Steps } from './kit';
 import { useSetup } from './status';
 
-const GUIDE = 'https://github.com/datPascal/founderdata/blob/main/docs/GUIDE.md';
-const REPO = 'https://github.com/datPascal/founderdata';
+const GUIDE = 'https://github.com/founderdata/founderdata/blob/main/docs/GUIDE.md';
+const REPO = 'https://github.com/founderdata/founderdata';
 
 /** The product the install steps are for: the picked type, else website or app from the domain and bundle id. */
 export function installType(site: Site): ProductType {

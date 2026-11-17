@@ -19,7 +19,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const VERSION = 'aso-collect/1';
-const USER_AGENT = `FounderData-${VERSION} (+https://github.com/datPascal/founderdata)`;
+const USER_AGENT = `FounderData-${VERSION} (+https://github.com/founderdata/founderdata)`;
 const TOP = 10;
 
 /** App Store storefront ids. pro/worker/aso.ts keeps the same table; pro/test/aso.test.ts checks they match. */

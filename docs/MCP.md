@@ -213,7 +213,7 @@ the seven skills, so every client that shows MCP prompts has them. In Claude Cod
 To have Claude Code or Codex pick a skill without being asked, copy the files instead:
 
 ```bash
-npx degit datPascal/founderdata/skills ~/.claude/skills --force
+npx degit founderdata/founderdata/skills ~/.claude/skills --force
 ```
 
 `--force` lets it write into a folder that has other skills; it adds the seven folders and leaves the rest. For
