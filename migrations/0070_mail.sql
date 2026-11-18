@@ -7,10 +7,14 @@
 -- and attachments live in the MAIL_BUCKET R2 bucket, never in D1.
 --
 -- Rows each path writes. D1 counts an index entry an insert or update adds as a row (removing one is free), so these
--- include the indexes. pro/test/mail-foundation.test.ts measures the first three, and pro/test/cost.test.ts pins them all.
+-- include the indexes. pro/test/cost.test.ts measures and pins them all.
 --   queue a send to N addresses  4 for the message (row, primary key, created and thread indexes) + 2 per address
---                                (from, to, cc, bcc and reply_to together), + 2 with an Idempotency-Key
---   mark it sent                 5: the message with its provider_id and open indexes (3), its Message-ID lookup (2)
+--                                (the sender counts as one, and from, to, cc, bcc and reply_to count together),
+--                                + 2 with an Idempotency-Key, + 1 per attachment, + 5 for the thread a send from the
+--                                dashboard or an agent starts
+--   mark it sent                 9: the message with its provider_id and open indexes (3), its Message-ID lookup (2),
+--                                its `sent` row in mail_events (4), + 1 to close an Idempotency-Key
+--   so a send to one address     17 from an app, 20 with an Idempotency-Key, 22 from the dashboard or an agent
 --   a later status change        1 for the message, + 4 for its mail_events row
 --   one inbound message          4 + 2 per address + 2 for its Message-ID, its thread 5 when new and about 4 when it
 --                                grows, + 1 per attachment
