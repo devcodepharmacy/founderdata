@@ -1,8 +1,8 @@
 # Mobile API and App Store sales import
 
 Contract for the owner's iPhone app, which signs in to your deployment, shows the dashboard and receives payment
-pushes, and for the App Store Connect sales import. The app is not in this repository for now. Any other client can
-use the same routes.
+pushes, and for the App Store Connect sales import. The app and the sales import are FounderData Pro
+features ([PRO.md](PRO.md)), and the app is in the Pro repository. Any other client can use the same routes.
 
 Amounts in this API are decimal numbers in major units (`4.9` is 4.90), always next to an ISO currency code. Times are
 Unix milliseconds. Sandbox and TestFlight purchases never send a push and never count in totals.
@@ -303,7 +303,7 @@ including apps without FounderDataKit.
   answers `{ configured, from, to, lastImportedDay, sites: [{ id, name, bundleId, mapped, totals }], unmatched }`.
 - A backfill call stops at 30 days, at the Worker's subrequest budget or at the first error, and `next` is the first day
   not imported. An error answers 502 `{ imported, next, error }`. Today and later are never requested.
-- `latestAppStoreDay(db, siteIds)` in `pro/worker/ascsales.ts` returns a `Map` from site id to
+- `latestAppStoreDay(db, siteIds)` in the Pro repository's `worker/ascsales.ts` returns a `Map` from site id to
   `{ date, downloads, proceeds } | null`, the latest imported day with rows. A site without a matched app is null.
 
 Proceeds stay apart from revenue. Revenue counts the same report at gross customer prices, on the days it covers, in
@@ -390,7 +390,7 @@ collector, a script outside Cloudflare ([ASO.md](ASO.md)), and from Apple Ads fo
   keyword without an entry came from the collector). All three are additive, and an older app ignores them.
 
 Rank changes, best rank and difficulty are not in the answer. Work them out on the phone the way
-`pro/dashboard/lib/aso.ts` does: `movement()` for 1 and 7 days and the best rank, `difficulty()` for the score
+`dashboard/lib/aso.ts` in the Pro repository does: `movement()` for 1 and 7 days and the best rank, `difficulty()` for the score
 ([ASO.md](ASO.md#difficulty)).
 
 `GET /api/sites/:id/aso/reviews?country=us&stars=1&offset=0&limit=50` → an array, newest first:

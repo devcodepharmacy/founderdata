@@ -4,7 +4,7 @@ OpenSEO is an open-source (MIT) SEO research tool, also hosted, built around Dat
 that costs cents, rank tracking with schedules, backlinks, its own site crawler and an MCP server with OAuth and agent
 skills. It runs on the same stack as FounderData, Cloudflare Workers and D1, or in Docker.
 
-FounderData is analytics and revenue with an SEO tab. It tracks Google ranks and Search Console too, and its edge is that
+FounderData is analytics and revenue. Its SEO tab, in FounderData Pro, €19.99 or $19.99 once, tracks Google ranks and Search Console too, and its edge is that
 search ties to visits, customers and revenue. Many people run both.
 
 Checked in November 2026. OpenSEO figures come from its README, release notes and pricing page, read on 6 November. They
@@ -14,7 +14,7 @@ may have changed.
 
 | | OpenSEO | FounderData |
 | --- | --- | --- |
-| Hosting and license | MIT. Hosted, Docker, or Cloudflare | MIT. Cloudflare Workers and D1 only |
+| Hosting and license | MIT. Hosted, Docker, or Cloudflare | Core is MIT. The SEO tab, rank tracking and AI visibility are in FounderData Pro, €19.99 or $19.99 once. Cloudflare Workers and D1 only |
 | Hosted price | $10, $30 and $100 a month, including $10, $36 and $120 of usage. The hosted plan adds 28% to DataForSEO calls | No hosted plan |
 | Data provider | Your DataForSEO key. Self-hosters pay DataForSEO directly | Your DataForSEO login, for ranks and research. Your own keys for AI engines |
 | Keyword research | About $0.05 a search on the hosted plan. Intent badges, wildcards, city volume | Suggestions with volume and difficulty, and the keywords a domain ranks for. Each costs DataForSEO's price per call and is cached 30 days in the research log |
@@ -26,7 +26,7 @@ may have changed.
 | Backlinks | Referring domains, new and lost, about $0.08 a domain overview | Stores a `backlinks` part you push. It collects nothing |
 | AI visibility | ChatGPT, Claude, Gemini, Perplexity and AI Overviews, about $0.002 a check, labelled beta | OpenAI, Anthropic, Gemini, Perplexity and Google AI Overviews, with optional sentiment, share of voice and cited pages. A check costs about $0.008 to $0.033 by our estimate |
 | Analytics tie-in | GA4 only. Open requests for Plausible, PostHog and Umami | Its own visits, customers and revenue, for every page and AI referral |
-| Agents | About 40 MCP tools, OAuth sign-in, skills for audits, clustering and reports, plugins for Claude, Codex and Cursor | 33 MCP tools behind a pasted `fdk_` key, four workflows served as MCP prompts, a research log, chart notes that agents review |
+| Agents | About 40 MCP tools, OAuth sign-in, skills for audits, clustering and reports, plugins for Claude, Codex and Cursor | In Pro, 30 MCP tools behind a pasted `fdk_` key, seven workflows served as MCP prompts and a research log. Chart notes that agents review |
 | Reports | Saved agent reports, PDF, public share links | A weekly report, a research log, a share link. No PDF |
 | Local SEO, IndexNow, Lighthouse | Yes | No. Core Web Vitals come from your real visitors |
 

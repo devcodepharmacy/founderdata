@@ -4,14 +4,16 @@ Every route here is on your own deployment, for example `https://founderdata.exa
 `Authorization: Bearer <key>`. Use a [scoped API key](#api-keys) for anything new: one key per agent or script, with
 only the scopes it needs. The older keys below keep working as they did.
 
+Routes marked (Pro) answer 404 in core. FounderData Pro adds them ([PRO.md](PRO.md)).
+
 | Key | Looks like | Where it comes from | What it can do |
 | --- | --- | --- | --- |
 | Scoped API key | `fdk_...` | Settings, Agents, or [`POST /api/v1/keys`](#api-keys) | What its [scopes](#scopes) allow, on its sites |
-| API key | `rt_...` | Settings, Payments | Write: `POST` and `DELETE /api/v1/payments`, `POST /api/v1/goals`, `POST /api/v1/notes`, [alert rules](#alert-rules) |
+| API key | `rt_...` | Settings, Payments | Write: `POST` and `DELETE /api/v1/payments`, `POST /api/v1/goals`, `POST /api/v1/notes`, [alert rules](#alert-rules-pro) |
 | Read key (legacy) | `rtr_...` | Made before scoped keys; listed in Settings, Agents, as a legacy read key | Read: the `GET /api/v1/*` routes under [Read](#read) |
-| Read key for all sites (legacy) | `rtr_...` | The same, made with All sites picked | Read: the same routes for any site with `?site=<id>`, and [`GET /api/v1/portfolio`](#portfolio) |
-| Login | the dashboard cookie | the admin password, or a teammate with the owner role | Everything, including CSV export and erasing people |
-| Viewer login | the dashboard cookie | `VIEWER_PASSWORD`, or a teammate with the viewer role | Reads only, `GET` routes of the dashboard |
+| Read key for all sites (legacy) | `rtr_...` | The same, made with All sites picked | Read: the same routes for any site with `?site=<id>`, and [`GET /api/v1/portfolio`](#portfolio-pro) |
+| Login | the dashboard cookie | the admin password, or a teammate with the owner role (Pro) | Everything, including CSV export and erasing people |
+| Viewer login | the dashboard cookie | `VIEWER_PASSWORD`, or a teammate with the viewer role (Pro) | Reads only, `GET` routes of the dashboard |
 
 The API key and the read key belong to one site.
 
@@ -35,18 +37,18 @@ only replaced. Revoking a key stops it within a minute and leaves the others alo
 
 | Scope | Allows | Without it |
 | --- | --- | --- |
-| `read` | Every `GET` route under [Read](#read), the [weekly report](#weekly-report), the [portfolio](#portfolio) and the MCP read tools. No revenue. | `403` on every read route |
+| `read` | Every `GET` route under [Read](#read), the [weekly report](#weekly-report), the [portfolio](#portfolio-pro) and the MCP read tools. No revenue. | `403` on every read route |
 | `read:revenue` | Revenue, payments, customers, conversion rate and MRR in those answers. Includes `read`. | Revenue fields are left out. `customers`, `subscriptions` and `asa` answer `403`. |
 | `read:rows` | Raw rows as CSV: [`GET /api/v1/export/<table>`](#raw-rows-for-agents) for sessions and events, and with `read:revenue` for payments and subscriptions. Names, emails and customer ids stay empty. Off unless you pick it. Needs `read` too. | `403` on the export route |
 | `notes:write` | `POST /api/v1/notes`, `POST /api/v1/notes/<id>/review`, and the MCP tools `add_note` and `review_change` | `403` |
-| `alerts:write` | `POST`, `DELETE /api/v1/alerts/rules` and the test send ([Alert rules](#alert-rules)) | `403` |
+| `alerts:write` | `POST`, `DELETE /api/v1/alerts/rules` and the test send ([Alert rules](#alert-rules-pro)) | `403` |
 | `payments:write` | `POST`, `DELETE /api/v1/payments`, `POST /api/v1/goals`, `POST /api/v1/erase`, `DELETE /api/v1/visitors/<id>` | `403` |
-| `seo:write` | Push the SEO snapshot: `PUT /api/sites/<id>/seo/<part>`, and `GET /api/sites/<id>/seo` to read it back ([SEO and ASO writes](#seo-and-aso-writes)). Push [AI answer checks](#ai-answer-checks). | `403` |
+| `seo:write` | Push the SEO snapshot: `PUT /api/sites/<id>/seo/<part>`, and `GET /api/sites/<id>/seo` to read it back ([SEO and ASO writes](#seo-and-aso-writes)). Push [AI answer checks](#ai-answer-checks-pro). | `403` |
 | `aso:write` | ASO keywords, countries and competitors, and the collector's snapshots and reviews ([SEO and ASO writes](#seo-and-aso-writes)) | `403` |
-| `spend:ai` | Add [AI visibility](#ai-visibility) prompts and competitors: `POST /api/v1/ai-prompts` and the MCP tool `add_ai_prompts`. Each prompt is billed on the owner's OpenAI, Anthropic and Gemini accounts every day, so it is a separate scope from the push-script `seo:write`. The `spend:` prefix marks a scope that spends money. | `403` |
-| `research:write` | `POST /api/v1/research` and the MCP tool `add_research` ([Research log](#research-log)), and tracking keywords with `POST /api/v1/ranks/keywords` (up to 200 a request) and the MCP tool `research_keywords` with `track` | `403` |
-| `spend:write` | Sending ad spend from channels without an import: `POST` and `DELETE /api/v1/spend` ([Ad spend](#ad-spend)). It records what you spent elsewhere and bills nothing, unlike `spend:ai` and `spend:seo` | `403` |
-| `spend:seo` | Buying keyword research with your DataForSEO account, up to the site's monthly cap: `POST /api/v1/ranks/research` and `research_keywords` with `mode`, including `mode: "app"` ([Ranks and keyword research](#ranks-and-keyword-research)). `research:write` does not include it | `403` |
+| `spend:ai` | Add [AI visibility](#ai-visibility-pro) prompts and competitors: `POST /api/v1/ai-prompts` and the MCP tool `add_ai_prompts`. Each prompt is billed on the owner's OpenAI, Anthropic and Gemini accounts every day, so it is a separate scope from the push-script `seo:write`. The `spend:` prefix marks a scope that spends money. | `403` |
+| `research:write` | `POST /api/v1/research` and the MCP tool `add_research` ([Research log](#research-log-pro)), and tracking keywords with `POST /api/v1/ranks/keywords` (up to 200 a request) and the MCP tool `research_keywords` with `track` | `403` |
+| `spend:write` | Sending ad spend from channels without an import: `POST` and `DELETE /api/v1/spend` ([Ad spend](#ad-spend-pro)). It records what you spent elsewhere and bills nothing, unlike `spend:ai` and `spend:seo` | `403` |
+| `spend:seo` | Buying keyword research with your DataForSEO account, up to the site's monthly cap: `POST /api/v1/ranks/research` and `research_keywords` with `mode`, including `mode: "app"` ([Ranks and keyword research](#ranks-and-keyword-research-pro)). `research:write` does not include it | `403` |
 
 A `403` names the missing scope and the key's scopes. A key for one site acts on that site. A key for several sites
 or all sites names the site with `?site=<id>` on every route, reads and writes alike; a site it doesn't cover gets
@@ -244,7 +246,7 @@ curl -X POST https://founderdata.example.com/api/v1/notes \
 | `text` | string, required | 280 characters at most. Runs of spaces and line breaks become one space. |
 | `timestamp` | string or number | ISO 8601, or milliseconds since 1970. Default: now. At most one day ahead. |
 | `kind` | string | The kind of change: `copy`, `pricing`, `aso`, `seo`, `ads`, `ai`, `release`, `launch`, `outage` or `other`. Anything else gets `400`. |
-| `actor` | string | Who made the change, such as `landing-agent` or `pascal`. 64 characters at most. |
+| `actor` | string | Who made the change, such as `landing-agent` or `founder`. 64 characters at most. |
 | `target` | string | What changed. 200 characters at most. The targets below pick what the verdict judges. |
 | `before`, `after` | string | The old and the new value, such as `$19` and `$24`. 280 characters each. |
 | `idempotency_key` | string | Your id for this note, 128 characters at most. A site keeps one note per key. |
@@ -324,11 +326,11 @@ A wrong outcome or a long comment gets `400`, a note of another site `404`. A re
 The dashboard and the iPhone app send the same body to `POST /api/sites/<site id>/notes/<id>/review` with the
 login cookie or the phone's token. The answer and the rules are the same.
 
-## Ad spend
+## Ad spend (Pro)
 
 Meta and Apple Search Ads spend arrives through their own imports. Every other channel arrives here: Google Ads,
 Microsoft Ads, TikTok, Reddit, LinkedIn, X, a newsletter sponsorship or a podcast read. The paid report
-([`GET /api/v1/paid`](#paid)) puts it next to new customers and revenue. The [guide](GUIDE.md#ad-spend-from-other-channels)
+([`GET /api/v1/paid`](#paid-pro)) puts it next to new customers and revenue. The [guide](GUIDE.md#ad-spend-from-other-channels-pro)
 has a Google Ads Script that sends the last 7 days of each campaign every morning.
 
 ### `POST /api/v1/spend`
@@ -523,7 +525,7 @@ One dashboard panel. `limit` is 1 to 500 (default 100); rows are sorted by visit
 | `browser`, `os`, `device`, `platform`, `app_version`, `hostname`, `language` | Technology. `language` is the browser's or the app's first language, the primary subtag only (`de`). |
 | `page`, `entry_page`, `exit_page` | Pages. `page` counts every page a visitor viewed. |
 | `goal`, `exit_link` | Goals and outbound link clicks. Their `pageviews` is the number of completions or clicks. |
-| `x_post` | Your X posts that link to the site ([GUIDE.md](GUIDE.md#which-post-paid)). `value` is the post id. Each row adds `post_id`, `text`, `url`, `posted_at`, `exact` and `probable` (visits matched by t.co code, or by landing page within 48 hours of the post), `exact_customers`, `probable_customers`, `exact_revenue` and `probable_revenue` (the same split for new customers and revenue, with a revenue key; a probable match is a guess from timing and landing page, not proof), `goals`, `visits_considered` (visits from X the report read) and `truncated` (`true` when a range held more than 20,000 of them and older ones were left out). The last row, `X, no matching post`, has `post_id: null` and `note: "no_post"`; it holds every visit from X no post explains, so the rows add up to the X row of the sources panel. |
+| `x_post` | Your X posts that link to the site ([GUIDE.md](GUIDE.md#which-post-paid-pro)). `value` is the post id. Each row adds `post_id`, `text`, `url`, `posted_at`, `exact` and `probable` (visits matched by t.co code, or by landing page within 48 hours of the post), `exact_customers`, `probable_customers`, `exact_revenue` and `probable_revenue` (the same split for new customers and revenue, with a revenue key; a probable match is a guess from timing and landing page, not proof), `goals`, `visits_considered` (visits from X the report read) and `truncated` (`true` when a range held more than 20,000 of them and older ones were left out). The last row, `X, no matching post`, has `post_id: null` and `note: "no_post"`; it holds every visit from X no post explains, so the rows add up to the X row of the sources panel. |
 
 ```json
 { "site_id": "SITE_ID", "...": "...", "dim": "source",
@@ -568,7 +570,7 @@ gives their first and last day, plus `native_from`, the first day with own data.
 and `payments`. A key with revenue also gets `imported_revenue` (minor units) on each point that holds revenue from a DataFast import. It is never part of
 `revenue`. Add the two to draw imported and native revenue as one line, and mark `native_from` as the seam. See [IMPORT.md](IMPORT.md#include-imported-history).
 
-### `POST /api/v1/query`
+### `POST /api/v1/query` (Pro)
 
 One question across sites, for what no panel answers: metrics by up to 2 dimensions, a day, week or month bucket and
 the site. A key that reads may call it; money metrics need `read:revenue`. It writes no rows, and answers are cached
@@ -640,39 +642,39 @@ Three rules hold for all of them:
 | Route | Parameters | Same JSON as |
 | --- | --- | --- |
 | `GET /api/v1/definitions` | none; a key for more than one site may leave out `site` | (new, see below) |
-| `GET /api/v1/actions` | `kind`, `limit`; a key for more than one site may leave out `site` | (new, see [Next actions](#next-actions)) |
-| `GET /api/v1/alerts` | `since`, `kind`, `limit`; a key for more than one site may leave out `site` | (new, see [Alert inbox](#alert-inbox)) |
+| `GET /api/v1/actions` (Pro) | `kind`, `limit`; a key for more than one site may leave out `site` | (new, see [Next actions](#next-actions-pro)) |
+| `GET /api/v1/alerts` (Pro) | `since`, `kind`, `limit`; a key for more than one site may leave out `site` | (new, see [Alert inbox](#alert-inbox-pro)) |
 | `GET /api/v1/content` | range, `prefix`, `limit` (1 to 500, default 100) | (new, see below) |
 | `GET /api/v1/customers` | range, `kind` (`payment` by default, `refund` or `all`), `offset`, `limit` (1 to 1000, default 200) | `GET /api/sites/<id>/customers`, the Customers tab. `X-Next-Offset` is set when another page exists. See [Customers](#customers). |
 | `GET /api/v1/export/<table>` | range, `limit`, `cursor` | The CSV export, without emails, payer names or customer ids. Needs `read:rows`. See [Raw rows for agents](#raw-rows-for-agents). |
-| `GET /api/v1/subscriptions` | range, `split` (`channel`, `source`, `campaign`, `product`, `provider`), `trial_days`, `money=net` | `GET /api/sites/<id>/subscriptions` ([guide](GUIDE.md#subscriptions)) |
-| `GET /api/v1/cohorts` | `by` (`paid`, `trial`), `cohorts` (1 to 24, default 12), `split` (`none`, `product`, `provider`, `channel`, `source`), `provider`, `product`, `channel`, `source`, `utm_campaign`, `money=net`, `cohort` (YYYY-MM) with `month` for one cell | `GET /api/sites/<id>/cohorts` ([guide](GUIDE.md#cohorts)) |
-| `GET /api/v1/asa` | range, `window` (`0`, `7`, `14` or `30` days for revenue after the tap), `changed_since` | `GET /api/sites/<id>/asa`, the Apple Search Ads card ([guide](GUIDE.md#apple-search-ads)) |
-| `GET /api/v1/asa/campaigns` | `days` (1 to 90, default 7), `window` (as above) | (new, see [Apple Search Ads per campaign](#apple-search-ads-per-campaign)) |
-| `GET /api/v1/meta` | range, `window` (`0`, `1`, `7` or `28` days for customers and revenue after the ad visit) | `GET /api/sites/<id>/meta`, the Meta ads tab ([guide](GUIDE.md#meta-ads)). A key without revenue gets it without the money fields. See [Meta ads](#meta-ads). |
-| `GET /api/v1/app/onboarding` | range, `split`, `limit` (groups, 1 to 20, default 5) | `GET /api/sites/<id>/app/onboarding` ([APP-API.md](APP-API.md) section 7), with `limit` groups and `groups_total`; a group leaves out steps no session reached |
-| `GET /api/v1/app/paywall` | range, `split` (`source` by default), `limit` | `GET /api/sites/<id>/app/paywall`, with `limit` groups, `bySource` and `byProduct` rows; `series` leaves out buckets where every number is 0 |
-| `GET /api/v1/app/onboarding-purchase` | range, `limit` | `GET /api/sites/<id>/app/onboarding-purchase`, the headline funnel, with `limit` values per group |
-| `GET /api/v1/app/screens` | range | `GET /api/sites/<id>/app/screens`, the screen flow |
-| `GET /api/v1/app/properties` | range | `GET /api/sites/<id>/app/properties`, the session property values in use |
-| `GET /api/v1/app/retention` | range | `GET /api/sites/<id>/app/retention` |
-| `GET /api/v1/app/sources` | range, `dim` (`channel` by default; an unknown one gets `400`) | `GET /api/sites/<id>/app/sources` |
-| `GET /api/v1/app/versions` | range, `series` (`true` adds sessions per version over time) | `GET /api/sites/<id>/app/versions` |
-| `GET /api/v1/dropoff` | range, `platform` (`all`, `web`, `app`), `split` (`platform`, `app_version`, `user_state`, `prop:<key>`), `include_test`, `limit` | `GET /api/sites/<id>/dropoff`, with `limit` groups and `groups_total` |
+| `GET /api/v1/subscriptions` (Pro) | range, `split` (`channel`, `source`, `campaign`, `product`, `provider`), `trial_days`, `money=net` | `GET /api/sites/<id>/subscriptions` ([guide](GUIDE.md#subscriptions-pro)) |
+| `GET /api/v1/cohorts` (Pro) | `by` (`paid`, `trial`), `cohorts` (1 to 24, default 12), `split` (`none`, `product`, `provider`, `channel`, `source`), `provider`, `product`, `channel`, `source`, `utm_campaign`, `money=net`, `cohort` (YYYY-MM) with `month` for one cell | `GET /api/sites/<id>/cohorts` ([guide](GUIDE.md#cohorts-pro)) |
+| `GET /api/v1/asa` (Pro) | range, `window` (`0`, `7`, `14` or `30` days for revenue after the tap), `changed_since` | `GET /api/sites/<id>/asa`, the Apple Search Ads card ([guide](GUIDE.md#apple-search-ads-pro)) |
+| `GET /api/v1/asa/campaigns` (Pro) | `days` (1 to 90, default 7), `window` (as above) | (new, see [Apple Search Ads per campaign](#apple-search-ads-per-campaign-pro)) |
+| `GET /api/v1/meta` (Pro) | range, `window` (`0`, `1`, `7` or `28` days for customers and revenue after the ad visit) | `GET /api/sites/<id>/meta`, the Meta ads tab ([guide](GUIDE.md#meta-ads-pro)). A key without revenue gets it without the money fields. See [Meta ads](#meta-ads-pro). |
+| `GET /api/v1/app/onboarding` (Pro) | range, `split`, `limit` (groups, 1 to 20, default 5) | `GET /api/sites/<id>/app/onboarding` ([APP-API.md](APP-API.md) section 7), with `limit` groups and `groups_total`; a group leaves out steps no session reached |
+| `GET /api/v1/app/paywall` (Pro) | range, `split` (`source` by default), `limit` | `GET /api/sites/<id>/app/paywall`, with `limit` groups, `bySource` and `byProduct` rows; `series` leaves out buckets where every number is 0 |
+| `GET /api/v1/app/onboarding-purchase` (Pro) | range, `limit` | `GET /api/sites/<id>/app/onboarding-purchase`, the headline funnel, with `limit` values per group |
+| `GET /api/v1/app/screens` (Pro) | range | `GET /api/sites/<id>/app/screens`, the screen flow |
+| `GET /api/v1/app/properties` (Pro) | range | `GET /api/sites/<id>/app/properties`, the session property values in use |
+| `GET /api/v1/app/retention` (Pro) | range | `GET /api/sites/<id>/app/retention` |
+| `GET /api/v1/app/sources` (Pro) | range, `dim` (`channel` by default; an unknown one gets `400`) | `GET /api/sites/<id>/app/sources` |
+| `GET /api/v1/app/versions` (Pro) | range, `series` (`true` adds sessions per version over time) | `GET /api/sites/<id>/app/versions` |
+| `GET /api/v1/dropoff` (Pro) | range, `platform` (`all`, `web`, `app`), `split` (`platform`, `app_version`, `user_state`, `prop:<key>`), `include_test`, `limit` | `GET /api/sites/<id>/dropoff`, with `limit` groups and `groups_total` |
 | `GET /api/v1/funnel` | range, `funnel_id`, or `steps` | (new, see [Funnels and paths](#funnels-and-paths)) |
-| `GET /api/v1/paths` | range, `path`, `platform`, `limit` | (new, see [Funnels and paths](#funnels-and-paths)) |
-| `GET /api/v1/app/experiments` | range | `GET /api/sites/<id>/app/experiments` |
-| `GET /api/v1/app/activation` | range | `GET /api/sites/<id>/app/activation` |
-| `GET /api/v1/seo` | none, or `changed_since` and `limit` | `GET /api/sites/<id>/seo`, the snapshot you push ([SEO.md](SEO.md)). With `changed_since`, see below. |
-| `GET /api/v1/seo/decay` | `limit` (1 to 100, default 20) | (new, see below) |
-| `GET /api/v1/seo/opportunities` | `days` (7, 28, 91, 182 or 365, default 28), `limit` (1 to 100, default 10) | (new, see below) |
-| `GET /api/v1/seo/cannibalization` | `limit` (1 to 100, default 20) | (new, see below) |
-| `GET /api/v1/aso` | `days` (7 to 90, default 90), `changed_since` | `GET /api/sites/<id>/aso` ([ASO.md](ASO.md)) |
-| `GET /api/v1/aso/keywords` | `changed_since`, `country` | (new, see below) |
-| `GET /api/v1/aso/reviews` | `country`, `stars` (1 to 5), `since` (`YYYY-MM-DD`), `limit` (1 to 100, default 20), `offset` | (new, see below) |
-| `GET /api/v1/appstore` | `period`, or `from` and `to` | `GET /api/sites/<id>/appstore`, the App Store tab, with amounts in minor units. Needs `read:revenue`. See below. |
-| `GET /api/v1/email` | `period`, or `from` and `to` | `GET /api/sites/<id>/email`, the Email panel on the Overview. See below. |
-| `POST /api/v1/stripe-check` | body `{ "state": "..." }`, optional | Compares FounderData's Stripe MRR with Stripe's own subscription list. Needs `read:revenue`. See below. |
+| `GET /api/v1/paths` (Pro) | range, `path`, `platform`, `limit` | (new, see [Funnels and paths](#funnels-and-paths)) |
+| `GET /api/v1/app/experiments` (Pro) | range | `GET /api/sites/<id>/app/experiments` |
+| `GET /api/v1/app/activation` (Pro) | range | `GET /api/sites/<id>/app/activation` |
+| `GET /api/v1/seo` (Pro) | none, or `changed_since` and `limit` | `GET /api/sites/<id>/seo`, the snapshot you push ([SEO.md](SEO.md)). With `changed_since`, see below. |
+| `GET /api/v1/seo/decay` (Pro) | `limit` (1 to 100, default 20) | (new, see below) |
+| `GET /api/v1/seo/opportunities` (Pro) | `days` (7, 28, 91, 182 or 365, default 28), `limit` (1 to 100, default 10) | (new, see below) |
+| `GET /api/v1/seo/cannibalization` (Pro) | `limit` (1 to 100, default 20) | (new, see below) |
+| `GET /api/v1/aso` (Pro) | `days` (7 to 90, default 90), `changed_since` | `GET /api/sites/<id>/aso` ([ASO.md](ASO.md)) |
+| `GET /api/v1/aso/keywords` (Pro) | `changed_since`, `country` | (new, see below) |
+| `GET /api/v1/aso/reviews` (Pro) | `country`, `stars` (1 to 5), `since` (`YYYY-MM-DD`), `limit` (1 to 100, default 20), `offset` | (new, see below) |
+| `GET /api/v1/appstore` (Pro) | `period`, or `from` and `to` | `GET /api/sites/<id>/appstore`, the App Store tab, with amounts in minor units. Needs `read:revenue`. See below. |
+| `GET /api/v1/email` (Pro) | `period`, or `from` and `to` | `GET /api/sites/<id>/email`, the Email panel on the Overview. See below. |
+| `POST /api/v1/stripe-check` (Pro) | body `{ "state": "..." }`, optional | Compares FounderData's Stripe MRR with Stripe's own subscription list. Needs `read:revenue`. See below. |
 | `GET /api/v1/whoami` | none | (new, see below) |
 | `GET /api/v1/notes` | range, `granularity`, `actor`, `kind`, `limit`, `compact`; or `due=true` with `actor`, `kind`, `window`, `limit` | (new, see below) |
 | `GET /api/v1/notes/<id>/impact` | `window` (1 to 28 days, default 7) | (new, see below) |
@@ -951,7 +953,7 @@ Notes without an actor are left out. The newest 50 notes count; `truncated` is `
 
 A key without revenue gets verdicts on visitors. Settings, API keys shows the same table for the site.
 
-#### Portfolio
+#### Portfolio (Pro)
 
 `GET /api/v1/portfolio` answers every site in one call: the numbers of the Home page. It takes a read key for all
 sites, or the dashboard login. A read key for one site gets `403`.
@@ -1019,10 +1021,10 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
   is the site's "App Store, no source" revenue, the same amount `get_breakdown` shows for that site and period. A key
   without revenue gets no `attribution`.
 - `ad_spend` is every ad channel's spend for the period's days in `tz` (Meta, Apple Search Ads and the
-  [spend you sent](#ad-spend)), in minor units of the site currency. `ad_spend_previous` is the period before, and
+  [spend you sent](#ad-spend-pro)), in minor units of the site currency. `ad_spend_previous` is the period before, and
   `ad_spend_by_channel` splits `ad_spend`. With revenue, `mer` is the site's revenue after Apple's cut over
   `ad_spend`, `mer_gross` its `revenue` over `ad_spend`, and `cac` is `ad_spend` over `new_customers`. The App Store
-  part takes the share the site keeps on average, so [`GET /api/v1/paid`](#paid) is exact where the portfolio is close.
+  part takes the share the site keeps on average, so [`GET /api/v1/paid`](#paid-pro) is exact where the portfolio is close.
   `totals` adds `ad_spend`, `ad_spend_previous`, `mer` and `cac` per currency. Spend in another currency than the
   site's converts day by day. Past 5,000 such days and channels the rest is left out, and `totals.ad_spend_truncated`
   is `true`.
@@ -1038,7 +1040,7 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
   ran. Before the first count, every row has `null`. Home's Growth row shows both.
 - The answer writes no rows. With a key it is cached for 60 seconds like the other read routes.
 
-#### Next actions
+#### Next actions (Pro)
 
 `GET /api/v1/actions` answers what is worth doing on a site, ranked by what is at stake. A one-site key gets its
 site. A key for more than one site gets every site it covers, ranked across them, or one site with `site`. The MCP
@@ -1201,7 +1203,7 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
   "changes": { "from": "2026-10-26T00:00:00.000Z", "to": "2026-11-02T00:00:00.000Z", "count": 6, "better": 1, "worse": 1,
                "inconclusive": 2, "due": 2,
                "worst": { "site_id": "SITE_ID", "site_name": "ShipKit", "note_id": "NOTE_ID", "time": "2026-10-20T14:00:00.000Z",
-                          "text": "Launch thread on X", "kind": "launch", "actor": "pascal", "target": null, "verdict": "worse",
+                          "text": "Launch thread on X", "kind": "launch", "actor": "founder", "target": null, "verdict": "worse",
                           "verdict_metric": "revenue_per_visitor", "change_pct": -38,
                           "reason": "Revenue per visitor fell 38%, from $2.29 to $1.42, on 1,196 visitors before and 1,182 after." } },
   "totals": { "sites": 3, "lines": [ "All sites", "Revenue: $990.00 + €120.00, ..." ], "visitors": 5120, "...": "..." } }
@@ -1242,7 +1244,7 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
   week does. `null` without either.
 - `subscriptions` is `{ trials, trials_previous, new_mrr, churned_mrr }` for a site with subscriptions or trials.
   `new_mrr` and `churned_mrr` need revenue.
-- `actions` lists the site's top 3 [next actions](#next-actions). `lines` names the top 2 as `Next: ...`.
+- `actions` lists the site's top 3 [next actions](#next-actions-pro). `lines` names the top 2 as `Next: ...`.
 - `changes` sums up the notes ([`POST /api/v1/notes`](#post-apiv1notes)) of the sites in the answer. `count` is the
   notes made in the week, a group once. `better`, `worse` and `inconclusive` are the verdicts that came in during the
   week: a verdict comes when a note's window closes (its `window_days` plus the days its data comes late), so most are
@@ -1269,10 +1271,10 @@ not a real day gets `400`.
   `period`, `from` and `to`. Without `changed_since`, a period that reaches into today moves back one day, so
   `period=30d` is the 30 days up to yesterday: the numbers of the site's Overview and the iPhone's "Since yesterday".
 
-### Paid
+### Paid (Pro)
 
 `GET /api/v1/paid?period=30d` answers what every ad channel cost against what it brought. MCP: `get_paid`. Spend
-comes from the Meta and Apple Ads imports and from [`POST /api/v1/spend`](#ad-spend), in the site currency.
+comes from the Meta and Apple Ads imports and from [`POST /api/v1/spend`](#ad-spend-pro), in the site currency.
 
 ```json
 { "site_id": "SITE_ID", "from": "2026-10-17", "to": "2026-11-15", "previous_from": "2026-09-17", "previous_to": "2026-10-16",
@@ -1295,7 +1297,7 @@ comes from the Meta and Apple Ads imports and from [`POST /api/v1/spend`](#ad-sp
 
 - `totals` need no attribution: `new_customers` and `revenue` count every buyer and payment in the period, from any
   source. `mer` is revenue over spend, `amer` first-purchase revenue over spend, `cac` spend per new customer. `mer`,
-  `amer` and `roas` are net of Apple's cut on App Store payments ([Apple's cut](GUIDE.md#apples-cut)). `*_gross` is
+  `amer` and `roas` are net of Apple's cut on App Store payments ([Apple's cut](GUIDE.md#apples-cut-pro)). `*_gross` is
   what customers paid. Web revenue includes VAT when the provider includes it.
 - `channels` lists every channel that spent in either period or brought a paid visit. FounderData's side follows the
   Meta and Apple Search Ads reports: `visits` from that channel that started in the period, and the `customers`
@@ -1317,11 +1319,11 @@ comes from the Meta and Apple Ads imports and from [`POST /api/v1/spend`](#ad-sp
   the period ends, and a low `paid_share`.
 - A key without `read:revenue` gets `spend`, `spend_previous`, the platforms' numbers, `visits` and the series' spend.
 - The portfolio adds `ad_spend`, `ad_spend_previous`, `ad_spend_by_channel` and, with revenue, `mer`, `mer_gross` and
-  `cac` to each site ([Portfolio](#portfolio)).
+  `cac` to each site ([Portfolio](#portfolio-pro)).
 
-### Meta ads
+### Meta ads (Pro)
 
-`GET /api/v1/meta?period=30d&window=7` answers the Meta ads tab ([guide](GUIDE.md#meta-ads)) for the site's ad account.
+`GET /api/v1/meta?period=30d&window=7` answers the Meta ads tab ([guide](GUIDE.md#meta-ads-pro)) for the site's ad account.
 MCP: `get_meta_ads`. Days are the account's days that fall in the period, today included up to the last hourly import.
 
 ```json
@@ -1375,7 +1377,7 @@ MCP: `get_meta_ads`. Days are the account's days that fall in the period, today 
   7 days. Then `gap` is `null` everywhere, and Meta's purchase columns say nothing about the ads.
 - `window` counts customers and revenue within that many days of the ad visit; `0` counts everything to date.
 - `blended` divides by every ad channel's spend on the same days, not Meta's alone. `blended.spend` is Meta, Apple
-  Search Ads and the [spend you sent](#ad-spend), split in `blended.channels`. `mer` is all revenue over it (gross),
+  Search Ads and the [spend you sent](#ad-spend-pro), split in `blended.channels`. `mer` is all revenue over it (gross),
   `cac` is it over every new customer. `GET /api/v1/paid` has the net figures and each channel.
 - `campaigns`, `adsets` and `ads` are flat lists, the most spend first. `parent` is the campaign of an ad set and the ad
   set of an ad. Ads that cannot deliver (disapproved, with issues, in review) are in `ads` without spend.
@@ -1394,12 +1396,12 @@ off, `capiTestCode`, `goalEvents`, `targetCpa` in minor units, `breakevenRoas`, 
 `GET /api/sites/<id>/meta/accounts`, `GET /api/sites/<id>/meta/thumbs`, `POST /api/sites/<id>/meta/backfill` and
 `POST /api/sites/<id>/meta/capi/test`. Writes are for owners.
 
-### Apple Search Ads per campaign
+### Apple Search Ads per campaign (Pro)
 
 `GET /api/v1/asa/campaigns?days=7` answers each campaign of the site's app, the most spend first, for yesterday and
 for the `days` days ending yesterday. Days are whole days in the site timezone; Apple reports once a day, so the
 window ends on the last full day. The numbers are the Apple Search Ads card's, the ones the `asa_spend` and `asa_roas`
-[alert rules](#alert-rules) read. It needs `read:revenue`. MCP: `get_apple_search_ads` with `view: "campaigns"`.
+[alert rules](#alert-rules-pro) read. It needs `read:revenue`. MCP: `get_apple_search_ads` with `view: "campaigns"`.
 
 ```json
 { "site_id": "SITE_ID", "currency": "USD", "currency_decimals": 2, "configured": true, "last_import_day": "2026-11-02",
@@ -1437,7 +1439,7 @@ That is the SEO answer. `position_change` is positive when the page or query mov
 caps each list, and `total_queries` and `total_pages` count every row that changed. A `changed_since` after the last
 Search Console day answers empty lists and a `note`.
 
-#### `GET /api/v1/aso/keywords`
+#### `GET /api/v1/aso/keywords` (Pro)
 
 One row per tracked keyword and country: the newest rank of each keyword against the reading on or before `changed_since`, 7 days ago
 without it. With `changed_since` only the rows whose rank moved come back, biggest move first. A keyword with no
@@ -1473,7 +1475,7 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
   has `subtitle` `null` and its title from the ratings lookup. FounderData stores no other copy of a competitor's
   App Store page: no description, no keyword field, no screenshots.
 
-#### `GET /api/v1/aso/reviews`
+#### `GET /api/v1/aso/reviews` (Pro)
 
 The written App Store reviews the [ASO collector](ASO.md) posted, newest first. `author` is always `null`, like names
 everywhere in this API. `total` and `average_rating` count every review that matches the filters, not only this
@@ -1492,10 +1494,10 @@ curl -H "Authorization: Bearer fdk_..." "https://founderdata.example.com/api/v1/
   "next_offset": null }
 ```
 
-#### `GET /api/v1/appstore`
+#### `GET /api/v1/appstore` (Pro)
 
 Downloads, units and proceeds from App Store Connect sales reports, the answer of the App Store tab
-([GUIDE.md](GUIDE.md#app-store-sales)). It needs `read:revenue`. The tab keeps Apple's amounts in major units; this
+([GUIDE.md](GUIDE.md#app-store-sales-pro)). It needs `read:revenue`. The tab keeps Apple's amounts in major units; this
 route turns every `amount` into minor units of its currency, like the rest of the API. Apple's days are Pacific time
 and arrive about a day late. `lastImportedDay` is the newest day imported.
 
@@ -1521,9 +1523,9 @@ and arrive about a day late. `lastImportedDay` is the newest day imported.
 - These are Apple's numbers. The revenue FounderData attributes to visits is in `/api/v1/subscriptions` and
   `/api/v1/customers`, and `coverage` compares the two.
 
-#### `POST /api/v1/stripe-check`
+#### `POST /api/v1/stripe-check` (Pro)
 
-Proves FounderData's Stripe MRR against Stripe's subscription list ([guide](GUIDE.md#check-mrr-against-stripe)). It needs
+Proves FounderData's Stripe MRR against Stripe's subscription list ([guide](GUIDE.md#check-mrr-against-stripe-pro)). It needs
 a key with `read:revenue` (`403` otherwise) and a restricted Stripe key for the site's own Stripe account, with
 Read on Subscriptions and nothing else: the secret `STRIPE_RESTRICTED_KEY_<SITE ID in capitals>`, or the deployment-wide
 `STRIPE_RESTRICTED_KEY` when `STRIPE_RESTRICTED_KEY_SITES` lists the site (or the deployment has one site). Without a key that fits the site the answer is `400` and names both options. A key for
@@ -1548,9 +1550,9 @@ curl -s -X POST -H "Authorization: Bearer fdk_..." -H "content-type: application
 | `history` | The stored result of each day a check finished in the last 30 days, newest first, on every answer: `day`, `checked_at`, `founderdata_mrr`, `stripe_mrr`, `gap_count`, `gap_amount` (what the gaps are worth a month, minor units), `status` (`matches` or `differs`) and `currency`. A second check the same day replaces its row. Rows older than 400 days are deleted. |
 | `month_end` | With the final answer: FounderData's MRR and paying count at the end of each of the last 12 months. Stripe's API has no historical MRR, so compare these with your Stripe dashboard by hand. |
 
-#### `GET /api/v1/email`
+#### `GET /api/v1/email` (Pro)
 
-Emails the site sent through Resend, counted from Resend's webhook ([GUIDE.md](GUIDE.md#email-resend) has the setup).
+Emails the site sent through Resend, counted from Resend's webhook ([GUIDE.md](GUIDE.md#email-resend-pro) has the setup).
 An email belongs to the site whose domain its sender address is on: `acme.example` takes `hello@acme.example` and
 `news@mail.acme.example`. It counts on the day it was created, in the site timezone, and every later event of that
 email counts on the same day.
@@ -1705,7 +1707,7 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
 
 The dashboard reads the same answer from `GET /api/sites/<id>/content/page?path=`, behind the login.
 
-#### `GET /api/v1/seo/decay`
+#### `GET /api/v1/seo/decay` (Pro)
 
 Pages whose Search Console clicks fell more than 30% in the last 28 days against the 28 before, from at least 10
 clicks, sorted by clicks lost. The 28 days end on the snapshot's `gscThrough`. `revenue_at_risk` and `customers` are
@@ -1736,7 +1738,7 @@ leave the page list short.
                "customers": 3 } ] }
 ```
 
-#### `GET /api/v1/seo/opportunities`
+#### `GET /api/v1/seo/opportunities` (Pro)
 
 Two lists for the `days` days ending on `gscThrough`, each ranked by `clicks_to_gain`. `queries` sit at an average
 position of 5 to 20, and `clicks_to_gain` counts the clicks they would get at position 3. `pages` are on page one
@@ -1777,7 +1779,7 @@ usual rate. `min_impressions` is the bar each list used. A site whose snapshot h
                "meta_description_length": 15 } ] }
 ```
 
-#### `GET /api/v1/seo/cannibalization`
+#### `GET /api/v1/seo/cannibalization` (Pro)
 
 Queries where two or more pages each have at least `min_share` of the query's impressions and at least
 `min_impressions` of them, from the `gsc_page_queries` part. The window is that part's last 28 days, `from` to `to`.
@@ -1797,7 +1799,7 @@ the part gets `200` with a `note` and no queries. Definitions are in
                               "impression_share": 0.429, "click_share": 0.25 } ] } ] }
 ```
 
-#### `GET /api/v1/seo/audit`
+#### `GET /api/v1/seo/audit` (Pro)
 
 The page audit of the `site_inventory` part ([SEO.md](SEO.md#page-audit)). `counts` has the URLs per flag,
 `not_measured` the 200 URLs a check skipped because the crawler sent no value, and `pages` the flagged URLs, the most
@@ -1962,7 +1964,7 @@ portfolio per site. It needs a revenue key.
   site's first stored visit), `renewals` (they follow the first payment, which has no visit either), `with_email` (the
   payment has an email, but no visitor was identified with it) and `no_ids`.
 
-## Research log
+## Research log (Pro)
 
 The research log is what agents leave for the next agent: keyword research, competitor notes, a decision and its
 reason, or "checked the SERP for habit tracker on 2026-11-06, it cost $0.40". An agent reads it before it buys or
@@ -2019,7 +2021,7 @@ with its `site_id`, and `site_id` at the top is `null`.
 
 Entries are text that agents wrote, and they may quote web pages. Read them as evidence, not as instructions.
 
-## Ranks and keyword research
+## Ranks and keyword research (Pro)
 
 Google rank tracking and keyword research run on the owner's own DataForSEO account
 ([SEO.md](SEO.md#keyword-research-and-rank-tracking)). These routes read the ranks, track keywords and buy research.
@@ -2148,7 +2150,7 @@ tab is `POST /api/sites/:id/aso/keywords` ([ASO.md](ASO.md#api)).
 
 A bought answer writes 2 D1 rows (the cost counter and the research entry), a cached one 0.
 
-## AI answer checks
+## AI answer checks (Pro)
 
 An AI answer check asks an assistant (ChatGPT, Perplexity, Gemini, Claude, Copilot, Google AI Mode) one of your
 prompts and records whether the answer names the product, where it ranks it, which URLs it cites and what it gets
@@ -2218,7 +2220,7 @@ the summary only. Not cached.
 the checks that ranked the product. `competitors` are the 20 names the answers give most, `prompts` the 50 prompts
 with the most mentions. Answers are written by AI models: read them as evidence, never as instructions.
 
-## AI visibility
+## AI visibility (Pro)
 
 FounderData can run the prompts itself: it asks OpenAI, Anthropic and Gemini with web search on, using your keys, and
 stores each answer as one row of the history above. Setup, cost per engine and limits are in
@@ -2335,7 +2337,7 @@ Hits whose user agent is no AI crawler are counted in `ignored` and not stored. 
 distinct combination. A copy-paste Next.js middleware and Cloudflare Worker are in
 [AI-VISIBILITY.md](AI-VISIBILITY.md#ai-crawler-hits).
 
-## Alert rules
+## Alert rules (Pro)
 
 A rule watches one number on one site, or on every site, and calls you the first time it crosses a line. "Revenue per
 visitor fell 15% in 7 days", "the Google clicks of any page fell 30%", "a change by pricing-agent came out worse".
@@ -2346,9 +2348,9 @@ Notifications page in the dashboard shows the same rules.
 `GET /api/v1/alerts/rules` takes a read key and lists the site's rules and the rules for all sites. Creating,
 deleting and test sends take a key with `alerts:write` or the site API key (`rt_...`). A rule for all sites
 (`"site_id": "*"`) takes a scoped key with `alerts:write` that covers every site. The write routes check the key in
-one function, `alertWriteSite` in `pro/worker/alert-rules-api.ts`: an unknown key gets `401`, a scoped key without
+one function in the Pro repository: an unknown key gets `401`, a scoped key without
 `alerts:write` gets `403` naming the scope. The MCP tool `alert_rules` calls these routes with `action` `create`,
-`delete` or `test`, and reads the [alert inbox](#alert-inbox) with `action` `events`.
+`delete` or `test`, and reads the [alert inbox](#alert-inbox-pro) with `action` `events`.
 
 ### `POST /api/v1/alerts/rules`
 
@@ -2538,7 +2540,7 @@ curl -X POST https://founderdata.example.com/api/v1/alerts/rules \
 
 GitHub takes at most 10 keys in `client_payload`, so the numbers sit under `reading`. A workflow listens with
 `on: repository_dispatch: types: [founderdata-alert]` and reads `github.event.client_payload`.
-[examples/agents/weekly-review.yml](../examples/agents/weekly-review.yml) does both: a weekly run and a run per alert.
+The Pro repository has `examples/agents/weekly-review.yml`, which does both: a weekly run and a run per alert.
 The signature header still goes out; GitHub ignores it.
 
 **Cost.** Each hourly run reads each site with due rules once, in one batch; a rule for all sites makes that every
@@ -2547,7 +2549,7 @@ fires, goes back over its line, or judges a change writes 1 row, since its deliv
 row. Each alert it sends adds 1 row to the alert inbox, in the same batch. A 7-day rule checked hourly reads 14 days of the site's sessions 24 times a day; `check_every` `1d` reads them
 once.
 
-## Alert inbox
+## Alert inbox (Pro)
 
 `GET /api/v1/alerts` answers every alert FounderData produced after a time, oldest first, so an agent that wakes up can
 ask what fired since its last run. The MCP tool `alert_rules` answers it with `action` `events`.
@@ -2590,10 +2592,10 @@ Names, emails and customer ids never go in.
   money metric.
 - Reading writes nothing. Each message writes 1 row per site; the 03:17 cleanup deletes rows past 90 days.
 
-## Subscription history import
+## Subscription history import (Pro)
 
 The dashboard's Settings run these routes (login required, no API key scope). They are listed so a script can drive an
-import. [GUIDE.md](GUIDE.md#import-from-chartmogul) has the mapping, the dedupe rule and what does not come across. A
+import. [GUIDE.md](GUIDE.md#import-from-chartmogul-pro) has the mapping, the dedupe rule and what does not come across. A
 ChartMogul API key goes in the body of each step and is never stored.
 
 | Route | Body and answer |
@@ -2611,9 +2613,10 @@ ChartMogul API key goes in the body of each step and is never stored.
 `GET /api/v1/subscriptions` and `GET /api/v1/cohorts` carry `importedHistory`: `null`, or `{ "sources": ["chartmogul"],
 "from": "2025-01", "to": "2025-11" }`, the months in which numbers come from an import and not from live events.
 
-## Team
+## Team (Pro)
 
-Teammate logins ([GUIDE.md](GUIDE.md#team)). The `/api/team` routes need the owner login, either `ADMIN_PASSWORD` or a
+Teammate logins ([GUIDE.md](GUIDE.md#team-pro)). Core has `POST /api/auth/login` and `GET /api/auth/me` for the
+shared passwords. The teammate fields and the `/api/team` routes need Pro. The `/api/team` routes need the owner login, either `ADMIN_PASSWORD` or a
 teammate with the role `owner`. A viewer, a phone token and an API key get 403 or 401. A person belongs to the whole
 deployment, not to a site. A `POST`, `PATCH` or `DELETE` with another `Origin`, or a
 `Sec-Fetch-Site` of `cross-site` or `same-site`, answers 403. Scripts and curl send neither header.
@@ -2701,7 +2704,7 @@ never a value. `test` (`dataforseo` or `x`) marks a row with a test button, and 
 Row ids: `cron`, `dataforseo`, `locations` or `location:<site>:<google|aso>:<place>`, `google`, `x`, `app-store`,
 `apple-search-ads`, `apns`, `ai-engines`, `email`, and `webhook:<site>[:<provider>]`.
 
-### `POST /api/setup/test/dataforseo` and `POST /api/setup/test/x`
+### `POST /api/setup/test/dataforseo` and `POST /api/setup/test/x` (Pro)
 
 Runs one test now. DataForSEO: `/appendix/user_data`. X: `GET /2/usage/tweets`. Both should cost nothing. We have not
 confirmed that with either provider. Each

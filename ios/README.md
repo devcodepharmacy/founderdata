@@ -6,8 +6,14 @@ frameworks and needs iOS 17 and Xcode 26 or later. It never reads the IDFA,
 and by default it stores nothing on the device.
 
 In Xcode, choose File > Add Package Dependencies, paste
-`https://github.com/founderdata/founderdata` and link `FounderDataKit` to the app
-target. Then follow the path that matches how your app sells.
+`https://github.com/founderdata/founderdata`, choose Up to Next Major Version
+from 1.0.0 and link `FounderDataKit` to the app target. Then follow the path
+that matches how your app sells.
+
+FounderData core records every event the SDK sends and credits each purchase
+to its session's source. The App section, with the onboarding funnel, the
+paywall split, retention and experiments, is a report in FounderData Pro
+([docs/PRO.md](../docs/PRO.md)). Passages below that describe it say so.
 
 Both paths need the app's bundle id in FounderData first. Add the app on Home
 with "+ Add site or app", or enter the bundle id in the site's Settings,
@@ -67,8 +73,8 @@ has the details.
 
 What you get: every RevenueCat purchase and renewal on the dashboard,
 credited to the app session it happened in and to that session's source,
-such as a campaign link, Apple Ads or a visit to your website. The App
-section shows paywall views, buy starts, cancels and failures per paywall
+such as a campaign link, Apple Ads or a visit to your website. In Pro, the
+App section shows paywall views, buy starts, cancels and failures per paywall
 source and per product, next to the onboarding funnel. A purchase that also
 arrives from the App Store counts once.
 
@@ -246,18 +252,15 @@ In Xcode, choose File > Add Package Dependencies and paste
 `https://github.com/founderdata/founderdata`. Then link `FounderDataKit` to the app
 target. A local checkout works too: add its `ios` folder.
 
-The repository has no release tags yet, so there is no version to pin. Pin a
-commit instead, or every package update pulls whatever `main` holds that day.
-In the dependency rule menu, choose Commit and paste the commit hash. In a
+In the dependency rule menu, choose Up to Next Major Version from 1.0.0. In a
 `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/founderdata/founderdata", revision: "<commit hash>")
+.package(url: "https://github.com/founderdata/founderdata", from: "1.0.0")
 ```
 
-Update by pasting a newer hash after you read [CHANGELOG.md](CHANGELOG.md).
-Once releases exist, switch the rule to Up to Next Minor Version, see
-"Versions".
+Read [CHANGELOG.md](CHANGELOG.md) before you update. "Versions" has the
+policy.
 
 ## Integration steps
 
@@ -349,9 +352,9 @@ FounderData.experiment("paywall_copy", variant: "b")     // sets exp_paywall_cop
   the session's first event at no extra cost. A change later in the session
   sends one small event with the full set; setting the same values again
   sends nothing.
-- The dashboard's App section splits the onboarding funnel, the paywall
-  conversion and the versions by any property, and lists every `exp_*`
-  property as an experiment with its arms.
+- In Pro, the dashboard's App section splits the onboarding funnel, the
+  paywall conversion and the versions by any property, and lists every
+  `exp_*` property as an experiment with its arms.
 
 Keep values to a handful per key. A user id or a timestamp as a value makes
 every session its own group, and the splits say nothing.
@@ -366,18 +369,18 @@ FounderData.onboardingComplete()
 ```
 
 `onboardingStep(_:_:)` sends the goal `onboarding_<name>` with the props
-`step` and `index`. The dashboard builds the funnel from these goals in
-`index` order, with the drop-off and the median time between steps.
+`step` and `index`. In Pro, the dashboard builds the funnel from these goals
+in `index` order, with the drop-off and the median time between steps.
 `onboardingComplete()` sends `onboarding_complete`. Number the steps in the
 order the user sees them. When a variant skips a step, keep the numbers of
 the other steps, so both variants line up in one funnel.
 
-`.founderDataScreen` and `FounderData.screen` stay as they are. The App section
-shows the screen flow from them.
+`.founderDataScreen` and `FounderData.screen` stay as they are. In Pro, the App
+section shows the screen flow from them.
 
 ## Paywall and purchase goals
 
-The App section's paywall panels and the Drop-off view read a fixed set of
+In Pro, the App section's paywall panels and the Drop-off view read a fixed set of
 goal names from [docs/APP-EVENTS.md](../docs/APP-EVENTS.md). Each has a
 helper, so a typo cannot leave a panel empty:
 
@@ -733,19 +736,21 @@ that `docs/APP-API.md` in this repo defines. Each body
 carries the site id, the install id, the events, and the app version, build,
 iOS version, device model, locale and bundle id. With consent it also carries
 `"consent": true`, and under a `.vendor` id without consent `"id": "vendor"`,
-so the server knows the install id lasts across launches. The dashboard's
-retention panel counts only those installs.
+so the server knows the install id lasts across launches. Pro's retention
+panel counts only those installs.
 
 ## Versions
 
-The repository has no release yet. Releases will be git tags in plain
-semver, `0.1.0`, `0.2.0` and so on, because Xcode's version rules read only
-tags of the form `1.2.3` or `v1.2.3`. Until 1.0.0, a minor release may change
-the public API and [CHANGELOG.md](CHANGELOG.md) says what to change in your
-app; a patch release only fixes bugs. Choose Up to Next Minor Version in
-Xcode while the version starts with 0. A change to the upload format also
-updates `docs/APP-API.md`, and the server keeps accepting the format of every
-released version.
+Releases are git tags in plain semver with no `v`, starting at `1.0.0`. The
+server, the dashboard and the SDK share one version. In Xcode, choose Up to
+Next Major Version from 1.0.0. In a `Package.swift`, use
+`.package(url: "https://github.com/founderdata/founderdata", from: "1.0.0")`.
+
+A breaking change to the SDK's public API needs a new major version, and
+[CHANGELOG.md](CHANGELOG.md) says what to change in your app. A minor release
+adds features, and a patch release only fixes bugs. A change to the upload
+format also updates `docs/APP-API.md`, and the server keeps accepting every
+upload format a released SDK sends.
 
 ## Tests
 

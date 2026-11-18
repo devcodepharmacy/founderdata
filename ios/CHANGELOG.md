@@ -1,13 +1,13 @@
 # FounderDataKit changelog
 
 Changes to the Swift package in `ios/`. The server, the dashboard and the
-iPhone app in `pro/apps/ios/` (FounderData Pro) are not listed here. Versions follow the policy in
-[README.md](README.md#versions): tags in plain semver (`0.1.0`), and until
-1.0.0 a minor release may change the public API.
+iPhone app in FounderData Pro are not listed here. Versions follow the policy
+in [README.md](README.md#versions): tags in plain semver with no `v`, and a
+breaking change to the public API needs a new major version.
 
-## Unreleased
+## 1.0.0 (2026-11-18)
 
-Changes since the first public commit. The first tag will be `0.1.0`.
+Changes since the first public commit.
 
 ### Changed
 

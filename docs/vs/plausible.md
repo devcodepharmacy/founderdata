@@ -15,18 +15,18 @@ its docs, read on 6 November. They may have changed.
 | | Plausible | FounderData |
 | --- | --- | --- |
 | Hosting and license | Hosted Cloud, or self-hosted Community Edition under AGPL | Your own Cloudflare account, MIT |
-| Price, hosted | Starter, 1 site, $9 a month for 10,000 pageviews and events, $19 for 100,000, $29 for 200,000, $49 for 500,000, $69 for 1 million. Growth, 3 sites and 3 members, $14, $29, $44, $74 and $104 at the same volumes. Business, 10 sites and 10 members, $19, $39, $59, $99 and $139. Yearly is 10 times monthly. 30-day trial | No license fee. Free Cloudflare plan covers about 3,100 web visits a day |
-| Self-hosting | Community Edition needs ClickHouse. It lacks funnels, user journeys, revenue goals, SSO and the Sites API, and ships twice a year | One Worker and one D1 database, with every feature. No Docker image |
-| Revenue | Revenue goals on Business only. Sent from the browser, credited to the visit where the payment happens. Its docs advise against sending renewals or refunds from webhooks | Server-side webhooks from Stripe, Dodo, Lemon Squeezy, Polar, Paddle, Gumroad, App Store and RevenueCat. Credited to the buyer's last visit from a real source, with renewals, refunds and MRR |
+| Price, hosted | Starter, 1 site, $9 a month for 10,000 pageviews and events, $19 for 100,000, $29 for 200,000, $49 for 500,000, $69 for 1 million. Growth, 3 sites and 3 members, $14, $29, $44, $74 and $104 at the same volumes. Business, 10 sites and 10 members, $19, $39, $59, $99 and $139. Yearly is 10 times monthly. 30-day trial | Core is free under MIT. FounderData Pro, €19.99 or $19.99 once, adds subscriptions, iOS app reports, SEO and AI visibility. Cloudflare's free plan covers about 3,100 web visits a day |
+| Self-hosting | Community Edition needs ClickHouse. It lacks funnels, user journeys, revenue goals, SSO and the Sites API, and ships twice a year | One Worker and one D1 database, for core and Pro alike. No Docker image |
+| Revenue | Revenue goals on Business only. Sent from the browser, credited to the visit where the payment happens. Its docs advise against sending renewals or refunds from webhooks | Server-side webhooks from Stripe, Dodo, Lemon Squeezy, Polar, Paddle, Gumroad, App Store and RevenueCat. Credited to the buyer's last visit from a real source, with renewals and refunds. MRR is in Pro |
 | Funnels | Business only | Included |
-| Email reports | Weekly and monthly, unlimited recipients, Slack reports, traffic spike emails | A Monday report, an optional daily numbers message (MRR and change, new and churned subscriptions, revenue, visitors, Stripe check), threshold alerts and quiet-site alerts to Slack, Discord, Telegram, a webhook or email |
-| Search Console | Free integration | Connect Google with your own Google Cloud client, or a sync script. 16 months of queries |
+| Email reports | Weekly and monthly, unlimited recipients, Slack reports, traffic spike emails | A Monday report and quiet-site alerts, plus in Pro a daily numbers message (MRR and change, new and churned subscriptions, revenue, visitors, Stripe check) and threshold alerts, to Slack, Discord, Telegram, a webhook or email |
+| Search Console | Free integration | In Pro, Connect Google with your own Google Cloud client, or a sync script. 16 months of queries |
 | Import in | Google Analytics 4 through its API, and CSV. GA4 revenue is not imported | A Plausible export ZIP. Other tools' files may work, and only Plausible's is tested |
 | Export out | A ZIP of CSVs, each capped at the top 300 rows, or a full-site export of daily CSVs | CSV export of every panel, visit, event, payment and subscription |
 | API | Stats API v2, 600 requests an hour on Business | A read API with scoped keys, 120 new answers a minute per key |
-| Agents | No official MCP server. A community one exists, with no support from Plausible | MCP with 33 tools, scoped keys and four workflows |
-| iOS apps | Not covered | Swift SDK, StoreKit 2, RevenueCat, onboarding and paywall funnels, retention, Apple Search Ads, ASO |
-| AI referrals | Shows traffic from ChatGPT, Perplexity and Claude | The same, with the customers and revenue that followed, plus an AI visibility runner |
+| Agents | No official MCP server. A community one exists, with no support from Plausible | MCP with scoped keys, 9 tools in core. Pro has 30 tools and seven workflows |
+| iOS apps | Not covered | Swift SDK, StoreKit 2 and RevenueCat in core. Onboarding and paywall funnels, retention, Apple Search Ads and ASO in Pro |
+| AI referrals | Shows traffic from ChatGPT, Perplexity and Claude | The same, with the customers and revenue that followed. Pro adds an AI visibility runner |
 
 ## What FounderData does not do
 

@@ -733,19 +733,19 @@ for (let d = 59; d >= 4; d--) {
 // the verdicts and the due list have something to show.
 const noteAt = (d, hour) => now - d * DAY - (now % DAY) + hour * 3_600_000;
 const NOTES = [
-  ['demo0001', 9, 14, 'Launch thread on X', 'manual', { actor: 'pascal', change_kind: 'launch' }],
-  ['demo0001', 24, 9, 'Posted on Indie Hackers', 'manual', { actor: 'pascal', change_kind: 'launch' }],
+  ['demo0001', 9, 14, 'Launch thread on X', 'manual', { actor: 'founder', change_kind: 'launch' }],
+  ['demo0001', 24, 9, 'Posted on Indie Hackers', 'manual', { actor: 'founder', change_kind: 'launch' }],
   ['demo0001', 17, 11, 'Pro plan from $79 to $99', 'api', { actor: 'pricing-agent', change_kind: 'pricing', target: '/pricing', before_text: '$79 a month', after_text: '$99 a month', reviewed_at: noteAt(9, 12), review_outcome: 'kept', review_comment: 'Revenue per visitor held, so the higher price stays.' }],
   [habitly, 30, 8, 'App version 2.3.0 (118)', 'version', { change_kind: 'release' }],
   [habitly, 13, 8, 'App version 2.3.1 (121)', 'version', { change_kind: 'release' }],
   [habitly, 2, 8, 'App version 2.4.0 (124)', 'version', { change_kind: 'release' }],
-  ['demo0001', 36, 15, 'Launched on Product Hunt', 'manual', { actor: 'pascal', change_kind: 'launch' }],
+  ['demo0001', 36, 15, 'Launched on Product Hunt', 'manual', { actor: 'founder', change_kind: 'launch' }],
   ['demo0001', 45, 10, 'Rewrote the "SEO for SaaS" guide', 'manual', { actor: 'seo-agent', change_kind: 'seo', target: '/blog/seo-for-saas', before_text: '1,400 words, 2023 examples', after_text: '2,600 words, 2026 examples' }],
-  [habitly, 20, 9, 'Onboarding v2 live', 'api', { actor: 'pascal', change_kind: 'release', before_text: '5 onboarding screens', after_text: '3 screens, paywall last' }],
+  [habitly, 20, 9, 'Onboarding v2 live', 'api', { actor: 'founder', change_kind: 'release', before_text: '5 onboarding screens', after_text: '3 screens, paywall last' }],
   [habitly, 8, 10, 'New App Store screenshots', 'manual', { actor: 'aso-agent', change_kind: 'aso', target: 'keyword:habit tracker', before_text: 'Feature list screenshots', after_text: 'Streak screenshots with captions' }],
   ['demo0001', 11, 10, 'Refreshed "Stripe vs Paddle" for 2026 fees', 'api', { actor: 'seo-agent', change_kind: 'seo', target: '/blog/stripe-vs-paddle-for-indie-saas', before_text: '2024 fee table', after_text: '2026 fee table, new FAQ' }],
   ['demo0001', 5, 16, 'New hero headline on the home page', 'api', { actor: 'landing-agent', change_kind: 'copy', target: '/', before_text: 'Ship your SaaS faster', after_text: 'Launch a paid SaaS this weekend' }],
-  ['demo0001', 3, 9, 'Paused the Reddit ads', 'manual', { actor: 'pascal', change_kind: 'ads', before_text: '$20 a day', after_text: 'Paused' }],
+  ['demo0001', 3, 9, 'Paused the Reddit ads', 'manual', { actor: 'founder', change_kind: 'ads', before_text: '$20 a day', after_text: 'Paused' }],
   ['demo0001', 2, 11, 'Shorter pricing FAQ, 9 questions to 5', 'api', { actor: 'copy-agent', change_kind: 'copy', target: '/pricing', before_text: '9 questions', after_text: '5 questions' }],
 ];
 NOTES.forEach(([site, d, hour, text, kind, extra], i) => insert('notes', { id: `note_demo_${i + 1}`, site_id: site, ts: noteAt(d, hour), text, kind, created_at: noteAt(d, hour), ...extra }));

@@ -139,7 +139,9 @@ currency (`analytics/metadata`) with the site's and leaves revenue out when they
 you confirm it. It also compares DataFast's timezone with the site's and warns when they differ, because day totals
 can then sit one day off. Compare one source with your DataFast dashboard and redo the import if it was wrong.
 
-**Include imported history.** The chart on Overview has a checkbox, off by default, when the range holds imported revenue.
+### Include imported history
+
+The chart on Overview has a checkbox, off by default, when the range holds imported revenue.
 Tick it and the revenue strip becomes one line: each day or week is native revenue plus imported revenue, with a dashed
 vertical marker labelled "Native data starts" on the first day FounderData recorded itself. The hover card then splits
 the day into "Native revenue" and "Imported revenue". Nothing else changes. The revenue tile stays native and shows a

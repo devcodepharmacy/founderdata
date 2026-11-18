@@ -7,7 +7,8 @@ engines and adds prompt volumes, a fact check of what engines say about you and 
 paid plans are Enterprise only.
 
 FounderData asks the engines' APIs with your own keys, so a check is a model with a search tool and not a replay of what a
-buyer sees. In exchange it ties AI referrals to customers and revenue, and it costs your API bills and nothing else.
+buyer sees. In exchange it ties AI referrals to customers and revenue. AI visibility is part of FounderData Pro, €19.99 or $19.99 once,
+and after that it costs your API bills.
 
 Checked in November 2026. Prices and engine lists come from each vendor's pricing and docs pages, read on 6 November, and
 may have changed. FounderData's token and search prices come from providers' pages as of November 2026.
@@ -16,7 +17,7 @@ may have changed. FounderData's token and search prices come from providers' pag
 
 | | Peec | Profound | FounderData |
 | --- | --- | --- | --- |
-| Price | From $95 a month for 50 prompts on 3 models, daily, which is 4,500 answers a month | Free 7-day trial with 50 prompts on 3 engines, then Enterprise only | No license fee. About $45 a month in API bills for 50 prompts a day on the three cheapest engines, with a default cap of $20 a site you raise first |
+| Price | From $95 a month for 50 prompts on 3 models, daily, which is 4,500 answers a month | Free 7-day trial with 50 prompts on 3 engines, then Enterprise only | Core is free under MIT. AI visibility is in FounderData Pro, €19.99 or $19.99 once. Then about $45 a month in API bills for 50 prompts a day on the three cheapest engines, with a default cap of $20 a site you raise first |
 | Engines | ChatGPT, AI Mode, AI Overviews, Copilot, Gemini and Naver. Claude, Grok and others on Enterprise through the API | ChatGPT, Perplexity, Claude, Gemini, Copilot, DeepSeek, AI Overviews, AI Mode and more | OpenAI, Anthropic and Gemini on your keys, plus Google AI Overviews and Perplexity through DataForSEO. Perplexity also runs on its own key, a path that has only run against mocks. The DataForSEO path is the main one. No Copilot, AI Mode, Grok or DeepSeek |
 | How answers are collected | Browser automation as a logged-out user | Not disclosed | Each engine's API with web search on. Not a replay of the consumer app |
 | Metrics | Visibility, position, sentiment, cited domains and sources, competitors, recommendations | Visibility score, citations, sentiment, fact check, prompt volumes, shopping | Mention rate per engine and prompt, cited domains and URLs, whether your pages are cited, share of voice against competitors, position, positive, neutral and negative counts per engine, this week against last |
@@ -25,7 +26,7 @@ may have changed. FounderData's token and search prices come from providers' pag
 | History | Not checked | Not checked | Answers are kept 200 days |
 | Bots | Not a Peec feature in our research | Agent Analytics. Verifies bots against published IP ranges, per a search summary we could not open | Your server forwards hits from GPTBot, ClaudeBot, PerplexityBot and other AI crawlers. Counts per bot, page and status |
 | Revenue | No | No | Visits that arrive from an AI assistant carry customers and revenue, like any source |
-| Agents | Not found in our research | Not found in our research | MCP `get_ai_answers` with views for visibility and sentiment. Agents can add prompts with a key that has the `spend:ai` scope |
+| Agents | Not found in our research | Not found in our research | In Pro, MCP `get_ai_answers` with views for visibility and sentiment. Agents can add prompts with a key that has the `spend:ai` scope |
 
 ## What FounderData does not do
 
@@ -61,4 +62,4 @@ own prompts before you cancel.
    [AI crawler hits](../AI-VISIBILITY.md#ai-crawler-hits).
 6. Connect Stripe and add the tracker. Visits from ChatGPT and other assistants then appear as sources, with their customers and revenue.
 7. If your prompts live in a spreadsheet, push them with `add_ai_prompts` or
-   [`POST /api/v1/ai-prompts`](../API.md#ai-visibility).
+   [`POST /api/v1/ai-prompts`](../API.md#ai-visibility-pro).

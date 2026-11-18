@@ -2,7 +2,9 @@
 
 AI visibility answers one question: when someone asks an AI engine for a product like yours, does it name you, who
 does it name instead, and which pages does it cite? FounderData asks the engines itself, with your own API keys, and
-keeps every answer in the same history that [AI answer checks](API.md#ai-answer-checks) use.
+keeps every answer in the same history that [AI answer checks](API.md#ai-answer-checks-pro) use.
+
+This is a FounderData Pro feature ([PRO.md](PRO.md)).
 
 Two parts work apart from each other:
 
@@ -44,7 +46,7 @@ See [Sentiment](#sentiment).
 
 1. **Add prompts.** Open the AI visibility tab and add the questions a buyer would type, one per line: "best
    privacy-friendly analytics for indie hackers", "plausible alternative". A site keeps 100 prompts. Agents can add
-   them too with the `add_ai_prompts` MCP tool or [`POST /api/v1/ai-prompts`](API.md#ai-visibility).
+   them too with the `add_ai_prompts` MCP tool or [`POST /api/v1/ai-prompts`](API.md#ai-visibility-pro).
 2. **Add names.** Your brands and your competitors, up to 20 rows each, each with optional aliases and exclusions.
 3. **Store a key per engine.** Each key is a Worker secret. It is never saved in the database and never sent to the
    dashboard.
@@ -217,14 +219,13 @@ add one more.
 | Checks | 6 a run across all sites by default. The cron runs 288 times a day, so up to 1,728 a day. 50 prompts on 3 engines are 150 checks, and the day's share spreads them over the day. A deployment that kept the hourly cron in `wrangler.local.jsonc` gets 144 a day until it adds `*/5 * * * *` |
 | Answer | 3,000 output tokens asked for. Anthropic may search up to 3 times a check. 30,000 characters are read for names |
 | History | A check is 1 row a day per prompt and engine. Rows older than 200 days are deleted by the daily retention run. A report reads at most 90 days, and the 90 before them for the comparison |
-| AI Overviews and sentiment | 5 prompts per `task_post`, 3 results collected a tick, 3 answers rated a tick. A post needs 4 subrequests, a collect 2 plus 2 per result, a rating 2. The AI Overview step and the check loop take turns going first, and every call checks the shared budget, so a busy tick stays under 50 (`pro/test/ai-engines-r5.test.ts`) |
+| AI Overviews and sentiment | 5 prompts per `task_post`, 3 results collected a tick, 3 answers rated a tick. A post needs 4 subrequests, a collect 2 plus 2 per result, a rating 2. The AI Overview step and the check loop take turns going first, and every call checks the shared budget, so a busy tick stays under 50, which a test in the Pro repository checks |
 | Free plan | The cron gets 10 ms of CPU, shared with the rank collection of the same invocation (and at minute 0 the phone pushes and alert rules), and the invocation's 50 subrequests, which every job of the run counts on one shared counter. An engine call mostly waits on the network, which is not CPU, but parsing an answer with its search results (tens of KB) and matching names is. A check is 2 subrequests (the call and the write), and each site adds about 3 more. So 6 checks a run is the default. Lower `AI_CHECKS_PER_RUN` if a run hits the CPU limit |
 | Workers Paid | 30 s of CPU and 1,000 subrequests a run, so `AI_CHECKS_PER_RUN` can go to its limit of 50. An engine call times out after 90 seconds, so 50 checks on one engine can take over an hour of wall time: keep it near 10 per engine |
 
 D1 rows written: a check writes 2 rows, the answer and the month's spend. A run of 6 checks on one engine writes 12 rows. A run with nothing pending writes none.
 A check that failed for its own prompt writes 1 row for its failure count, and 1 more if the engine billed it. A Perplexity check through DataForSEO writes 3 rows (answer, AI spend, DataForSEO counter). An AI Overview prompt writes 4 rows to post (2N + 2 for N prompts in one post) and 2 to collect. A sentiment rating writes 2. Saving the
-settings writes 1 row, each new prompt 1 row. The numbers are pinned in
-`pro/test/cost.test.ts`.
+settings writes 1 row, each new prompt 1 row. A cost test in the Pro repository pins the numbers.
 
 ## Untrusted text
 
@@ -239,9 +240,9 @@ descriptions.
 | Where | What |
 | --- | --- |
 | Dashboard, AI visibility tab | Everything on this page, with the setup form |
-| `GET /api/v1/ai-visibility` | The metrics as JSON ([API.md](API.md#ai-visibility)) |
+| `GET /api/v1/ai-visibility` | The metrics as JSON ([API.md](API.md#ai-visibility-pro)) |
 | `GET /api/v1/ai-answers?engine=openai` | The stored rows, with `engine`, `mentions` and `cost_usd` |
-| `GET /api/v1/ai-sentiment` | Sentiment counts per engine ([API.md](API.md#ai-visibility)) |
+| `GET /api/v1/ai-sentiment` | Sentiment counts per engine ([API.md](API.md#ai-visibility-pro)) |
 | MCP `get_ai_answers` (with `view: "visibility"` or `"sentiment"`), `add_ai_prompts` | The same, for agents ([MCP.md](MCP.md)) |
 | Home's Growth row, `ai` on `GET /api/v1/portfolio` and MCP `get_portfolio` | Mention and citation rate per site against the window before. The Worker counts the checks per site and day once an hour, at minute 55, so today's checks can be up to an hour behind the tab |
 

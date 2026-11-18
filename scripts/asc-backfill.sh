@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Import past App Store sales days into a FounderData deployment (docs/MOBILE-API.md section 5).
+# Needs FounderData Pro: the /api/appstore/backfill route and the daily Sales report import are in the Pro edition.
 #
 #   scripts/asc-backfill.sh https://founderdata.example.com [--from 2026-01-01] [--to 2026-10-28] [--password-file PATH]
 #

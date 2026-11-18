@@ -4,6 +4,8 @@ The ASO tab shows where an iOS app ranks in App Store search for the keywords yo
 also shows the 10 apps above it, a difficulty score, Apple's search popularity, ratings per country and new reviews.
 It is on every site with a bundle id, and it stays a setup guide until the first snapshot arrives.
 
+This is a FounderData Pro feature ([PRO.md](PRO.md)). In core, the tab shows the Pro card.
+
 ## Read this first: Apple's terms
 
 Ranks, the top 10, ratings and reviews come from App Store endpoints that Apple doesn't document for this use:
@@ -296,7 +298,7 @@ When the collector posts a new written review of 3 stars or fewer, FounderData s
 - every alert channel with **Low App Store review** on in Notifications: Slack, Discord, Telegram, a webhook or email,
   for the channels that cover this app
 - every phone with alert push on that hasn't muted this app, through the same APNs setup as payment alerts. The `APNS_*`
-  secrets in [GUIDE.md](GUIDE.md#phone-app-and-push) switch it on, and it has no switch of its own in the phone's event list
+  secrets in [GUIDE.md](GUIDE.md#phone-app-and-push-pro) switch it on, and it has no switch of its own in the phone's event list
 
 Change the limit and switch it off per app in the ASO tab, under **Review alerts**, or with `reviewAlert` in
 `PUT /api/sites/:id/aso/settings`. The default is on, at 3 stars. Without a settings row an app uses the default.
@@ -340,7 +342,7 @@ answer because of ads and personalization. Read the trend over days, not a singl
 ### Difficulty
 
 Difficulty is a score from 0 to 100 for how hard the top 10 is to break into. It is worked out in the browser from
-the last top 10 of each keyword (`pro/dashboard/lib/aso.ts`):
+the last top 10 of each keyword (`dashboard/lib/aso.ts` in the Pro repository):
 
 - 60% from the median rating count of the 10 apps, on a log scale. 100,000 ratings or more counts in full.
 - 30% from how many of them have every word of the keyword in their name or subtitle.
@@ -355,7 +357,7 @@ The bar under the score shows its band: green under 50 (easy), amber from 50 to 
 
 The Worker asks the Apple Ads Platform API for `POST /v1/insights/apps/search-term-popularity/query` once a week, on
 the 07:00 UTC cron from Tuesday on, for every tracked keyword in every tracked country. Apple publishes a week on the
-Monday after it. It needs the same four `ASA_*` secrets as the [Apple Search Ads import](GUIDE.md#apple-search-ads),
+Monday after it. It needs the same four `ASA_*` secrets as the [Apple Search Ads import](GUIDE.md#apple-search-ads-pro),
 and `ASA_AD_ACCOUNT_ID` or an API user with at least one ad account.
 
 Apple has no score for a term with fewer than 500 searches that week, and the tab shows "low" for it. If Apple answers
@@ -401,7 +403,7 @@ shows a stalled hosted check in the hosted status, as its error line.
 
 ## What it costs
 
-Measured by `pro/test/cost.test.ts`:
+Measured by a cost test in the Pro repository:
 
 | Write | D1 rows |
 | --- | --- |
@@ -438,9 +440,9 @@ without the scope gets `403`. The read answer is in [MOBILE-API.md](MOBILE-API.m
 A read key gets the same answer from `GET /api/v1/aso`, and `?changed_since=YYYY-MM-DD` keeps the keywords whose rank
 moved. `GET /api/v1/aso/keywords?changed_since=&country=` answers one row per keyword and country, with the rank
 change, popularity, difficulty and each competitor's rank, title and subtitle. Both are in
-[API.md](API.md#get-apiv1asokeywords). The MCP tool `get_aso` takes `changed_since` too. The review text is at
+[API.md](API.md#get-apiv1asokeywords-pro). The MCP tool `get_aso` takes `changed_since` too. The review text is at
 `GET /api/v1/aso/reviews` with a `read` key, and in `get_aso` with `reviews: true`, with `author` always `null`
-([API.md](API.md#get-apiv1asoreviews)).
+([API.md](API.md#get-apiv1asoreviews-pro)).
 
 | Route | What it does |
 | --- | --- |

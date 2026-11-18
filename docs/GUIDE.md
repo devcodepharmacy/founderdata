@@ -3,9 +3,11 @@
 The full reference: what FounderData tracks, how to install it on a site and in an iOS app, how each payment provider
 connects, and how revenue is counted. For a quick start, see the [README](../README.md).
 
+Sections marked (Pro) need FounderData Pro ([PRO.md](PRO.md)).
+
 ## What it tracks
 
-- **A home page across every site**: totals for the period against the period before (web and app visitors as separate tiles, revenue in each site's currency with other currencies converted, new customers, conversion for the web with the app's rate under it, bounce rate and session time for websites only, online now), visitors and revenue charts for all sites, a list of every site and app ranked by revenue change against the period before, each with an 8-week sparkline, its MRR change in money and a status (growing, flat, declining, quiet, no payments connected), a card per site with a visitors sparkline and revenue bars, its numbers and top source (a site with an app bundle id and no web visits in 90 days shows as an app, with its bundle id instead of the placeholder domain), the sources that brought customers across all sites, the 12 latest payments, a Growth row (ad spend with MER and blended CAC, Google Search clicks, and the share of AI answers that mention the site, each added up across sites with every site's number linked to its Paid overview, SEO or AI visibility section), and a "Worth a look" list (a website with no visits yet, one line for all apps that have not sent an app session yet, a site or app quiet for 24 hours, traffic doubled or halved on a base of at least 20 visitors, weekly revenue or visitors down 3 weeks in a row, first customers). Changes on fewer than 20 visitors show as counts, not percentages. The home counts days in the reporting timezone (see "One number everywhere" below); `GET /api/home?period=&tz=` returns the JSON
+- **A home page across every site**: totals for the period against the period before (web and app visitors as separate tiles, revenue in each site's currency with other currencies converted, new customers, conversion for the web with the app's rate under it, bounce rate and session time for websites only, online now), visitors and revenue charts for all sites, a list of every site and app ranked by revenue change against the period before, each with an 8-week sparkline, its MRR change in money (Pro) and a status (growing, flat, declining, quiet, no payments connected), a card per site with a visitors sparkline and revenue bars, its numbers and top source (a site with an app bundle id and no web visits in 90 days shows as an app, with its bundle id instead of the placeholder domain), the sources that brought customers across all sites, the 12 latest payments, in Pro a Growth row (ad spend with MER and blended CAC, Google Search clicks, and the share of AI answers that mention the site, each added up across sites with every site's number linked to its Paid overview, SEO or AI visibility section), and a "Worth a look" list (a website with no visits yet, one line for all apps that have not sent an app session yet, a site or app quiet for 24 hours, traffic doubled or halved on a base of at least 20 visitors, weekly revenue or visitors down 3 weeks in a row, first customers). Changes on fewer than 20 visitors show as counts, not percentages. The home counts days in the reporting timezone (see "One number everywhere" below); `GET /api/home?period=&tz=` returns the JSON
 - **Live visitors**: who is on your sites right now, for a globe. `GET /api/live` returns the visitors seen in the last 5 minutes with their city and coarse coordinates, the last hour's payments, trials and sign-ups, and, on request, the visitors of the last 30 minutes, hour or 24 hours, by city and one by one ([MOBILE-API.md](MOBILE-API.md#9-live-visitors)). The globe glows only where people are online now; the live page's 30 min, 1 h and 24 h buttons switch the whole page to that window: the visitor count, the count per site, the payments, a list of the visitors (newest first, up to 150) and a dimmer glow where they were.
 - **Visitors, revenue, conversion rate, revenue per visitor, bounce rate, session time, online now**, each with a % change against the previous period. The **This quarter** and **Last quarter** periods are calendar quarters in the site's timezone (the reporting timezone on the home page). Last quarter compares with the whole quarter before it. This quarter compares with the same days of the quarter before, so October 1 to 10 compares with July 1 to 10
 - A chart of visitors (line) and revenue (bars), hourly, daily, weekly or monthly
@@ -16,15 +18,15 @@ connects, and how revenue is counted. For a quick start, see the [README](../REA
 - Each breakdown row shows its visitors and its revenue, and entry pages add revenue per visitor. Click a column header to sort by it. The Platform and App version panel shows only for a site with an app
 - **Who paid**: a Customers list of every customer with their source, amount, time to convert, and a full visitor timeline (visit → pages → clicks → payment)
 - **Payments from Stripe, the App Store, Dodo Payments** or any provider through the payments API, with revenue per provider
-- **iOS apps** next to the website in the same site: app sessions, screens, goals, App Store purchases, app versions, Apple Search Ads campaigns with their names, spend and ROAS per keyword (see [Apple Search Ads](#apple-search-ads))
-- **An App section** for each site with an app: the onboarding funnel with drop-off and time per step, screen flow and exit screens, paywall to purchase conversion, versions side by side, experiments per variant, sources, and day-1 and day-7 retention for installs that consented to on-device storage. Each panel can be split by app version or by session properties the app sets, such as `user_state` or an experiment variant. The JSON behind every panel is in [APP-API.md](APP-API.md) section 7
-- **A Drop-off view** for every site: the purchase funnel (sessions, flow start, paywall, purchase start, bought) for the website and the app side by side, the failure goals that stop people by reason and step, and the last page or screen of sessions that did not buy. Debug and TestFlight builds stay out unless you include them. API in [APP-API.md](APP-API.md) section 7
+- **iOS apps** next to the website in the same site: app sessions, screens, goals, App Store purchases, app versions, and in Pro Apple Search Ads campaigns with their names, spend and ROAS per keyword (see [Apple Search Ads](#apple-search-ads-pro))
+- **An App section (Pro)** for each site with an app: the onboarding funnel with drop-off and time per step, screen flow and exit screens, paywall to purchase conversion, versions side by side, experiments per variant, sources, and day-1 and day-7 retention for installs that consented to on-device storage. Each panel can be split by app version or by session properties the app sets, such as `user_state` or an experiment variant. The JSON behind every panel is in [APP-API.md](APP-API.md) section 7
+- **A Drop-off view (Pro)** for every site: the purchase funnel (sessions, flow start, paywall, purchase start, bought) for the website and the app side by side, the failure goals that stop people by reason and step, and the last page or screen of sessions that did not buy. Debug and TestFlight builds stay out unless you include them. API in [APP-API.md](APP-API.md) section 7
 - The overview shows web and app together, or the website or the app alone
 - Click any row to filter the whole dashboard (for example "only visitors from the launch tweet"), or open the page, SEO, AI visibility or ads screen behind it
 - Multiple websites, one login
-- **Email from Resend**: sent, delivered, bounced, complained, opened and clicked emails per day, sender and tag, with bounce and complaint rates. One Resend webhook covers every site. See [Email (Resend)](#email-resend)
-- **A Content tab** for every site with a website: one table of entry pages with visitors, customers, revenue, revenue per visitor and the change against the period before, plus Google clicks and position when the SEO snapshot has the page. Chips filter by folder, such as `/blog/`, and a click on a page opens its 12 weeks, notes, keywords and customers. Below it, AI assistants (ChatGPT, Claude, Perplexity, Gemini, Copilot) with their visitors, customers, revenue and top 5 landing pages. See [Content](#content)
-- **An SEO tab** for every site with a website: Search Console clicks, impressions, click-through rate and position for 7 days to 12 months, beside FounderData's own search visitors and revenue; target keywords with volume, Google position, the latest SERP check and whether the AI Overview cites the site; pages that lost over 30% of their clicks; queries close to page one and page-one pages with a low click-through rate; top queries and pages, each page with its search visitors and revenue; an SEO plan and ship log; AI assistant answers; who ranks instead and backlinks. You push the data; see [SEO](#seo)
+- **Email from Resend (Pro)**: sent, delivered, bounced, complained, opened and clicked emails per day, sender and tag, with bounce and complaint rates. One Resend webhook covers every site. See [Email (Resend)](#email-resend-pro)
+- **A Content tab (Pro)** for every site with a website: one table of entry pages with visitors, customers, revenue, revenue per visitor and the change against the period before, plus Google clicks and position when the SEO snapshot has the page. Chips filter by folder, such as `/blog/`, and a click on a page opens its 12 weeks, notes, keywords and customers. Below it, AI assistants (ChatGPT, Claude, Perplexity, Gemini, Copilot) with their visitors, customers, revenue and top 5 landing pages. See [Content](#content-pro)
+- **An SEO tab (Pro)** for every site with a website: Search Console clicks, impressions, click-through rate and position for 7 days to 12 months, beside FounderData's own search visitors and revenue; target keywords with volume, Google position, the latest SERP check and whether the AI Overview cites the site; pages that lost over 30% of their clicks; queries close to page one and page-one pages with a low click-through rate; top queries and pages, each page with its search visitors and revenue; an SEO plan and ship log; AI assistant answers; who ranks instead and backlinks. You push the data; see [SEO](#seo-pro)
 
 ### Reading a site
 
@@ -41,11 +43,14 @@ Under them, one row holds every section of the site in four groups:
 | Paid | Paid overview, Meta ads, Apple Search Ads |
 | Revenue | Subscriptions, App Store |
 
+In core, every section after Overview opens the Pro card, which explains what the section shows and how to get Pro.
+The rest of this part describes Pro.
+
 Every section is one click away on every site. A section the site cannot use yet stays in the row in gray with a
 hollow dot. It opens a screen that names the missing step and links to it in Settings: a website for Content, SEO and
 AI visibility, an app for App, ASO and App Store, a payment provider for Subscriptions. Meta ads and Apple Search Ads
 open their own setup steps until the integration is connected. The Paid overview stays gray until Meta, Apple Search
-Ads or [spend from another channel](#ad-spend-from-other-channels) is connected. On a phone the row scrolls sideways.
+Ads or [spend from another channel](#ad-spend-from-other-channels-pro) is connected. On a phone the row scrolls sideways.
 
 On the Overview, the row of numbers drives the chart. Visitors and Revenue are both on by default. Click one to see it
 alone, and click it again for both. Revenue/visitor swaps the chart for that ratio per day. The revenue bars carry an
@@ -185,7 +190,8 @@ checked, so a read looks only at the payments recorded after it; a fresh instanc
 
 Settings, Setup checklist lists every integration with a live status (Working, Needs a look, Broken or Off) and the next step.
 It is for owners. The viewer login and a phone token get 403, and an API key gets 401. After a deploy, open it and work down
-the rows. It covers:
+the rows. Core has the cron, payment webhook and email rows. The DataForSEO, Google, X, Meta ads, Apple Search Ads, App
+Store sales, push and AI engine rows and the Test buttons come with Pro. It covers:
 
 - **Cron ticks.** When the `*/5 * * * *` cron last ran, and whether the old hourly cron, `0 * * * *`, is still listed.
   The cron writes a heartbeat at minutes 0, 15, 30 and 45 of each hour. A first deploy shows "No heartbeat yet" until the
@@ -207,11 +213,11 @@ the rows. It covers:
 - **Meta ads.** Whether `META_ACCESS_TOKEN` is set. Per site with an ad account, when the last import ran and its error,
   a warning when Meta counted link clicks in the last 7 days and no visit carried an ad id, and the URL parameters with a
   copy button. Per site with a dataset, the Conversions API's sent and skipped events of the last 7 days, the most common
-  skip reason and Meta's last refusal. See [Meta ads](#meta-ads).
+  skip reason and Meta's last refusal. See [Meta ads](#meta-ads-pro).
 - **Apple Search Ads.** Which secrets are set, then the last import. The row is Broken when Apple refused the last import
   (it shows Apple's message, such as `invalid_client`) or when the last import is more than 36 hours old. A refused key
   needs a new API user key in Apple Ads, Settings, API. Agents see the same error in each site's `sources` and in
-  `get_apple_search_ads` with `view: "campaigns"` ([API.md](API.md#apple-search-ads-per-campaign)).
+  `get_apple_search_ads` with `view: "campaigns"` ([API.md](API.md#apple-search-ads-per-campaign-pro)).
 - **App Store sales, push, AI engine keys, email.** Which secrets are set, by name. With some but not all of
   an integration's secrets set, the row says which are missing. A deployment needs one AI engine key, not all.
 - **Payment webhooks.** For each site and each provider with a signing secret: when the last payment arrived through it, and
@@ -243,7 +249,7 @@ login signs in as the owner. Phones sign in with the admin password only. A phon
 because the owner's app locks itself with Face ID; set `PHONE_PII=0` to hide them on phones too. A phone never gets
 a raw CSV export, so a lost phone does not hold your customer list as a file.
 
-### Team
+### Team (Pro)
 
 For a co-founder or a colleague who should have their own login, add them under Settings, Team. You can revoke one
 person without touching anyone else's access or the shared passwords.
@@ -291,7 +297,7 @@ everywhere. They ask an owner for a reset link.
 
 Limits: up to 50 people, every site for everyone (no per-site access), and no email delivery or single sign-on.
 The people belong to the deployment, so deleting a site leaves them alone. Routes are in
-[API.md](API.md#team).
+[API.md](API.md#team-pro).
 
 A custom domain such as `analytics.yourdomain.com` goes in Cloudflare, Workers & Pages, founderdata, Settings, Domains &
 Routes. Use it everywhere this guide writes `https://founderdata.example.com`.
@@ -309,7 +315,8 @@ prompt** button: paste the prompt into Claude Code or Cursor and it does the ins
 | 5 GB D1 storage | Years of data at side-project traffic |
 
 D1 counts each index entry it writes as a row. These are the rows each write path costs, measured on local D1 by
-`pro/test/cost.test.ts` (the test fails if a number changes):
+`test/cost.test.ts` for core and by a cost test in the Pro repository for Pro's write paths. Each test fails if a
+number changes:
 
 | Write path | D1 rows written |
 | --- | --- |
@@ -329,21 +336,21 @@ D1 counts each index entry it writes as a row. These are the rows each write pat
 | App: consented install (`ctx.consent`) | 0 extra, 1 fewer for the first `session_start` |
 | App Store purchase (app event or notification) | 6, a repeat delivery 0 to 1; 7 for a subscription (its row in `subscriptions`). Each payment credited to a visitor counts 1 for its entry in the index that tells the [live globe](MOBILE-API.md#9-live-visitors) who has paid before |
 | App Store free trial from the app (a `trial_start` signal, no payment) | 3, a repeat delivery 1; 5 with the subscription's row and its entry in the trial index |
-| App Store auto-renew off or on, failed renewal, expiry (notification) | 1, plus 1 [inbox](#alert-inbox) row when a paying subscription fails to renew or is canceled |
+| App Store auto-renew off or on, failed renewal, expiry (notification) | 1, plus 1 [inbox](#alert-inbox-pro) row when a paying subscription fails to renew or is canceled |
 | App Store sales import (below): a day with 20 sales rows, first import / re-import | 63 / 82 |
-| Apple Search Ads import (below): 1 campaign and 2 keywords over 3 days, first import / unchanged re-import | 13 / 1 (`pro/test/asa.test.ts`) |
-| Meta ads import ([below](#meta-ads)): 3 ad-days, 4 names and the 7-day frequency of 1 ad, first import / unchanged re-import | 11 / 1 (`pro/test/meta-ads.test.ts`) |
-| Ad spend sent with `POST /api/v1/spend` or a CSV ([above](#ad-spend-from-other-channels)): a new or changed row of a day and campaign / a row sent again unchanged / a row deleted | 1 / 0 / 1. The Google Ads Script resending 7 days of 5 campaigns writes 5 to 10 rows a day. Meta and Apple Search Ads join in from their imports and write nothing more |
+| Apple Search Ads import (below): 1 campaign and 2 keywords over 3 days, first import / unchanged re-import | 13 / 1 |
+| Meta ads import ([below](#meta-ads-pro)): 3 ad-days, 4 names and the 7-day frequency of 1 ad, first import / unchanged re-import | 11 / 1 |
+| Ad spend sent with `POST /api/v1/spend` or a CSV ([above](#ad-spend-from-other-channels-pro)): a new or changed row of a day and campaign / a row sent again unchanged / a row deleted | 1 / 0 / 1. The Google Ads Script resending 7 days of 5 campaigns writes 5 to 10 rows a day. Meta and Apple Search Ads join in from their imports and write nothing more |
 | Meta Conversions API: an event sent or skipped / a tick with nothing pending | 1, plus 1 for the site's status when it changes / 0 |
 | Stripe payment / Stripe refund | 5 / 7 (the refund keeps the charge's state in `stripe_objects`), a repeat delivery 0 |
 | Stripe subscription payment (`invoice.paid`) | 9: the payment and its invoice id in `stripe_objects`, and the subscription's row |
-| Stripe `customer.subscription.*`, `invoice.payment_failed`, a subscription Checkout | 1 each (2 when it creates a subscription with a trial: the trial index), a repeat delivery 0. A failed payment or cancellation of a paying subscription adds 1 [inbox](#alert-inbox) row |
+| Stripe `customer.subscription.*`, `invoice.payment_failed`, a subscription Checkout | 1 each (2 when it creates a subscription with a trial: the trial index), a repeat delivery 0. A failed payment or cancellation of a paying subscription adds 1 [inbox](#alert-inbox-pro) row |
 | RevenueCat purchase / refund | 6 / 4 (a subscription purchase updates its row), a repeat delivery (or a purchase the SDK already sent) 0 |
-| RevenueCat trial start / cancellation, expiration, billing issue | 4 (the signal, the subscription's row and its entry in the trial index) / 3 each (the signal and the subscription's row), 4 for a paying subscription (its [inbox](#alert-inbox) row) |
+| RevenueCat trial start / cancellation, expiration, billing issue | 4 (the signal, the subscription's row and its entry in the trial index) / 3 each (the signal and the subscription's row), 4 for a paying subscription (its [inbox](#alert-inbox-pro) row) |
 | Lemon Squeezy, Polar, Paddle or Gumroad payment / refund | 5 / 4, a repeat delivery 0 |
-| Dodo payment / a subscription's payment / a subscription event / a cancellation, expiry or failed renewal | 5 / 6 (the subscription's row) / 1 / 3 (the signal and the row), 4 for a paying subscription (its [inbox](#alert-inbox) row), a repeat delivery 0 |
+| Dodo payment / a subscription's payment / a subscription event / a cancellation, expiry or failed renewal | 5 / 6 (the subscription's row) / 1 / 3 (the signal and the row), 4 for a paying subscription (its [inbox](#alert-inbox-pro) row), a repeat delivery 0 |
 | A payment that fills its visitor's empty email or name | 1 more for the visitor row, plus 1 for each of email and user id the visitor has after it (2 for a first email). 0 when both are already set |
-| Lemon Squeezy, Polar, Paddle or Gumroad cancellation, trial, expiration, billing issue | 3 each (the signal and the subscription's row), 1 more when a trial creates the subscription (the trial index), 1 more for a paying subscription's cancellation or failed payment (its [inbox](#alert-inbox) row) |
+| Lemon Squeezy, Polar, Paddle or Gumroad cancellation, trial, expiration, billing issue | 3 each (the signal and the subscription's row), 1 more when a trial creates the subscription (the trial index), 1 more for a paying subscription's cancellation or failed payment (its [inbox](#alert-inbox-pro) row) |
 | Other revenue (`POST /api/v1/payments` with `"kind":"income"`) | 4 |
 | Other revenue or a refund corrected (sent again with another amount) / deleted (`DELETE /api/v1/payments/...` or the dashboard) | 1 / 1 per row deleted |
 | Stripe history import (below) | 7 per imported charge (the payment and its charge id in `stripe_objects`), 1 per step, 0 for a charge already stored |
@@ -351,7 +358,7 @@ D1 counts each index entry it writes as a row. These are the rows each write pat
 | X posts: a read that finds N posts linking to the site / a read with nothing new / a post added by hand | N + 2 (the claim, the posts, the settings row) / 1 (the claim) / 1. Matching writes nothing |
 | Daily write cap counter (below) | 2 per 200 rows the tracker and app endpoints write (the site's count and the shared total) |
 | ASO snapshot from the collector (below), one app in one country, any number of keywords | 1, plus 1 the first time it stores the app's id; a second snapshot the same day 1 |
-| ASO reviews / keywords / countries or competitors | 1 per new review, 0 for one stored, plus 1 [inbox](#alert-inbox) row for a post with a review that alerts / 1 per keyword, plus 1 for the first settings row / 1 |
+| ASO reviews / keywords / countries or competitors | 1 per new review, 0 for one stored, plus 1 [inbox](#alert-inbox-pro) row for a post with a review that alerts / 1 per keyword, plus 1 for the first settings row / 1 |
 | ASO popularity, once a week | 1 per keyword and country, plus 1 status row |
 | Chart note (`POST /api/v1/notes`, the dashboard or the version cron) / its review (`POST /api/v1/notes/<id>/review`) | 3, 4 with an `idempotency_key`, a repeat 0 / 1, a second review 0 |
 | SEO snapshot: one part pushed, with the login or a `seo:write` key | 2 for a new part, 1 to replace it |
@@ -368,12 +375,12 @@ D1 counts each index entry it writes as a row. These are the rows each write pat
 | AI crawler hits (`POST /api/sites/<id>/crawler-hits`) | 1 per distinct day, bot, page and status in the request, however many hits it holds; 500 hits on one page are 1 |
 | Scoped API key (Settings, Agents): creating one / its usage | 1 / 1 a minute per key and Worker instance at most, whatever the number of calls |
 | Primary goal saved or cleared in Settings (below) | 1; counting it writes nothing |
-| Threshold alert rule: new / changed or deleted / fired, back over its line, a change judged or a test send / a quiet hourly check | 2 / 1 / 1, plus 1 [inbox](#alert-inbox) row per alert it sent / 0 |
-| Stripe check ([below](#check-mrr-against-stripe)): a finished check / a second one the same day / a step before the last / reading the history | 1 (the day's history row) / 1 (it replaces the row) / 0 / 0 |
+| Threshold alert rule: new / changed or deleted / fired, back over its line, a change judged or a test send / a quiet hourly check | 2 / 1 / 1, plus 1 [inbox](#alert-inbox-pro) row per alert it sent / 0 |
+| Stripe check ([below](#check-mrr-against-stripe-pro)): a finished check / a second one the same day / a step before the last / reading the history | 1 (the day's history row) / 1 (it replaces the row) / 0 / 0 |
 | Daily numbers at 07:00 UTC, per channel | 2 (the day's marker, then sent), plus 1 for each retry of a refused send; a second trigger or a later tick writes 0 |
-| Weekly report on Monday at 07:05 UTC, per channel | 2 (the week's marker, then sent), plus 1 for each retry; 1 [inbox](#alert-inbox) row per site a week |
-| Alert inbox ([above](#alert-inbox)): Worth a look, payments stopped, the ASO collector, refused webhooks, the write cap, a low review | 1 per message and site, also with no channel. A day with nothing to say writes 0 |
-| Next actions ([above](#next-actions)): the daily run on the minute-50 tick | 2 per site a day (the claim, then the items); reading them 0 |
+| Weekly report on Monday at 07:05 UTC, per channel | 2 (the week's marker, then sent), plus 1 for each retry; 1 [inbox](#alert-inbox-pro) row per site a week |
+| Alert inbox ([above](#alert-inbox-pro)): Worth a look, payments stopped, the ASO collector, refused webhooks, the write cap, a low review | 1 per message and site, also with no channel. A day with nothing to say writes 0 |
+| Next actions ([above](#next-actions-pro)): the daily run on the minute-50 tick | 2 per site a day (the claim, then the items); reading them 0 |
 | Phone pushes at 08:00 (the daily one, the Monday one) | 1 per push and day for any number of phones; the other hourly runs 0 |
 | Phone: a push switch or the renewal threshold (`PUT /api/mobile/notifications`) | 1 |
 | Resend email event (`POST /api/webhooks/resend`): the first of its type for an email / a retry, a second open or click, or a sender on no site's domain | 2 / 0 |
@@ -549,8 +556,8 @@ log as JSON, `GET /api/erasures` every site's, deleted ones included, and `?form
 
 ### Names from before the rename
 
-FounderData started as a fork of [minilytics](https://github.com/surendrapandar/minilytics). For one release the script
-and the server still accept the old names, so a site that has not switched keeps working:
+FounderData started as a fork of [minilytics](https://github.com/surendrapandar/minilytics). The script and the server
+still accept the old names, so a site that has not switched keeps working. Use the new names in new installs:
 
 | Old name | New name | What still works |
 | --- | --- | --- |
@@ -603,20 +610,20 @@ The raw id stays 90 days, then the daily cron clears it and keeps the network
 ([PRIVACY.md](PRIVACY.md)). Filter or break down by `click_network` (`google_ads`, `microsoft_ads`, `tiktok_ads`,
 `x_ads`, `linkedin_ads`, `reddit_ads`, `snapchat_ads`, `pinterest_ads`) on the API and in `get_breakdown`. The iOS SDK
 reads the same parameters from deep links and universal links. Meta and Apple Search Ads spend comes from their
-imports. Spend for the other networks comes in through the API or a CSV, [below](#ad-spend-from-other-channels).
+imports. Spend for the other networks comes in through the API or a CSV, [below](#ad-spend-from-other-channels-pro).
 
-### Ad spend from other channels
+### Ad spend from other channels (Pro)
 
 MER, blended CAC and ROAS need every channel's spend. Meta and Apple Search Ads have imports. Google Ads, Microsoft Ads,
 TikTok, Reddit, LinkedIn, X, a newsletter sponsorship or a podcast read arrive one of three ways:
 
 - **A Google Ads Script** that sends each campaign's spend every morning. No developer token, no Google Cloud project.
 - **A CSV** from the ads manager, uploaded in Settings, Ads and social, or sent to the API.
-- **The API**, `POST /api/v1/spend`, from your own script or an agent ([API.md](API.md#ad-spend)).
+- **The API**, `POST /api/v1/spend`, from your own script or an agent ([API.md](API.md#ad-spend-pro)).
 
 All three need a key with the `spend:write` scope for the site (Settings, Agents), except the upload in Settings. The
 scope records spend and bills nothing. The paid report, `GET /api/v1/paid` and the MCP tool `get_paid`, then puts each
-channel's spend next to the customers and revenue it brought ([API.md](API.md#paid)). The Meta ads tab's MER and
+channel's spend next to the customers and revenue it brought ([API.md](API.md#paid-pro)). The Meta ads tab's MER and
 blended CAC count it too.
 
 **The Paid overview** (Paid, Paid overview, in a site's section row) shows the same report. The top row has ad spend,
@@ -743,7 +750,7 @@ Each web visit stores the browser's first language from the `Accept-Language` he
 `pt`). App sessions take it from the device locale. The Browser panel has a Language tab, and `language` works as a
 filter and a breakdown dimension.
 
-### Which post paid
+### Which post paid (Pro)
 
 An untagged post on X shows up in the sources as one "X" row. This section turns that row into one row per post, with
 visitors, customers and revenue. You do not tag any link. It is optional and works for the X account that posts your links.
@@ -980,7 +987,7 @@ again** in the Customers tab runs these checks again later. Lost disputes are no
 `GET`, `POST` and `DELETE /api/sites/:id/stripe-import` and `POST /api/sites/:id/stripe-import/step` are the routes
 behind the card (login required).
 
-### Import from ChartMogul
+### Import from ChartMogul (Pro)
 
 The Stripe import rebuilds a subscription from its charges, so a price change or a pause can be wrong and the first
 payment is only as old as the range you chose. ChartMogul records every price change and cancellation of each
@@ -1077,7 +1084,7 @@ allowance waits for 00:00 UTC. 2,000 subscriptions are about 4,100 rows, and 100
 another currency fetches at most 10 new exchange-rate days and asks for itself again when more are missing, which keeps
 each request under the Free plan's 50 subrequests. The dashboard retries it up to 4 times, waiting longer each time.
 
-### Import from RevenueCat
+### Import from RevenueCat (Pro)
 
 RevenueCat's REST API has no list of all subscriptions, and its subscription object holds only the current state. Its
 Scheduled Data Export of transactions has every renewal. FounderData reads that file.
@@ -1129,7 +1136,7 @@ Two differences are expected. RevenueCat counts a weekly price as 4 per month, F
 page does not say how it treats trials and refunds. Open **Who moved** on the biggest gaps. Enter the currency of the series
 under the text box: FounderData stops when it differs from the site's.
 
-The routes behind both imports are in [API.md](API.md#subscription-history-import).
+The routes behind both imports are in [API.md](API.md#subscription-history-import-pro).
 
 ## Revenue attribution with Lemon Squeezy, Polar, Paddle and Gumroad
 
@@ -1350,7 +1357,7 @@ contract, including what the server adds to it, is [APP-API.md](APP-API.md).
 - **Web to app**: a universal link with `?rt_vid=<web visitor id>` links the install to that web visitor, so an app
   purchase is credited to the web visit that led to it (for example a Google search for a blog post).
 
-## App Store sales
+## App Store sales (Pro)
 
 FounderData can pull Apple's daily Sales and Trends report itself, so every app shows downloads and proceeds, including
 apps that do not run FounderDataKit. It is off until you set four secrets.
@@ -1411,7 +1418,7 @@ counts the same sales at the gross price the customer paid, like Stripe and App 
 compares purchases FounderData recorded in the period with the in-app purchase units in Apple's report. Apple's days are
 Pacific time and the tab's window is UTC, so on a short period the two can differ by a day.
 
-## Apple Search Ads
+## Apple Search Ads (Pro)
 
 The AdServices token already tells FounderData which campaign, ad group and keyword brought an install, but only as ids
 like `1874400202`. With read access to your Apple Ads account, FounderData also imports their names and Apple's daily
@@ -1491,11 +1498,11 @@ The columns sit in three groups, Spend, Trials and Paid, and every header sorts 
 Revenue and ROAS count. **Revenue window** picks **To date**, **7 days**, **14 days** or **30 days**: trials, first
 purchases and revenue that came within that many days of the install's session (`?window=7`, `14` or `30` on the API). A 7-day ROAS stops growing a week after the install, so two periods compare
 fairly. **Gross** and **After Apple's cut** pick the amount: gross is what customers paid, tax included; after Apple's
-cut follows [Apple's cut](#apples-cut). The API sends both, `revenue` and `roas`, `netRevenue` and `netRoas`.
+cut follows [Apple's cut](#apples-cut-pro). The API sends both, `revenue` and `roas`, `netRevenue` and `netRoas`.
 
 **What it costs.** One D1 row per campaign and per keyword with activity per day, one per new or renamed name and one
 status row per import. A re-import that finds nothing new writes 1 row. An account with 3 campaigns and 40 active
-keywords writes about 45 rows a day. `pro/test/asa.test.ts` measures it. Each run makes about 5 requests plus one per active
+keywords writes about 45 rows a day. A test in the Pro repository measures it. Each run makes about 5 requests plus one per active
 campaign. The free plan allows 50 per run, so one run covers keyword reports for about 30 active campaigns; past that,
 the backfill button continues where the run stopped.
 
@@ -1514,7 +1521,7 @@ the backfill button continues where the run stopped.
 - Installs from Search Match have a campaign but no keyword. They show as "No keyword (Search Match)", and their
   spend is in the campaign's row only.
 
-## Meta ads
+## Meta ads (Pro)
 
 Facebook and Instagram ads, from the click to the payment. FounderData imports Meta's spend per ad and day, ties each
 visit to the ad that brought it, and puts the customers and revenue it credited next to the purchases Meta claims. Each
@@ -1627,7 +1634,7 @@ Below the table:
   boosted posts. They count in the totals. Visits with only Meta's click id (`fbclid`) can be organic posts, so they
   show as a count under the table and stay out of the totals.
 - **Blended.** MER is all of the site's revenue in the period over all ad spend, and blended CAC is all ad spend over
-  all new customers. All ad spend is Meta's plus Apple Search Ads and any [spend you sent](#ad-spend-from-other-channels).
+  all new customers. All ad spend is Meta's plus Apple Search Ads and any [spend you sent](#ad-spend-from-other-channels-pro).
   Neither depends on attribution. The share of new customers FounderData credited to a Meta visit
   tells you how much of the picture the per-ad columns hold. Below half, trust MER and blended CAC over per-ad CPA.
 - **By Meta app and by placement**, from `utm_source` and `utm_term`.
@@ -1655,7 +1662,7 @@ customer yet, `meta_cpa` counts as Meta's whole spend and `meta_cac` as all ad s
 volume counts the clicks of every channel: Meta's link clicks, Apple Search Ads taps and the clicks your rows send. `meta_spend` with `falls_pct` catches delivery that stopped. The daily
 numbers message adds a line per site with yesterday's spend, customers, revenue, and CPA and ROAS from 3 customers on.
 
-**Agents.** `GET /api/v1/meta` and the MCP tool `get_meta_ads` return the tab's numbers ([API.md](API.md#meta-ads)). A
+**Agents.** `GET /api/v1/meta` and the MCP tool `get_meta_ads` return the tab's numbers ([API.md](API.md#meta-ads-pro)). A
 key without revenue gets Meta's side and the visits, without customers, revenue or anything derived from them. They
 only read. To change a budget or pause an ad, use Ads Manager or Meta's own ads MCP server.
 
@@ -1749,9 +1756,9 @@ changed campaign, ad set or ad (name, status, budget, learning phase, frequency)
 finds nothing new writes 1. Today's rows change every hour as spend comes in, 1 row per active ad and run, so an account
 with 20 active ads writes about 500 rows a day. Each run makes 5 to 7 requests per account. The Conversions API writes 1
 row per purchase it sends or skips, plus 1 for the site's status when it changes; mapped goals write none; a tick with
-nothing pending writes 0. Ad clicks ride on the session row and cost nothing extra. `pro/test/meta-ads.test.ts` measures it.
+nothing pending writes 0. Ad clicks ride on the session row and cost nothing extra. A test in the Pro repository measures it.
 
-## Subscriptions
+## Subscriptions (Pro)
 
 Each site with Stripe, the App Store, RevenueCat or Dodo gets a **Subscriptions** tab: MRR, paying subscriptions,
 trials, trial to paid, churn and LTV, an MRR chart with new and churned MRR under it, and tables by channel, referrer,
@@ -1810,7 +1817,7 @@ the end of each day or week, with its movement, and `trials` and `trialsConverte
 50 at most). On the campaign split, rows whose label is an Apple Search Ads campaign id carry its `name`. Each set of
 numbers has `churnedOfStart` and `churnedMrrOfStart` (the numerators of churn and revenue churn), `trialsEnded` (trials
 decided without a payment) and `renewedOrEnded` (paid subscriptions that ever renewed or ended). `money=net` gives App
-Store and RevenueCat amounts after [Apple's cut](#apples-cut) and adds `net`, the shares used. Every number is a sum in
+Store and RevenueCat amounts after [Apple's cut](#apples-cut-pro) and adds `net`, the shares used. Every number is a sum in
 SQL over the site's rows, so a load reads each subscription once.
 
 **Export.** The tab's Export CSV button downloads every subscription row behind these numbers, with its MRR, dates,
@@ -1831,7 +1838,7 @@ status, customer email and source, whatever the period. The columns are in [API.
 - A subscription that comes back after it ended loses the stretch before from the history.
 - Sandbox subscriptions are stored apart and never count.
 
-### Cohorts
+### Cohorts (Pro)
 
 The Subscriptions tab ends with a retention grid. Each row is a cohort: the subscriptions that first paid in one
 calendar month of the site's timezone. Each column is a month since then. Column k shows how many of the cohort still
@@ -1864,7 +1871,7 @@ MCP tool is `get_subscriptions` with `view` `cohorts` ([MCP.md](MCP.md)).
 The query reads the site's subscription rows in one pass, grouped in SQL, and writes nothing. The Worker receives at
 most 24 rows, or 24 times 10 with a split.
 
-### Check MRR against Stripe
+### Check MRR against Stripe (Pro)
 
 A new tool's MRR means little until you can see it match the one you already trust. The **Check against Stripe** card at
 the bottom of the Subscriptions tab (shown when the site has a Stripe subscription) compares FounderData's MRR with
@@ -1939,9 +1946,9 @@ node scripts/wrangler.mjs secret put STRIPE_RESTRICTED_KEY_<SITE ID IN CAPITALS>
 ```
 
 One Stripe account for every site works with `STRIPE_RESTRICTED_KEY` and `STRIPE_RESTRICTED_KEY_SITES`, the site ids it belongs to, separated by commas. A deployment with a single site needs only `STRIPE_RESTRICTED_KEY`. Without a key for the site the route answers `400` and says so, so a key for site B never reads site A's Stripe account. The dashboard card, behind your login, also uses `STRIPE_RESTRICTED_KEY` when you leave the field empty. The check reads 50 subscriptions a call, and a subscription that changes status while it runs can move the total, so run it again before you trust a small difference. The 50 is an estimate for the free plan's 10 ms of CPU, not a measurement.
-See [API.md](API.md#post-apiv1stripe-check) and [MCP.md](MCP.md).
+See [API.md](API.md#post-apiv1stripe-check-pro) and [MCP.md](MCP.md).
 
-### Apple's cut
+### Apple's cut (Pro)
 
 The Subscriptions tab and the Apple Search Ads card have a **Gross / After Apple's cut** switch. The choice holds for
 both. Gross is what customers paid, tax included. After Apple's cut scales App Store amounts, and RevenueCat
@@ -2091,10 +2098,10 @@ dashboard's `period`, `from` and `to`) returns them: `payments`, `linked`, `amou
 the site currency, and `providers[]` with the same fields plus `notLinked` (`beforeTracking`, `renewals`, `withEmail`,
 `noIds`).
 
-## Phone app and push
+## Phone app and push (Pro)
 
-The owner's iPhone app in `pro/apps/ios` (FounderData Pro) ([MOBILE-API.md](MOBILE-API.md) is its contract) has widgets
-and payment pushes. It signs in to one deployment with the admin password and gets a device token. The token reads `/api/home`, `/api/apps` and
+The owner's iPhone app in FounderData Pro has widgets
+and payment pushes. [MOBILE-API.md](MOBILE-API.md) is its contract. It signs in to one deployment with the admin password and gets a device token. The token reads `/api/home`, `/api/apps` and
 `/api/sites/...` like the dashboard cookie does, but it can't change anything there: any request other than GET or HEAD
 gets HTTP 403. A lost phone can't edit, rotate or delete a site. It reads no secrets either: the site's write key,
 webhook secrets and tokens come back as `null`, and share links, read keys and alert channels answer 403, so the token
@@ -2159,7 +2166,7 @@ A payment alert goes out from the same hook as the iPhone push, so every provide
 RevenueCat, the payments API) sends it once. A repeat delivery sends nothing, and neither does a sandbox purchase.
 The title names the product when the provider sends one: "New payment on Habitly: $4.99, habitly.pro.monthly".
 
-"Payment failed" and "Subscription canceled" come from the subscription events (see [Subscriptions](#subscriptions)):
+"Payment failed" and "Subscription canceled" come from the subscription events (see [Subscriptions](#subscriptions-pro)):
 Stripe's `invoice.payment_failed` and `customer.subscription.*`, the App Store's `DID_FAIL_TO_RENEW`,
 `DID_CHANGE_RENEWAL_STATUS` and `EXPIRED`, RevenueCat's `BILLING_ISSUE`, `CANCELLATION` and `EXPIRATION`. They cover
 subscriptions that paid at least once, so a canceled trial stays quiet. Each goes out once, from the event that
@@ -2207,7 +2214,7 @@ Stripe check: 2 gaps worth $150.00 a month, last run 2 days ago.
 MRR is at the end of that day, and the change is the difference from the start of it. New and churned subscriptions
 are the ones that first paid or ended that day. A site without payments connected shows visitors only. The Stripe check
 line appears for a site with a Stripe webhook secret or a stored check. It is the last result the check stored
-([Check MRR against Stripe](#check-mrr-against-stripe)), with its age: "matches", or the number of gaps and what they
+([Check MRR against Stripe](#check-mrr-against-stripe-pro)), with its age: "matches", or the number of gaps and what they
 are worth a month, or "never run". The cron never calls Stripe, because a check needs a restricted key and many
 requests. Run the check in the dashboard, or with an agent, and the next message shows it. The numbers come from the
 same code as the home page. Revenue in a currency without an exchange rate is not in `revenue`; the message adds a
@@ -2246,10 +2253,10 @@ before, "Keyword ranks: habit tracker up 5 to #7 in US". A site with Search Cons
 pages the SEO tab lists as decaying, "Search: 2 pages losing clicks over 28 days: /blog/x -140, /pricing -35".
 
 Three more blocks follow when a site has the data. Paid: "Ad spend: $225.00, +221% (+$155.00). Google Ads $120.00, Meta
-ads $105.00. MER 0.4, blended CAC $112.50." It adds every channel's spend, as the portfolio does ([Ad spend](#ad-spend)).
+ads $105.00. MER 0.4, blended CAC $112.50." It adds every channel's spend, as the portfolio does ([Ad spend](#ad-spend-from-other-channels-pro)).
 Organic: "Google: 1,240 clicks, -8% (-108), Nov 7 to Nov 13." covers the 7 days up to the last Search Console day,
 since Google reports 2 to 3 days late, and "AI mention rate: 34%, 41% the week before." covers the week. Subscriptions:
-"Trials: 12, +3. New MRR $120.00, churned MRR $45.00." Last, the site's top 2 [next actions](#next-actions) as
+"Trials: 12, +3. New MRR $120.00, churned MRR $45.00." Last, the site's top 2 [next actions](#next-actions-pro) as
 "Next: ..." lines.
 
 The report goes out at 07:05 UTC on Mondays, from its own tick, so the 07:00 alerts and the report never share one
@@ -2315,16 +2322,16 @@ the Stripe and Dodo signing secrets in `sites`. The dashboard shows only the hos
 never the token. Anyone with the admin password can replace or remove them.
 
 Sending runs after the response, so a slow Slack never delays a webhook. Each message writes 1
-[alert inbox](#alert-inbox) row per site, and the weekly report writes 2 marker rows per channel. The daily alerts
+[alert inbox](#alert-inbox-pro) row per site, and the weekly report writes 2 marker rows per channel. The daily alerts
 run at 07:00 UTC from the minute-0 run of the 5-minute cron, `*/5 * * * *` in `wrangler.jsonc` (a deployment that still lists `0 * * * *` or `0 7 * * *` gets
 them from that one), and the weekly report from the 07:05 run on Mondays. Apply migrations `0014_alerts.sql` and `0015_notes.sql` with
 `npm run db:migrate` (or run `npm run setup` again) before you deploy this version.
 
-### Threshold alerts
+### Threshold alerts (Pro)
 
 The alerts above have fixed rules. A threshold alert is one you write: "revenue per visitor on ShipKit fell 15% in 7
 days", "the Google clicks of any page fell 30%", "AI visits rose 50%". Add it under **Alert rules** on the
-Notifications page, or with `POST /api/v1/alerts/rules` ([API.md](API.md#alert-rules)).
+Notifications page, or with `POST /api/v1/alerts/rules` ([API.md](API.md#alert-rules-pro)).
 
 | Setting | Choices |
 | --- | --- |
@@ -2375,9 +2382,9 @@ Each check reads the rows it sums. A 7-day rule reads 14 days of sessions and pa
 A webhook that wants a token gets one: `auth_header` goes out as the `Authorization` header of each send, and never
 comes back from the API. With `"format": "github_dispatch"` and a webhook URL of
 `https://api.github.com/repos/OWNER/REPO/dispatches`, a rule starts a GitHub Actions run itself
-([Run an agent on a schedule](#run-an-agent-on-a-schedule)).
+([Run an agent on a schedule](#run-an-agent-on-a-schedule-pro)).
 
-### Alert inbox
+### Alert inbox (Pro)
 
 Every alert above is also kept for 90 days, one row per message and site, never per channel: Worth a look, payments
 stopped, failed payments and cancellations, refused webhooks, the write cap, the ASO collector and reviews, rules that
@@ -2385,10 +2392,10 @@ fired and the weekly report. It is kept also when no channel takes the alert. Pu
 stay out. Names and emails never go in.
 
 An agent reads it with `GET /api/v1/alerts?since=<a minute before its last run>` or the MCP tool `alert_rules` with
-`action: "events"` ([API.md](API.md#alert-inbox)), and skips the ids it has seen. A key for one site reads only that
+`action: "events"` ([API.md](API.md#alert-inbox-pro)), and skips the ids it has seen. A key for one site reads only that
 site's rows. The 03:17 cleanup deletes rows past 90 days.
 
-### Next actions
+### Next actions (Pro)
 
 Home's Worth a look lists the top 6 next actions across your sites. Each names the thing, what it is worth in about a
 month, and opens the tab that shows it. The cron computes them once a day, a few sites on each minute-50 tick:
@@ -2402,7 +2409,7 @@ month, and opens the tab that shows it. The cron computes them once a day, a few
 - AI prompts whose answers stopped naming you
 
 Search items are worth their clicks times the site's revenue per Organic Search visitor. Without search revenue they
-show clicks only. Agents read the same list with `get_portfolio` and `view: "actions"` ([API.md](API.md#next-actions)).
+show clicks only. Agents read the same list with `get_portfolio` and `view: "actions"` ([API.md](API.md#next-actions-pro)).
 It costs 2 rows per site a day. The run marks a site before it computes it. A site that fails keeps its old list until
 the next day, and the other sites still get theirs.
 
@@ -2410,9 +2417,9 @@ D1 sums the Search Console rows, so the Worker never parses a whole part. That c
 about 5,000 with Connect Google, which builds the totals parts, and up to about 25,000 for parts a script pushes with
 80 rows a day and no totals parts.
 
-### Run an agent on a schedule
+### Run an agent on a schedule (Pro)
 
-[examples/agents/weekly-review.yml](../examples/agents/weekly-review.yml) is a GitHub Actions workflow. Copy it into
+The Pro repository has `examples/agents/weekly-review.yml`, a GitHub Actions workflow. Copy it into
 the `.github/workflows/` folder of any repository you own. It runs a headless agent with the FounderData MCP server
 every Monday at 08:00 UTC, after the weekly report, and on every alert a rule sends it. It needs two repository
 secrets: an Anthropic API key, and a FounderData key (Settings, Agents) with `read`, `read:revenue`, `notes:write` and
@@ -2487,7 +2494,7 @@ ones load when **Show all** lists them. When a note's target is a page path such
 entered on that page. Each impact has a verdict, better, worse or inconclusive, and agents list the changes due for
 review and mark them kept, reverted or iterated ([MCP.md](MCP.md#the-review-loop)).
 
-## ASO
+## ASO (Pro)
 
 The ASO tab of an iOS app shows its rank for each keyword in each country, the 10 apps above it, a difficulty score,
 Apple's search popularity, ratings per country and new reviews. Apple refuses these requests from Cloudflare, so a
@@ -2497,7 +2504,7 @@ the Apple Ads API with the `ASA_*` secrets. Setup, scheduling, the formulas and 
 [ASO.md](ASO.md). An app's App Store id, under General in its settings, helps the collector find it. Without one it
 looks the app up by its bundle id.
 
-## SEO
+## SEO (Pro)
 
 FounderData doesn't collect search data. The SEO tab shows a snapshot you push from your own scripts: Search Console
 clicks, impressions, click-through rate and position per day, plus optional keyword targets, SERP checks, an SEO plan,
@@ -2509,7 +2516,7 @@ answers (each panel prompt per assistant, and visits from assistants), Plan and 
 log) and Page audit (your crawler's last run, one row per URL, with a flag for each problem it found). Each decaying page says in one line why it lost clicks: it ranks lower, fewer people searched, or fewer searchers
 clicked at the same position. The format and a `curl` example are in [SEO.md](SEO.md).
 
-## Content
+## Content (Pro)
 
 The Content tab ranks the pages where visits started by the money they bring. Each row shows visitors, new customers,
 revenue, revenue per visitor and the change against the period before. Revenue goes to the buyer's last visit from a
@@ -2553,7 +2560,7 @@ numbers of their own. Chrome and Edge report all five. Safari and Firefox report
 tap or click. A tab opened in the background reports no paint times.
 
 Google's Chrome UX Report only covers sites with enough Chrome traffic. These numbers come from your own visitors, so
-a small site gets them too. The Content tab's Page speed card shows the 75th percentile of each metric over the last
+a small site gets them too. Core collects and stores them. In Pro, the Content tab's Page speed card shows the 75th percentile of each metric over the last
 28 days, colored by those thresholds, with the share of loads rated good, needs improvement and poor. It splits them
 by page and by device, and each page's detail has the same card for that page alone. Below 20 page loads a metric
 shows its count instead of a number. Agents read them from `GET /api/v1/vitals` and the `get_web_vitals` MCP tool
@@ -2563,11 +2570,11 @@ Each stored page load writes 1 D1 row with no visitor id ([PRIVACY.md](PRIVACY.m
 sample setting: 100% of page loads by default, or 50%, 25%, 10% or off. A busy site can lower it to save rows. The rows
 are deleted after 90 days.
 
-## Email (Resend)
+## Email (Resend) (Pro)
 
 The Email panel at the bottom of a site's Overview counts the emails the site sent through Resend: sent, delivered,
 bounced and complained, opened and clicked, with the bounce and complaint rates. Agents read the same numbers from
-`GET /api/v1/email` ([API.md](API.md#get-apiv1email)) and the MCP tool `get_email`.
+`GET /api/v1/email` ([API.md](API.md#get-apiv1email-pro)) and the MCP tool `get_email`.
 
 One webhook per Resend account covers every site. An event belongs to the site whose domain the sender address is on,
 so `acme.example` takes `hello@acme.example` and `news@mail.acme.example`. A sender on a domain no site has is ignored.

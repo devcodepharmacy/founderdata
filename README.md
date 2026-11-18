@@ -14,10 +14,31 @@ This repository is FounderData core, free and MIT licensed. [FounderData Pro](#f
 analytics, iOS app reports, ads, SEO, AI visibility and the full agent layer for a one-time payment.
 
 Not for you if you need it on your own server: it runs on Cloudflare Workers and D1 only, with no Docker image or
-Postgres option. Nor if you need single sign-on or per-site permissions: teammates sign in with their own password and
-are an owner or a viewer for every site. It has no session replay and no heatmaps.
+Postgres option. Nor if you need single sign-on or per-site permissions. Core has one admin password and one shared
+read-only viewer password, set as `VIEWER_PASSWORD`. Pro adds teammates with their own login, each an owner or a viewer
+for every site. It has no session replay and no heatmaps.
 
 ![The FounderData dashboard with visitors, revenue, sources and paying customers](docs/dashboard.png)
+
+## Quick start
+
+You need Node.js 20 or later and a free Cloudflare account.
+
+```bash
+git clone https://github.com/founderdata/founderdata.git
+cd founderdata
+npm install
+npm run setup
+```
+
+`npm run setup` signs you in to Cloudflare, creates the database, deploys the Worker and prints your dashboard URL.
+Open it and log in with the password saved in `~/.config/founderdata/admin-password`. [Install](#install) has the
+details.
+
+You can also hand [AGENTS.md](AGENTS.md) to a coding agent such as Claude Code or Cursor. Its "Deploy a fresh copy"
+section takes the agent through the same steps and says when to ask you.
+
+Cloudflare's free plan covers about 3,100 web visits a day. [What it costs](#what-it-costs) has the numbers.
 
 ## What you get
 
@@ -36,30 +57,32 @@ are an owner or a viewer for every site. It has no session replay and no heatmap
   customer, and a payment keeps its source after old visits are deleted.
 - A journey for every customer, from the first visit through each page and click to the payment.
 - A setup checklist in Settings, one row per integration with a live status and the next step: when the cron last ran,
-  whether the old hourly cron is still listed, which optional secrets are set (by name), the Google redirect URI to
-  paste with a copy button, a Test button for the DataForSEO login and the X token, when each site's payment webhook last
-  delivered, and any DataForSEO location code that was refused. See [the guide](docs/GUIDE.md#setup-checklist).
+  whether the old hourly cron is still listed, which optional secrets are set (by name), and when each site's payment
+  webhook last delivered. Pro adds rows for Google, DataForSEO and X. See [the guide](docs/GUIDE.md#setup-checklist).
 - A home page across all your sites, with totals, a card per site and a "worth a look" list of sites that went quiet
   or doubled.
 - Page speed from your own visitors: LCP, INP, CLS, FCP and TTFB measured in their browsers, as the 75th percentile per
-  page and device with Google's ratings. Small sites get numbers too, where Google's Chrome UX Report has none
-  ([guide](docs/GUIDE.md#page-speed)).
+  page and device with Google's ratings. Small sites get numbers too, where Google's Chrome UX Report has none. Core
+  collects and stores them and serves them through `GET /api/v1/vitals` and the `get_web_vitals` MCP tool. The Page
+  speed card is in Pro's Content tab ([guide](docs/GUIDE.md#page-speed)).
 - Alerts in Slack, Discord, Telegram, a webhook or email (Resend, or Cloudflare Email Routing with no other account):
   each payment and refund with its product, failed renewals and cancellations with the customer, quiet sites, a payment
   provider that stopped sending (small products too), a webhook refused for a bad signature, the write cap, and a
   Monday report with revenue, web and app visitors apart, top products and top sources per site. Notes on the chart for
   launches, deploys and new app versions.
-- CSV export of every panel, visit, event, payment and subscription. A read-only share link (with MRR) and badge per site, and a read API key
+- CSV export of every panel, visit, event, payment and subscription. A read-only share link (with MRR in Pro) and badge per site, and a read API key
   for Grafana or a spreadsheet. Erasing one person for a GDPR request takes one click, and an erase log records who
   handled it without keeping the person, and outlives the site. Colleagues can get a read-only viewer password.
 - One API key per agent, with only the scopes it needs: read, read revenue, raw rows, write notes, change alerts, send
   payments, push SEO and push ASO, and write to the research log. A push script needs no admin password. A key can cover one site, several or all, expire on a date, and be revoked alone. Settings shows each
   key's last call, last write and calls in 24 hours. FounderData stores only a hash of the key. A copy agent's key
   can log changes and read visitors, and gets 403 on payments and no revenue fields ([docs/API.md](docs/API.md#api-keys)).
-- An MCP server for Claude Code, Cursor and other agents, with 9 tools: overview, breakdown, timeseries, customers,
-  page speed, notes and the key's own scopes and sites ([docs/MCP.md](docs/MCP.md)).
-- Agents can tell a real drop from a broken import. Each site answers when its web, app, payment and Search Console
-  data starts, the status of its 12 integrations with the last error, and the share of revenue a visit explains. A
+- An MCP server for Claude Code, Cursor and other agents, with 9 tools: `whoami`, `get_definitions`, `get_overview`,
+  `get_breakdown`, `get_timeseries`, `get_customers`, `get_web_vitals`, `list_notes` and `add_note`
+  ([docs/MCP.md](docs/MCP.md)).
+- Agents can tell a real drop from a broken import. Each site answers when its web, app and payment data starts, the
+  status of each integration with the last error, and the share of revenue a visit explains. Core reports the tracker,
+  the SDK and payments. The other 9 integrations, Search Console among them, report data in Pro. A
   comparison with days before tracking started answers `null` with a reason, not a jump from 0
   ([docs/API.md](docs/API.md#sources-and-tracking-start)).
 - A site without payments, such as a blog or docs, shows visitors, pages and goals with no empty revenue tiles.
@@ -88,23 +111,23 @@ Open any Pro section in the dashboard to buy it or to get the install prompt for
   and click a cell to list its subscriptions.
 - Subscription history from ChartMogul (its API key) or RevenueCat (a transactions export), so the MRR chart and the
   retention grid start at your first paying customer and not on the day you connect. A table compares each month-end
-  with the source's own MRR and shows every gap. See [Import from ChartMogul](docs/GUIDE.md#import-from-chartmogul) and
-  [Import from RevenueCat](docs/GUIDE.md#import-from-revenuecat).
+  with the source's own MRR and shows every gap. See [Import from ChartMogul](docs/GUIDE.md#import-from-chartmogul-pro) and
+  [Import from RevenueCat](docs/GUIDE.md#import-from-revenuecat-pro).
 - iOS apps next to the website: sessions, screens, the onboarding funnel with drop-off per step, paywall conversion,
   App Store purchases, Apple Search Ads campaigns and day-1 and day-7 retention.
 - Apple Search Ads spend next to App Store revenue: with a read-only Apple Ads API user, each campaign and keyword
   shows its name, spend, installs, trials, paid conversions, cost per paid conversion and ROAS. See
-  [Apple Search Ads](docs/GUIDE.md#apple-search-ads).
+  [Apple Search Ads](docs/GUIDE.md#apple-search-ads-pro).
 - Meta ads (Facebook and Instagram) to the payment: with a read-only system user token, each campaign, ad set and ad
   shows Meta's spend, clicks and purchases next to the visits, customers and revenue FounderData credited to it, with CPA,
   ROAS, landing rate, hook rate, hold rate, 7-day frequency and a fatigue flag. One URL parameter (`ad_id={{ad.id}}`) ties
   a visit to its ad. The Conversions API, off by default, sends Meta each web purchase (hashed email and the ad's click id,
   no IP) so a campaign can optimize for buyers without a Meta pixel. Alert rules on spend, ROAS and cost per customer. See
-  [Meta ads](docs/GUIDE.md#meta-ads).
+  [Meta ads](docs/GUIDE.md#meta-ads-pro).
 - Spend from every other ad channel: Google Ads through a script that runs in your Google Ads account, TikTok, Reddit,
   LinkedIn or a newsletter sponsor through a CSV export or the API. One paid report puts all spend against every new
   customer: MER, blended CAC, ROAS per channel after Apple's cut, and the days until the spend paid back. Each site's
-  Paid overview shows it. See [Ad spend from other channels](docs/GUIDE.md#ad-spend-from-other-channels).
+  Paid overview shows it. See [Ad spend from other channels](docs/GUIDE.md#ad-spend-from-other-channels-pro).
 - ASO for your iOS apps: the rank for each keyword and country, the 10 apps above you, a difficulty score, Apple's
   search popularity, ratings per country and new reviews, with an alert for a new review of 3 stars or fewer. It imports
   keywords from an Astro export or a plain list, up to 200 keywords and 10 countries. Apple refuses these requests from Cloudflare, so a small
@@ -114,7 +137,7 @@ Open any Pro section in the dashboard to buy it or to get the install prompt for
   results a day, shared with Google rank tracking, so 720 pairs get a new rank every day. They cost an estimated $26 to $52 a
   month, and a soft monthly cap limits the spending. An import keeps the
   ranks in an Astro file, and a button lists the keywords an app already ranks for. See [ASO](docs/ASO.md#ranks-without-your-mac).
-- Which post paid: give FounderData your own X API token and it reads your posts, then credits each visit from X, and the customers and revenue after it, to the closest earlier post that links to the landing page. No UTM tags. Matches are probable, not certain: landing page within 48 hours. X sends no post code, so exact matches are rare. X charges $0.005 for every post it reads, linked or not: about $0.15 for 30 posts a month, $1.50 for 300. You can also add posts by hand for free. See [the guide](docs/GUIDE.md#which-post-paid).
+- Which post paid: give FounderData your own X API token and it reads your posts, then credits each visit from X, and the customers and revenue after it, to the closest earlier post that links to the landing page. No UTM tags. Matches are probable, not certain: landing page within 48 hours. X sends no post code, so exact matches are rare. X charges $0.005 for every post it reads, linked or not: about $0.15 for 30 posts a month, $1.50 for 300. You can also add posts by hand for free. See [the guide](docs/GUIDE.md#which-post-paid-pro).
 - Google rank tracking on your own DataForSEO account: up to 200 keywords a site, checked daily, with a CSV import, with the best position, the change over 7 and 30 days, a trend line, whether an AI Overview cites you and Search Console clicks beside it. Each check also keeps the domains in the top 10 and the SERP features (featured snippet, People also ask, video), so agents see who holds the top 10 across your keywords and who moved in this week, at no extra cost ([docs/SEO.md](docs/SEO.md#serp-competitors)). Keyword research finds terms and the keywords a domain ranks for, each with a Track button, and a soft monthly cap limits the spending. 200 keywords cost an estimated $3.60 to $7.20 a month. With the AI Overview flag on, which adds $0.002 a check, they cost about $19.20, and the $10 default cap is reached around day 15. A cap of $25 covers it. See [SEO.md](docs/SEO.md#cost) for the prices and how far to trust them.
 - An SEO tab per site for Search Console data, keywords and AI answers. Connect Google in the browser, with your own
   Google Cloud client, and the Worker pulls 16 months of queries on its cron ([docs/SEO.md](docs/SEO.md#connect-google)).
@@ -133,20 +156,20 @@ Open any Pro section in the dashboard to buy it or to get the install prompt for
   crawler hits (GPTBot, ClaudeBot, PerplexityBot) for a count per bot and page ([guide](docs/AI-VISIBILITY.md)).
 - An iPhone app with widgets and a push notification for every payment.
 - An alert inbox keeps every alert for 90 days, one row per message and site, so an agent can read what fired since its
-  last run ([guide](docs/GUIDE.md#alert-inbox)). A threshold rule's webhook can send an auth header or a GitHub
+  last run ([guide](docs/GUIDE.md#alert-inbox-pro)). A threshold rule's webhook can send an auth header or a GitHub
   `repository_dispatch`, which starts an agent in GitHub Actions
-  ([docs/MCP.md](docs/MCP.md#waking-an-agent-when-a-number-moves)).
+  ([docs/MCP.md](docs/MCP.md#waking-an-agent-when-a-number-moves-pro)).
 - Email from Resend per site: sent, delivered, bounced, complained, opened and clicked emails per day, sender and
   tag, with bounce and complaint rates. One webhook per Resend account covers every site, matched by the sender's
-  domain, and no recipient address is stored ([docs/GUIDE.md](docs/GUIDE.md#email-resend)).
+  domain, and no recipient address is stored ([docs/GUIDE.md](docs/GUIDE.md#email-resend-pro)).
 - Home across all your sites gets a Growth row (ad spend with MER and CAC, Google Search clicks, the AI mention rate),
   search drops in "worth a look" ([docs/SEO.md](docs/SEO.md#search-drop)), and the top 6 next actions across your
-  sites, each with what it is worth in a month ([guide](docs/GUIDE.md#next-actions)).
+  sites, each with what it is worth in a month ([guide](docs/GUIDE.md#next-actions-pro)).
 - MRR in the alerts and the Monday report, a daily numbers message, and a verdict for each logged change on the number
   it was meant to move: an SEO edit on its page's Search Console clicks over 28 days, an ad budget change on CPA, an AI
   content change on the mention rate, an app price on paywall conversion.
 - All 30 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
-  key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool)), alert rules, the research log and seven agent
+  key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and seven agent
   skills.
 - Teammates with their own login, as owner or viewer.
 
@@ -229,8 +252,9 @@ Step-by-step instructions for each provider are in the [guide](docs/GUIDE.md#rev
 ## iOS apps
 
 `FounderDataKit` is a Swift package with no dependencies for iOS 17 and later, built with Xcode 26 or later. In Xcode,
-choose File > Add Package Dependencies, paste `https://github.com/founderdata/founderdata` and pin a commit, since there are
-no release tags yet. Then:
+choose File > Add Package Dependencies, paste `https://github.com/founderdata/founderdata` and choose Up to Next Major
+Version from 1.0.0. The repository is tagged `1.0.0`, and the server, the dashboard and the Swift SDK share that
+version. Your deployment still learns about updates from `release.json` ([docs/PRO.md](docs/PRO.md#updates)). Then:
 
 ```swift
 import FounderDataKit
@@ -270,7 +294,7 @@ Screens, goals, onboarding steps and sign-out are covered in [ios/README.md](ios
 3. In App Store Connect, open the app, then App Information, App Store Server Notifications. Set the URL from the
    site's Settings as the Production URL, Version 2. That brings in renewals and refunds. If your own backend already
    receives these notifications, forward the raw body instead ([ios/README.md](ios/README.md) has an example).
-4. Optional: let FounderData import Apple's daily Sales report, so downloads and proceeds show up, including apps without
+4. Optional, FounderData Pro: let FounderData import Apple's daily Sales report, so downloads and proceeds show up, including apps without
    the SDK. Create an App Store Connect API key with the Sales and Reports role only, then set four secrets:
 
    ```bash
@@ -281,16 +305,16 @@ Screens, goals, onboarding steps and sign-out are covered in [ios/README.md](ios
    ```
 
    A daily cron imports the last three days. `scripts/asc-backfill.sh` imports up to a year back. See
-   [App Store sales](docs/GUIDE.md#app-store-sales).
+   [App Store sales](docs/GUIDE.md#app-store-sales-pro).
 
 TestFlight and sandbox purchases never count as revenue. To see them while testing, turn on sandbox purchases in the
 site's Settings.
 
 ### iPhone app (Pro)
 
-`pro/apps/ios` has an iPhone app for your deployment. It signs in with your admin password and shows today, 7 day and 30
-day totals per site, with Home Screen and Lock Screen widgets. Add an APNs key to the Worker and it sends a push for
-every payment. You build it with your own Apple team. [pro/apps/ios/README.md](pro/apps/ios/README.md) has the steps. The
+FounderData Pro comes with an iPhone app for your deployment. It signs in with your admin password and shows today, 7
+day and 30 day totals per site, with Home Screen and Lock Screen widgets. Add an APNs key to the Worker and it sends a
+push for every payment. You build it with your own Apple team, and the steps are in the Pro repository. The
 phone's token can read every dashboard number but can't change a site; a new admin password signs every phone out.
 
 ## What it costs
@@ -314,7 +338,7 @@ numbers below are for Google rank checks and hosted App Store checks together, s
 | Example that fits | 720 App Store pairs and 200 Google keywords (920 a day), plus 50 prompts on 3 engines (150 checks) | 28,800 results is 144 sites of 200 keywords |
 
 Google AI Overview tasks (up to 5 posted and 3 collected a tick) and sentiment ratings (up to 3 a tick) draw on the same
-budget of 50, and each call checks it first. `pro/test/ai-engines-r5.test.ts` runs the busiest tick and holds it under 50.
+budget of 50, and each call checks it first. A test in the Pro repository runs the busiest tick and holds it under 50.
 
 A test runs a day of ticks for that Free example. Each tick made at most 40 subrequests (DataForSEO calls, engine calls
 and D1 queries together) and a tick with nothing to do wrote no D1 rows except the heartbeat the setup checklist reads (1 row at minutes 0, 15, 30 and 45). A busy tick read about 2,500 rows, an idle
@@ -421,25 +445,25 @@ The code is laid out like this:
 - `src/dashboard` is the React dashboard (Vite, Tailwind, Recharts). The same Worker serves it as static files.
 - `migrations/` holds the database schema.
 - `ios/` holds the FounderDataKit Swift package.
-- `pro/apps/ios/` holds the iPhone app for your deployment (Pro).
+- FounderData Pro adds a `pro/` folder with its reports and the iPhone app ([docs/PRO.md](docs/PRO.md)).
 
 ## Docs
 
-- [Guide](docs/GUIDE.md): everything the dashboard tracks, cookies and consent, each payment provider, App Store
-  sales import, how revenue is counted, accuracy notes.
+- [Guide](docs/GUIDE.md): everything the dashboard tracks, cookies and consent, each payment provider, how revenue is
+  counted, accuracy notes. Sections marked (Pro) need FounderData Pro.
 - [FounderData vs other tools](docs/vs/README.md): side-by-side pages for DataFast, Plausible, OpenSEO, Astro, RevenueCat and ChartMogul, Peec and Profound, with what FounderData does not do and how to move over.
 - [Import web history](docs/IMPORT.md): bring in a Plausible CSV export, or read a DataFast site through its API with your key. Past traffic shows in the chart and the top panels, and a source filter answers from it. Other tools that export Plausible's CSV files may work; only Plausible's is tested.
 - [App API](docs/APP-API.md): the contract between the server and the iOS SDK.
 - [App events](docs/APP-EVENTS.md): a naming convention for onboarding, paywall and purchase events.
-- [Mobile API](docs/MOBILE-API.md): the routes the iPhone app uses, and push notifications.
-- [SEO snapshots](docs/SEO.md): the format the SEO tab reads, how to push it, and Google rank tracking and keyword research on your DataForSEO account.
-- [ASO](docs/ASO.md): keyword ranks, ratings and reviews for iOS apps, the collector, its terms caveat and its
+- [Mobile API](docs/MOBILE-API.md): the routes the Pro iPhone app uses, and push notifications.
+- [SEO snapshots](docs/SEO.md), Pro: the format the SEO tab reads, how to push it, and Google rank tracking and keyword research on your DataForSEO account.
+- [ASO](docs/ASO.md), Pro: keyword ranks, ratings and reviews for iOS apps, the collector, its terms caveat and its
   snapshot format.
 - [Privacy](docs/PRIVACY.md): what is stored and for how long, who can read it, what Cloudflare sees, EU storage, the
   subprocessors, a GDPR checklist, a balancing test template, a breach procedure and an answer sheet for procurement.
 - [MCP server](docs/MCP.md): connect Claude Code, Cursor or another agent to `/mcp` with one scoped key, and the OpenAPI
-  spec at `/api/v1/openapi.json`. Agents record what they found and paid for in a research log, read the history of
-  AI answer checks, and get seven workflows from `skills/` as MCP prompts.
+  spec at `/api/v1/openapi.json`. Pro adds a research log where agents record what they found and paid for, the
+  history of AI answer checks, and seven workflows as MCP prompts.
 - [API](docs/API.md): the payments and goals API, the read API for stats, share links and badges, CSV export, and
   erasing one person.
 

@@ -14,9 +14,10 @@ lists what FounderData does not do, and links the import path if you move.
 
 ## What FounderData is
 
-Open-source (MIT) analytics you host yourself on Cloudflare Workers and D1. It joins web and iOS visits, payments,
-Search Console, rank checks, App Store ranks and AI answers in one database, and a 33-tool MCP server lets your AI agent
-read all of it with one key. See the [README](../../README.md).
+Open-source analytics you host yourself on Cloudflare Workers and D1. Core is free under MIT. It joins web and iOS
+visits and payments in one database, and a 9-tool MCP server lets your AI agent read them with one key. FounderData Pro, €19.99 or $19.99 once,
+adds subscription metrics, Search Console, rank checks, App Store ranks, AI answers and 30 MCP tools
+([PRO.md](../PRO.md)). The pages below say which features need Pro. See the [README](../../README.md).
 
 ## How to read these pages
 
@@ -38,7 +39,7 @@ These are not built, and no comparison here pretends otherwise.
 - **No verified bot IPs and no crawler by citation by revenue table.** AI crawler hits and AI citations are listed
   separately. See [AI-VISIBILITY.md](../AI-VISIBILITY.md#ai-crawler-hits).
 - **No live visitor map.** The dashboard shows who is online now as a count.
-- **A large MCP tool set.** The server exposes 33 tools, and a client loads all of their descriptions before it reads a
-  number. See [MCP.md](../MCP.md).
+- **A large MCP tool set in Pro.** A Pro server exposes 30 tools, and a client loads all of their descriptions before it
+  reads a number. Core has 9. See [MCP.md](../MCP.md).
 - **Terminal setup.** You deploy with Node and Wrangler, and several integrations need a secret you set yourself. The
   [setup checklist](../GUIDE.md#setup-checklist) tests each one live.

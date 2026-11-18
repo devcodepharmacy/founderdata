@@ -91,7 +91,7 @@ Both take a whole number from 1 to 1200. Any other value falls back to the defau
 | Who | How they sign in | What they see |
 | --- | --- | --- |
 | Owner | `ADMIN_PASSWORD` | Everything, and can change everything |
-| Teammate | Name or email and their own password, from an invite link | Owner: as the owner. Viewer: as the viewer. The owner can revoke one person at once. Their session and the keys and links they made end. What they saw stays known, so rotate it ([GUIDE.md](GUIDE.md#team)) |
+| Teammate | Name or email and their own password, from an invite link | Owner: as the owner. Viewer: as the viewer. The owner can revoke one person at once. Their session and the keys and links they made end. What they saw stays known, so rotate it ([GUIDE.md](GUIDE.md#team-pro)) |
 | Viewer | `VIEWER_PASSWORD`, optional | Every dashboard number, read-only. No write key, webhook secret, share link, read key, alert channel or device. Names, emails and user ids show as empty unless `VIEWER_PII` is `1`. No raw CSV export without it. Visitor ids and journeys are visible |
 | Phone | Device token from `/api/mobile/login` with the admin password | Stats, read-only except chart notes, with every secret set to null. Names, emails, user ids and customer ids show, because the owner's app locks with Face ID; `PHONE_PII=0` hides them. Raw CSV exports answer 403, so a lost phone does not hold the customer list as a file. It can list and revoke only itself |
 | Share link | `/share/<token>` | Aggregates of one site. No visitors, journeys, names or emails. The page and its API send `X-Robots-Tag: noindex, nofollow`, so search engines skip it if the link leaks |
@@ -211,7 +211,7 @@ there. Apple receives the app's keywords, countries and App Store ids, and that 
 visitor data.
 
 Resend's email webhook goes the other way: Resend sends FounderData an event for each email your sites send, once you
-add the webhook ([GUIDE.md](GUIDE.md#email-resend)). The event carries the recipient address and the subject. The
+add the webhook ([GUIDE.md](GUIDE.md#email-resend-pro)). The event carries the recipient address and the subject. The
 Worker reads the email id, the sender, the `category` tag, the event type and the time, and drops the rest before
 anything is stored. Opens and clicks exist only when you turned on Resend's open or click tracking, which puts a pixel
 and redirected links in your emails; that choice and its consent question sit with the sender, not with FounderData.

@@ -4,7 +4,7 @@ Astro is a native Mac app for iOS keyword research and rank tracking. It is the 
 already knows which keywords your app ranks for, shows Apple Search Ads popularity and a difficulty score, spies on a
 competitor's keywords, covers 91 storefronts with no keyword cap and has a fast single-view interface.
 
-FounderData's ASO tab does the core job, ranks per keyword and country with the 10 apps above you, and puts it beside the
+FounderData Pro's ASO tab does the core job, ranks per keyword and country with the 10 apps above you, and puts it beside the
 revenue and the retention of the same app. It does not match Astro's keyword discovery or its country coverage.
 
 Checked in November 2026. Astro's price and limits come from tryastro.app and its docs, read on 6 November. Appfigures
@@ -15,7 +15,7 @@ prices were read on 3 November. They may have changed.
 | | Astro | FounderData |
 | --- | --- | --- |
 | Where it runs | A Mac app, macOS 14 or later. Ranks update only while the app runs | Your Cloudflare account. Hosted ranks run on the cron. The free collector script runs on a machine you pick |
-| Price | $9 a month billed yearly at $108, one Mac, 14-day refund instead of a trial | No license fee. Hosted ranks cost DataForSEO's price, an estimated $26 to $52 a month for 720 keyword and country pairs checked daily. Those prices are unverified |
+| Price | $9 a month billed yearly at $108, one Mac, 14-day refund instead of a trial | Core is free under MIT. The ASO tab is in FounderData Pro, €19.99 or $19.99 once. Hosted ranks cost DataForSEO's price, an estimated $26 to $52 a month for 720 keyword and country pairs checked daily. Those prices are unverified |
 | Keywords and countries | No cap on keywords or apps. 91 of 175 storefronts | 200 keywords, 10 countries and 5 competitors per app, 1,000 keyword and country pairs in all. 50 of the 52 App Store countries FounderData tracks work with hosted ranks |
 | Rank history | In the Mac app's database | 90 days shown in the tab. Older snapshots stay in the database |
 | Popularity | Apple Search Ads popularity | Apple Ads Platform API search popularity, by week |
@@ -25,8 +25,8 @@ prices were read on 3 November. They may have changed.
 | Ratings and reviews | Ratings tracking | Ratings per country, new reviews, and an alert for a new review of 3 stars or fewer. These need the collector script, not hosted ranks |
 | Platforms | iOS, iPadOS, Mac, tvOS and watchOS rankings. No Google Play | iPhone App Store search only. No Google Play |
 | Translation | Keyword translation through DeepL | None |
-| Revenue next to ranks | No | App Store sales, subscriptions, Apple Search Ads spend and ROAS and the funnel of the same app |
-| Agents | Local MCP server, 12 tools, beta. No API or CLI | MCP with 33 tools, an `aso:write` key for push scripts, an MCP prompt that audits ASO |
+| Revenue next to ranks | No | App Store sales, subscriptions, Apple Search Ads spend and ROAS and the funnel of the same app, all in Pro |
+| Agents | Local MCP server, 12 tools, beta. No API or CLI | In Pro, MCP with 30 tools, an `aso:write` key for push scripts, an MCP prompt that audits ASO |
 | Sharing | One license, one Mac, no web view | The dashboard, a share link, a read API |
 
 Appfigures is the other tool people use here. It has a free plan for 5 apps, Monitor with 100 keywords at $44.99 a month or
@@ -61,4 +61,4 @@ the `Keyword` and `Country` columns of any CSV with a header.
 4. Turn on [ranks without your Mac](../ASO.md#ranks-without-your-mac) with your DataForSEO login, or run the
    [collector](../ASO.md#set-it-up).
 5. For sales history, import up to a year of Apple's daily Sales report with `scripts/asc-backfill.sh`. See
-   [App Store sales](../GUIDE.md#app-store-sales).
+   [App Store sales](../GUIDE.md#app-store-sales-pro).

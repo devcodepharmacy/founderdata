@@ -5,6 +5,8 @@ you click Connect Google ([Connect Google](#connect-google)), or `scripts/gsc-sy
 ([Sync Search Console](#sync-search-console)). Keyword tools, SERP checks and anything else you track still arrive as
 a snapshot you build elsewhere and push to the Worker. Until a site has a snapshot, its SEO tab shows how to send one.
 
+This is a FounderData Pro feature ([PRO.md](PRO.md)). In core, the tab shows the Pro card.
+
 ## Pushing a snapshot
 
 Log in with the admin password, then `PUT` each part as JSON:
@@ -34,7 +36,7 @@ without `seo:write` gets `403` ([API.md](API.md#seo-and-aso-writes)).
 
 Each part is one row in `seo_snapshots`, up to 1.9 MB, and a push replaces the previous one. A new part writes 2 D1 rows and a
 replaced part 1. `GET /api/sites/:id/seo` returns `{ pushedAt, parts }`. The Worker stores the text as sent and never parses
-it. The dashboard sums the rows in the browser (`pro/dashboard/lib/seo.ts`).
+it. The dashboard sums the rows in the browser (`dashboard/lib/seo.ts` in the Pro repository).
 
 Only `meta` is required. Without it the tab shows the empty state. Without `gsc_daily` it shows the rest and says
 Search Console is not measured.
@@ -282,7 +284,7 @@ It reads the sites from `~/.config/founderdata/gsc-sync.json`. On Linux, use a c
 
 ## Parts
 
-The TypeScript types in [`pro/dashboard/lib/seo.ts`](../pro/dashboard/lib/seo.ts) are the format. In short:
+The TypeScript types in `dashboard/lib/seo.ts` in the Pro repository are the format. In short:
 
 | Part | Type | Shape |
 | --- | --- | --- |
@@ -330,7 +332,7 @@ Content list counts them per page. `GET /api/v1/content/page` answers them as `s
 - `lane`, `portfolioFocus`, `focusWeekday`: what an SEO automation may do on the site. The Approach card shows only
   when one of these or `work` is set.
 - `aiPanel`: prompts you asked AI assistants and whether they mentioned the site. The tab shows the latest run.
-  To keep the history, push each check to `POST /api/v1/ai-answers` as well ([API.md](API.md#ai-answer-checks)).
+  To keep the history, push each check to `POST /api/v1/ai-answers` as well ([API.md](API.md#ai-answer-checks-pro)).
 - `serpCompetitors`: who ranks for your terms instead.
 - `backlinks`: domain rating and backlink counts.
 
@@ -357,7 +359,7 @@ The usual rate is a rough curve from public CTR studies: 28% at position 1, 15% 
 and 1% on page two. Use it to find pages far below it, not as a target. Both minimums scale with the window: 7 days
 needs 5 and 13 impressions.
 
-Two read key routes return these lists. Both are documented in [API.md](API.md#get-apiv1seodecay):
+Two read key routes return these lists. Both are documented in [API.md](API.md#get-apiv1seodecay-pro):
 
 ```bash
 curl -H "Authorization: Bearer rtr_..." "$BASE/api/v1/seo/decay?limit=5"
@@ -434,7 +436,7 @@ comes from a redirect, a canonical tag, a robots rule or a domain change, so che
 It shows on Home under "Worth a look" (kind `search_drop`), in `get_portfolio` alerts, at the top of the SEO tab, as
 `search_drop` in `get_seo` summary and the decay answer. Home reads only the last 6 KB of each site's `gsc_daily`. For
 a webhook, add an alert rule on `site_google_impressions` or `site_google_clicks`, such as "falls 50% in 7 days"
-([API.md](API.md#alert-rules)).
+([API.md](API.md#alert-rules-pro)).
 
 ## Cannibalization
 
@@ -450,7 +452,7 @@ impressions, and the share of impressions and clicks. Most impressions first.
 
 `GET /api/v1/seo/cannibalization` and `get_seo` with `view: "cannibalization"` return the same list, from the same code
 (`src/shared/seo-insights.ts`). They parse the part in the Worker and cache the answer for 60 seconds. Both bars are
-in the answer as `min_share` and `min_impressions`. See [API.md](API.md#get-apiv1seocannibalization).
+in the answer as `min_share` and `min_impressions`. See [API.md](API.md#get-apiv1seocannibalization-pro).
 
 Two pages sharing a query is a lead, not a verdict. Different intents, a category page above a product page, or a
 branded query can all look the same. Check the queries before you merge or redirect anything.
@@ -662,7 +664,7 @@ authority. Only the dashboard login can change the cap. An agent key can spend w
   App Store together, so the day's posts take a few runs of the 5-minute cron.
 - The free plan gives a scheduled run 10 ms of CPU too, shared with the AI runner in the same invocation, and 50
   subrequests. Each result is a JSON document the Worker parses. Parsing a 100-result SERP of about 100 KB took
-  0.4 ms on an M-series Mac (pro/test/ranks.test.ts), so a run collects 6 results, counted as 6 task_get calls whether or not
+  0.4 ms on an M-series Mac in a test in the Pro repository, so a run collects 6 results, counted as 6 task_get calls whether or not
   the task has finished. The cron runs every 5 minutes, 288 runs a day, so Free collects 6 x 288 = 1,728 results a day
   across all sites and across Google and App Store ranks. That covers 200 keywords and 720 App Store pairs (920 a day)
   with room left. A deployment that kept the hourly cron in `wrangler.local.jsonc` collects 144 a day, about 140
@@ -691,5 +693,5 @@ Agents read ranks with `get_seo` and `view: "ranks"`, or `GET /api/v1/ranks`. Ea
 request) with the MCP tool `research_keywords` and `track`, or `POST /api/v1/ranks/keywords`. Buying research with
 `mode`, or `POST /api/v1/ranks/research`, spends your DataForSEO money and needs the `spend:seo` scope, which
 `research:write` does not include.
-The tool checks the research log first, so an agent never buys the same answer twice. [API.md](API.md#ranks-and-keyword-research)
+The tool checks the research log first, so an agent never buys the same answer twice. [API.md](API.md#ranks-and-keyword-research-pro)
 has the request and answer shapes, and [MCP.md](MCP.md) the tools.
