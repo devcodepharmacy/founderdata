@@ -6,15 +6,15 @@
 -- email_daily numbers, and deleting the site sets it to NULL. Times are ms since the epoch. Message bodies, raw MIME
 -- and attachments live in the MAIL_BUCKET R2 bucket, never in D1.
 --
--- Rows each path writes. D1 counts every index entry an insert or update touches as a row, so these counts include
--- them. pro/test/cost.test.ts pins the exact numbers.
---   send one message to N addresses (to, cc, bcc, reply_to and from together)
---                         queued: message 1 + 2 indexes, parties 2N, idempotency 2 when the key is set
---                         sent: message 1 + provider_id and reconcile indexes 2, message id lookup 2
---   one status event      event 2 (row and its at index), message 1 + the reconcile index when it leaves it
---   one inbound message   message 3, parties 2N, message id lookup 2, thread 4 (row and 3 indexes) on insert
---                         or update, attachments 1 each
---   one webhook delivery  delivery 2 on insert (row and pending index), 1 or 2 per attempt
+-- Rows each path writes. D1 counts an index entry an insert or update adds as a row (removing one is free), so these
+-- include the indexes. pro/test/mail-foundation.test.ts measures the first three, and pro/test/cost.test.ts pins them all.
+--   queue a send to N addresses  4 for the message (row, primary key, created and thread indexes) + 2 per address
+--                                (from, to, cc, bcc and reply_to together), + 2 with an Idempotency-Key
+--   mark it sent                 5: the message with its provider_id and open indexes (3), its Message-ID lookup (2)
+--   a later status change        1 for the message, + 4 for its mail_events row
+--   one inbound message          4 + 2 per address + 2 for its Message-ID, its thread 5 when new and about 4 when it
+--                                grows, + 1 per attachment
+--   one webhook delivery         4 when queued (row, primary key, webhook and due indexes), 1 or 2 per attempt
 
 -- A domain the deployment sends from or receives on.
 --   name         lowercased, such as mail.acme.example
@@ -147,7 +147,7 @@ CREATE INDEX mail_threads_by_domain ON mail_threads (domain_id, last_at);
 CREATE INDEX mail_threads_by_address ON mail_threads (address_id, last_at);
 
 -- Message-ID header values (angle brackets included) and the message that carries them, for threading and for joining
--- events. Several stored messages can share one header (the same mail to two of our addresses); the first one wins.
+-- events. Several stored messages can share one header (the same mail to two of our addresses), and the first one wins.
 CREATE TABLE mail_message_ids (
   message_id_header TEXT PRIMARY KEY,
   message_id TEXT NOT NULL
@@ -205,7 +205,7 @@ CREATE TABLE mail_suppressions (
 --   secret       whsec_ followed by base64
 --   events_json  JSON array of event types, such as ["email.delivered", "email.bounced"]
 --   domain_id    only events of this domain's messages, or NULL for all
---   failures     deliveries that failed in a row; at 20 the endpoint is switched off (enabled 0)
+--   failures     deliveries that failed in a row, and at 20 the endpoint is switched off (enabled 0)
 CREATE TABLE mail_webhooks (
   id TEXT PRIMARY KEY,
   url TEXT NOT NULL,
