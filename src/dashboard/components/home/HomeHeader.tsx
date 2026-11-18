@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { navigate } from '../../App';
 import { warmQuery } from '../../lib/prefetch';
 import { HomeLink } from '../Logo';
-import { HeartIcon, SupportDialog } from '../Support';
+import { HeartIcon, showSupport, SupportDialog } from '../Support';
 import { Check, ThemeToggle } from '../ThemeToggle';
 import { Chevron, Dropdown, itemCls, MenuLabel, SearchButton } from '../Toolbar';
 import { SegTrack, StickyBar } from '../ui';
@@ -113,12 +113,14 @@ function AccountMenu({ hasApps, viewer, onLogout }: { hasApps: boolean; viewer: 
               Notifications
             </button>
           )}
-          <button role="menuitem" className={item} onClick={pick(() => setSupport(true))}>
-            <span className="text-revenue">
-              <HeartIcon size={14} filled />
-            </span>
-            Support FounderData
-          </button>
+          {showSupport && (
+            <button role="menuitem" className={item} onClick={pick(() => setSupport(true))}>
+              <span className="text-revenue">
+                <HeartIcon size={14} filled />
+              </span>
+              Support FounderData
+            </button>
+          )}
           <div className="my-1 border-t border-stone-200/70" role="separator" />
           <button role="menuitem" className={item} onClick={pick(onLogout)}>
             Log out

@@ -347,7 +347,7 @@ describe('POST /api/webhooks/stripe/:siteId', () => {
     expect((await w.db.prepare('SELECT COUNT(*) AS n FROM payments WHERE id = ?').bind(loose.id).first<any>()).n).toBe(1);
   }, 60_000);
 
-  it('donations through the Support link (rt_site_id=donation) count for no site, also with stripe_unpinned on', async () => {
+  it('a payment tagged rt_site_id=donation, a site id that does not exist, counts for no site, also with stripe_unpinned on', async () => {
     const meta = { rt_site_id: 'donation' };
     const pi = id('pi');
     expect((await deliver('payment_intent.succeeded', { id: pi, amount_received: 500, currency: 'eur', metadata: meta })).body.result).toBe('other site');

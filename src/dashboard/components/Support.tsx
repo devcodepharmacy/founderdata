@@ -1,12 +1,12 @@
 import { useId, useState } from 'react';
+import { PRO_PRICE } from '../../shared/product';
+import { isPro } from '../lib/pro';
 import { TRAIL_PATH } from './Logo';
 import { Modal } from './Modal';
+import { ProActions } from './ProUpsell';
 
-/**
- * Stripe Payment Link, pay what you want in EUR (preset 5, minimum 1). It sits in the maintainer's Stripe account and tags
- * every payment with metadata rt_site_id=donation, so no site's Stripe webhook records a donation as its revenue.
- */
-export const DONATE_URL = 'https://donate.stripe.com/5kQ14p3Ui2gE9vL6DG04800';
+/** The heart shows in core only: buying Pro is how you support FounderData, and a Pro build has paid already. */
+export const showSupport = !isPro;
 
 export function HeartIcon({ size = 18, filled = false }: { size?: number; filled?: boolean }) {
   return (
@@ -42,11 +42,12 @@ function TrailToHeart() {
 }
 
 /**
- * A heart button for the header of every screen. It opens a short card with the donation link; `compact` shows the
- * heart alone, for the crowded site toolbar.
+ * A heart button for the header of every screen in core. It opens a short card with the Pro buy button; `compact` shows
+ * the heart alone, for the crowded site toolbar.
  */
 export function SupportButton({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
+  if (!showSupport) return null;
   return (
     <>
       <button
@@ -65,7 +66,7 @@ export function SupportButton({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** The donation card on its own, for a menu item that opens it (the home page's account menu). */
+/** The support card on its own, for a menu item that opens it (the home page's account menu). */
 export function SupportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Modal open={open} onClose={onClose} width="max-w-md">
@@ -83,18 +84,12 @@ export function SupportDialog({ open, onClose }: { open: boolean; onClose: () =>
         <div className="px-7 pb-7 pt-3 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Support FounderData</h2>
           <p className="mx-auto mt-2 max-w-xs text-[15px] leading-relaxed text-stone-600">
-            If FounderData helps you see which source brings in the money, you can chip in. Pick any amount from €1.
+            Core stays free. FounderData Pro pays for the work on both, and adds subscription analytics, app reports, ads,
+            SEO and AI visibility for {PRO_PRICE}, paid once.
           </p>
-          <a
-            href={DONATE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-revenue px-4 py-3 text-base font-semibold text-[#fff] shadow-card transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-revenue/40"
-            onClick={onClose}
-          >
-            <HeartIcon size={18} filled /> Donate
-          </a>
-          <p className="mt-3 text-xs text-stone-400">Stripe handles the payment in a new tab.</p>
+          <div className="mt-6 flex justify-center">
+            <ProActions compact />
+          </div>
         </div>
       </div>
     </Modal>
