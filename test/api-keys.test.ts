@@ -137,7 +137,9 @@ describe('scoped API keys', () => {
     for (const r of readRoutes()) {
       const status = (await get(r, k.read)).status;
       expect([200, 403, 404], `${r}: ${status}`).toContain(status);
-      // The raw rows route needs read:rows, which this key does not have.
+      if (r.startsWith('/api/v1/mail/')) expect(status, r).toBe(403);
+      // The raw rows route needs read:rows, which this key does not have. Mail needs mail:read: read never reaches it.
+      if (status === 403 && r.startsWith('/api/v1/mail/')) continue;
       if (status === 403) expect(['/api/v1/customers', '/api/v1/cohorts', '/api/v1/subscriptions', '/api/v1/asa', '/api/v1/asa/campaigns', '/api/v1/meta', '/api/v1/appstore', '/api/v1/portfolio', '/api/v1/export/{table}']).toContain(r);
     }
   });
