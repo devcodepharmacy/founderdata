@@ -233,7 +233,9 @@ send and the messages people send to your addresses.
   iPhone app, share links and keys with `read` get no mail.
 - **Where it is.** The bucket is created in the EU when the database is.
 - **Erase.** Erasing a person by email deletes every message with their address on it, the stored objects and their
-  suppression entries, here and on Cloudflare's suppression list.
+  suppression entries, here and on Cloudflare's suppression list. The admin login does that, and so does a key that
+  holds `mail:write` next to `payments:write`. A key without `mail:write` erases the site's rows only and answers
+  `mail_skipped: true`. The erase refuses one of your own addresses, because every thread it wrote in would go.
 - **Cloudflare.** Cloudflare Email Service and Email Routing process every message and keep their own delivery logs.
   Both are covered by the Cloudflare DPA above.
 - **Your privacy policy** says that you answer support mail from this system, if you do.

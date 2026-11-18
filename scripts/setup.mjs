@@ -216,8 +216,12 @@ export function mailResourceName(dbName) {
   return `${String(dbName).toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 58) || 'founderdata'}-mail`;
 }
 
-/** Settings of the mail queue's consumer: small batches soon, so a delivery event moves a status within seconds. */
-export const MAIL_CONSUMER = { max_batch_size: 10, max_batch_timeout: 2, max_retries: 8 };
+/**
+ * Settings of the mail queue's consumer. Batches come soon, so a delivery event moves a status within seconds, and
+ * hold 3 messages at most: one received message can be 25 MB, and a batch is parsed in one isolate. The consumer
+ * retries a failed message with a growing wait, up to 8 times over about 16 hours (pro/worker/mail/index.ts).
+ */
+export const MAIL_CONSUMER = { max_batch_size: 3, max_batch_timeout: 2, max_retries: 8 };
 
 /**
  * Wrangler config text with the mail bindings added, comments and layout kept: `send_email` EMAIL, `r2_buckets`

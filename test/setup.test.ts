@@ -63,7 +63,7 @@ describe('scripts/setup.mjs', () => {
   describe('--mail', () => {
     const strip = (t: string) => JSON.parse(t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'));
     const opts = { bucket: 'founderdata-mail', queue: 'founderdata-mail' };
-    const consumer = { queue: 'founderdata-mail', max_batch_size: 10, max_batch_timeout: 2, max_retries: 8 };
+    const consumer = { queue: 'founderdata-mail', max_batch_size: 3, max_batch_timeout: 2, max_retries: 8 };
 
     it('keeps the committed config free of mail bindings, so a deploy works on an account without R2 or Queues', () => {
       const shipped = strip(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));

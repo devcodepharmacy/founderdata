@@ -246,6 +246,8 @@ export const requireWriteKey = (scope: WriteScope) => async (c: Context<AppEnv>,
   const auth = await writeSiteOf(c, scope);
   if ('error' in auth) return c.json({ error: auth.error }, auth.status);
   c.set('site', auth.site);
+  // The scoped key, for a route that asks what else it may do (erase.ts mayEraseMail). Unset for a site's own key.
+  if (auth.key) (c as unknown as Context<{ Variables: { apiKey: ApiKey } }>).set('apiKey', auth.key);
   await next();
 };
 
@@ -440,6 +442,11 @@ async function revokeKey(c: Context<AppEnv>) {
   const id = c.req.param('id') ?? '';
   const row = await c.env.DB.prepare('DELETE FROM api_keys WHERE id = ? RETURNING hash').bind(id).first<{ hash: string }>();
   if (!row) return c.json({ error: 'No API key has this id. It may be revoked already.' }, 404);
+  // What FounderData Pro's mail kept for the key (migration 0070): its domains, reply-only setting and daily cap.
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM mail_key_domains WHERE key_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM mail_key_settings WHERE key_id = ?').bind(id),
+  ]);
   keyCache.delete(row.hash);
   usage.delete(row.hash);
   return c.json({ ok: true });

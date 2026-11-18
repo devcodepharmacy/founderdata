@@ -71,6 +71,9 @@ CREATE TABLE mail_addresses (
 --   source           api, dashboard, agent or inbound
 --   key_id           the API key that sent it, NULL otherwise
 --   error            the provider's error code and message when the send failed
+--   recipients       how many addresses a sent message went to (to, cc and bcc). The daily cap of a key adds these up.
+--   settled_at       when a sent message stopped waiting for a status: at its final status for one recipient, and for
+--                    several once each of them has one. NULL while the reconciliation job still looks at it.
 CREATE TABLE mail_messages (
   id TEXT PRIMARY KEY,
   direction TEXT NOT NULL,
@@ -97,7 +100,9 @@ CREATE TABLE mail_messages (
   archived_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  error TEXT
+  error TEXT,
+  recipients INTEGER NOT NULL DEFAULT 1,
+  settled_at INTEGER
 );
 -- The sent log and the received list, newest first, and the retention cleanup.
 CREATE INDEX mail_messages_by_created ON mail_messages (direction, created_at);
@@ -105,8 +110,13 @@ CREATE INDEX mail_messages_by_created ON mail_messages (direction, created_at);
 CREATE INDEX mail_messages_by_thread ON mail_messages (thread_id, created_at);
 -- Cloudflare's events and the reconciliation join on messageId.
 CREATE INDEX mail_messages_by_provider ON mail_messages (provider_id) WHERE provider_id IS NOT NULL;
--- Sent messages without a final status, for the reconciliation job.
-CREATE INDEX mail_messages_open ON mail_messages (created_at) WHERE direction = 'out' AND status_rank IN (1, 2);
+-- Sent messages that still wait for a status, for the reconciliation job: queued ones a send left behind, sent and
+-- delayed ones, and a message to several addresses until each has a final status.
+CREATE INDEX mail_messages_open ON mail_messages (created_at) WHERE direction = 'out' AND settled_at IS NULL;
+-- What one API key sent, newest first: the key reads back only its own mail, and its daily cap adds up a day of it.
+CREATE INDEX mail_messages_by_key ON mail_messages (key_id, created_at) WHERE key_id IS NOT NULL;
+-- Received mail in no thread (kept for a webhook address only), which retention deletes after 30 days.
+CREATE INDEX mail_messages_unthreaded ON mail_messages (created_at) WHERE direction = 'in' AND thread_id IS NULL;
 
 -- Every address on a message (from, to, cc, bcc, reply_to), lowercased: erasing a person finds their messages here.
 CREATE TABLE mail_parties (
@@ -177,7 +187,8 @@ CREATE INDEX mail_events_by_at ON mail_events (at);
 -- The Idempotency-Key header of the Resend-compatible API, kept 24 hours.
 --   key_id      the API key's id ('' for the dashboard)
 --   body_hash   SHA-256 of the request body: the same key with another body answers 409
---   message_id  the message id, or for /emails/batch a JSON array of ids
+--   message_id  the message id, or for /emails/batch a JSON array of ids. Set when the key is taken, so a key whose
+--               message was stored is never given out again.
 --   state       pending while the send runs, done after
 CREATE TABLE mail_idempotency (
   key_id TEXT NOT NULL,
@@ -192,7 +203,7 @@ CREATE INDEX mail_idempotency_by_created ON mail_idempotency (created_at);
 
 -- Addresses no message goes to. Written the moment a hard bounce or a complaint is known: Cloudflare's own list lags
 -- by about 10 minutes.
---   domain_id    the sending domain the entry covers, '' for every domain
+--   domain_id    the sending domain the entry covers, '' for every domain. Removing a domain moves its entries to ''.
 --   reason       bounce, complaint, unsubscribe or manual
 --   provider_id  the id of the matching entry on Cloudflare's suppression list, once synced
 CREATE TABLE mail_suppressions (
@@ -209,7 +220,10 @@ CREATE TABLE mail_suppressions (
 --   secret       whsec_ followed by base64
 --   events_json  JSON array of event types, such as ["email.delivered", "email.bounced"]
 --   domain_id    only events of this domain's messages, or NULL for all
---   failures     deliveries that failed in a row, and at 20 the endpoint is switched off (enabled 0)
+--   failures          attempts that failed in a row
+--   failing_since     when the first of them failed, NULL after an attempt that worked
+--   auto_disabled_at  when the endpoint was switched off (enabled 0) because every attempt failed for 24 hours and
+--                     there were at least 20 of them. NULL for an endpoint a person switched off.
 CREATE TABLE mail_webhooks (
   id TEXT PRIMARY KEY,
   url TEXT NOT NULL,
@@ -218,6 +232,8 @@ CREATE TABLE mail_webhooks (
   domain_id TEXT,
   enabled INTEGER NOT NULL DEFAULT 1,
   failures INTEGER NOT NULL DEFAULT 0,
+  failing_since INTEGER,
+  auto_disabled_at INTEGER,
   created_at INTEGER NOT NULL
 );
 
@@ -240,9 +256,22 @@ CREATE TABLE mail_webhook_deliveries (
 CREATE INDEX mail_webhook_deliveries_by_webhook ON mail_webhook_deliveries (webhook_id, created_at);
 CREATE INDEX mail_webhook_deliveries_due ON mail_webhook_deliveries (next_at) WHERE status = 'pending';
 
--- A key with rows here sends only from these domains. A key without rows sends from every domain.
+-- The domains a restricted key may use (mail_key_settings.restricted = 1). A restricted key without rows here may use
+-- none: that is what is left when its last domain was removed.
 CREATE TABLE mail_key_domains (
   key_id TEXT NOT NULL,
   domain_id TEXT NOT NULL,
   PRIMARY KEY (key_id, domain_id)
+) WITHOUT ROWID;
+
+-- What an API key may do with mail beyond its scopes. A key without a row is not restricted, may write to anyone and
+-- has the default cap.
+--   restricted  1 when the key is kept to the domains in mail_key_domains
+--   reply_only  1 when the key may only reply in a thread, to that thread's participants
+--   daily_cap   recipients the key may send to in 24 hours, NULL for the default (pro/worker/mail/limits.ts)
+CREATE TABLE mail_key_settings (
+  key_id TEXT PRIMARY KEY,
+  restricted INTEGER NOT NULL DEFAULT 0,
+  reply_only INTEGER NOT NULL DEFAULT 0,
+  daily_cap INTEGER
 ) WITHOUT ROWID;

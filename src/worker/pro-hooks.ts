@@ -241,9 +241,16 @@ export interface Pro {
   /**
    * Erasing a person by email (erase.ts erasePerson) also removes their mail: messages they sent or received, the R2
    * objects, events, webhook deliveries and suppressions. Mail belongs to the deployment, so this covers every site.
-   * Returns counts by name, which join the answer and the erase log. Called only for an erase by email.
+   * Returns counts by name, which join the answer and the erase log. Called only for an erase by email, and only for a
+   * caller with authority over mail: the owner's login, or a key that also holds mail:write (erase.ts mayEraseMail).
    */
   erasePerson?(a: { env: Bindings; email: string }): Promise<Record<string, number>>;
+  /**
+   * Asked before anything is erased, for the same callers as erasePerson: a reason this address cannot be erased from
+   * mail (it is one of the deployment's own addresses, or mail storage is missing), or null. A refusal stops the whole
+   * erase with its status, so nothing is half done.
+   */
+  eraseRefusal?(a: { env: Bindings; email: string }): Promise<{ error: string; status: 400 | 503 } | null>;
 }
 
 // ---------- the installed edition

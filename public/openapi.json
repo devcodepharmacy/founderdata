@@ -696,7 +696,7 @@
           }
         ],
         "summary": "Erase one person",
-        "description": "Everyone with that email (any case) or identify() user id, and the link from their payments. Up to 500 visitors per request; more: true means call again.",
+        "description": "Everyone with that email (any case) or identify() user id, and the link from their payments. Up to 500 visitors per request; more: true means call again. With mail set up (Pro), a key that also holds mail:write erases the person's mail on every domain and adds mail_messages, mail_objects and mail_suppressions. Any other key answers mail_skipped: true. 400 for an address on one of the deployment's own mail domains.",
         "requestBody": {
           "required": true,
           "content": {

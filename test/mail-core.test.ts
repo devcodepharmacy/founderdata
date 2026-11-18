@@ -34,8 +34,8 @@ describe('mail in core', () => {
   it('has the mail tables, with mail_domains.site_id the only link to a site', async () => {
     const tables = (await w.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'mail_%' ORDER BY name").all<{ name: string }>()).results.map((r) => r.name);
     expect(tables).toEqual([
-      'mail_addresses', 'mail_attachments', 'mail_domains', 'mail_events', 'mail_idempotency', 'mail_key_domains', 'mail_message_ids',
-      'mail_messages', 'mail_parties', 'mail_suppressions', 'mail_threads', 'mail_webhook_deliveries', 'mail_webhooks',
+      'mail_addresses', 'mail_attachments', 'mail_domains', 'mail_events', 'mail_idempotency', 'mail_key_domains', 'mail_key_settings',
+      'mail_message_ids', 'mail_messages', 'mail_parties', 'mail_suppressions', 'mail_threads', 'mail_webhook_deliveries', 'mail_webhooks',
     ]);
     for (const t of tables) {
       const cols = (await w.db.prepare(`PRAGMA table_info(${t})`).all<{ name: string }>()).results.map((c) => c.name);
@@ -96,6 +96,61 @@ describe('mail in core', () => {
     expect(calls).toHaveLength(1);
     const log = JSON.parse((await w.db.prepare("SELECT counts FROM erasures WHERE site_id = ? AND method = 'email'").bind(site.id).first<string>('counts'))!);
     expect(log).toMatchObject({ mail_messages: 3, mail_objects: 5 });
+  });
+
+  it('erases mail only for the owner or a key that also holds mail:write, and stops on a refusal before anything is erased', async () => {
+    const site = await w.createSite();
+    resetKeysForTests();
+    const newKey = async (name: string, scopes: string[]) => (await w.admin('/api/v1/keys', { method: 'POST', json: { name, scopes, sites: [site.id] } })).body.key as string;
+    const payments = await newKey('payments only', ['payments:write']);
+    const both = await newKey('payments and mail', ['payments:write', 'mail:write']);
+    const calls: string[] = [];
+    let refusal: { error: string; status: 400 | 503 } | null = null;
+    withHooks({
+      erasePerson: async ({ email: who }) => {
+        calls.push(who);
+        return { mail_messages: 1 };
+      },
+      eraseRefusal: async () => refusal,
+    });
+    const erase = async (secret: string, who: string) => {
+      const res = await w.fetch('/api/v1/erase', { method: 'POST', json: { email: who }, headers: { cookie: '', authorization: `Bearer ${secret}` } });
+      return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+    };
+    // A key for one site's payments, and the site's own key, never reach the deployment's mail.
+    const skipped = await erase(payments, 'ann@sender.example');
+    expect(skipped).toMatchObject({ status: 200, body: { ok: true, mail_skipped: true } });
+    expect(skipped.body.mail_messages).toBeUndefined();
+    expect(await erase(site.api_key, 'ann@sender.example')).toMatchObject({ status: 200, body: { mail_skipped: true } });
+    expect(calls).toEqual([]);
+    // With mail:write as well, the key erases mail like the owner.
+    const done = await erase(both, 'ann@sender.example');
+    expect(done).toMatchObject({ status: 200, body: { ok: true, mail_messages: 1 } });
+    expect(done.body.mail_skipped).toBeUndefined();
+    expect(calls).toEqual(['ann@sender.example']);
+
+    // A refusal answers its status and erases nothing, not even the site's own rows.
+    await w.db.prepare("INSERT INTO visitors (id, site_id, first_seen, email) VALUES ('v-refused', ?, 1, 'support@acme.example')").bind(site.id).run();
+    refusal = { error: 'support@acme.example is one of this deployment\'s own addresses.', status: 400 };
+    const before = (await w.db.prepare('SELECT COUNT(*) AS n FROM erasures').first<number>('n'))!;
+    expect(await erase(both, 'support@acme.example')).toMatchObject({ status: 400, body: { error: expect.stringMatching(/own addresses/) } });
+    expect((await w.admin(`/api/sites/${site.id}/erase`, { method: 'POST', json: { email: 'support@acme.example' } })).status).toBe(400);
+    expect(calls).toHaveLength(1);
+    expect(await w.db.prepare("SELECT email FROM visitors WHERE id = 'v-refused'").first('email')).toBe('support@acme.example');
+    expect(await w.db.prepare('SELECT COUNT(*) AS n FROM erasures').first('n')).toBe(before);
+    // The refusal is about mail. A key that cannot touch mail is not asked, and erases the site's rows as before.
+    expect(await erase(payments, 'support@acme.example')).toMatchObject({ status: 200, body: { visitors: 1, mail_skipped: true } });
+  });
+
+  it('removes a revoked key\'s mail settings and domains', async () => {
+    const made = (await w.admin('/api/v1/keys', { method: 'POST', json: { name: 'gone', scopes: ['mail:write'] } })).body as { id: string };
+    await w.db.batch([
+      w.db.prepare("INSERT INTO mail_key_domains (key_id, domain_id) VALUES (?, 'dom_1')").bind(made.id),
+      w.db.prepare('INSERT INTO mail_key_settings (key_id, restricted, reply_only, daily_cap) VALUES (?, 1, 1, 50)').bind(made.id),
+    ]);
+    expect((await w.admin(`/api/v1/keys/${made.id}`, { method: 'DELETE' })).status).toBe(200);
+    expect(await w.db.prepare('SELECT COUNT(*) AS n FROM mail_key_domains WHERE key_id = ?').bind(made.id).first('n')).toBe(0);
+    expect(await w.db.prepare('SELECT COUNT(*) AS n FROM mail_key_settings WHERE key_id = ?').bind(made.id).first('n')).toBe(0);
   });
 
   it('keeps viewers, viewer teammates and phones off /api/mail-admin/*, whatever the method', async () => {

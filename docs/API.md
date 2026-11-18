@@ -2990,6 +2990,15 @@ Both answer with counts: `{ "ok": true, "visitors": 1, "sessions": 4, "events": 
 visitor id that were credited to an erased visit: those lose the visit and its source. Up to 500 visitors go per request; if more
 match, the answer has `"more": true`, so call it again.
 
+With mail set up (Pro), an erase by email also deletes that person's mail on every domain of the deployment, and the
+answer adds `mail_messages`, `mail_objects` and `mail_suppressions`. Mail belongs to the deployment and not to one
+site, so only the admin login and a scoped key that holds `mail:write` next to `payments:write` reach it. Any other key
+erases the site's rows and answers `"mail_skipped": true`, whoever the address belongs to. Run the erase again from the
+dashboard, or with a key that has both scopes, to delete the mail. An address on one of the deployment's own mail
+domains, such as your support address, gets `400` and nothing is erased: every thread it wrote in would go. Delete those
+threads in the Mail page instead. `503` means the mail bucket binding is missing, so the stored messages could not be
+deleted.
+
 Each call adds a line to the erase log, which keeps no identifier. `GET /api/sites/<id>/erasures` returns up to 1,000
 lines, newest first:
 `[{ "ts": 1767225600000, "method": "email", "handled_by": "admin", "note": "ticket 4411", "counts": { "visitors": 1, "sessions": 4, ... } }]`.
