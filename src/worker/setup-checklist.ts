@@ -211,7 +211,7 @@ export async function checklist(env: Env, origin: string, now: number): Promise<
     status: emailSet ? 'ok' : 'off',
     detail: emailSet ? 'A sender is set.' : 'Off. No email alert or weekly report is sent.',
     next: emailSet ? null : 'Set RESEND_API_KEY and ALERT_EMAIL_FROM, or add the EMAIL binding.',
-    guide: 'docs/GUIDE.md#email-resend',
+    guide: 'docs/GUIDE.md#alerts-and-weekly-report',
     secrets: secrets(env, ['RESEND_API_KEY']),
   });
 
@@ -249,7 +249,7 @@ export async function checklist(env: Env, origin: string, now: number): Promise<
           : at
             ? null
             : `Send a test event from ${p.label}, or make a test purchase.`,
-        guide: p.id === 'stripe' ? 'docs/GUIDE.md#revenue-attribution-with-stripe' : p.id === 'dodo' ? 'docs/GUIDE.md#revenue-attribution-with-dodo-payments' : p.id === 'revenuecat' ? 'docs/GUIDE.md#import-from-revenuecat' : 'docs/GUIDE.md#revenue-attribution-with-lemon-squeezy-polar-paddle-and-gumroad',
+        guide: p.id === 'stripe' ? 'docs/GUIDE.md#revenue-attribution-with-stripe' : p.id === 'dodo' ? 'docs/GUIDE.md#revenue-attribution-with-dodo-payments' : p.id === 'revenuecat' ? 'ios/README.md#using-revenuecat' : 'docs/GUIDE.md#revenue-attribution-with-lemon-squeezy-polar-paddle-and-gumroad',
         site: { id: s.id, name: s.name },
       });
     }

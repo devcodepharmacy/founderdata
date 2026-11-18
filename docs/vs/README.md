@@ -38,7 +38,6 @@ These are not built, and no comparison here pretends otherwise.
   key-based check.
 - **No verified bot IPs and no crawler by citation by revenue table.** AI crawler hits and AI citations are listed
   separately. See [AI-VISIBILITY.md](../AI-VISIBILITY.md#ai-crawler-hits).
-- **No live visitor map.** The dashboard shows who is online now as a count.
 - **A large MCP tool set in Pro.** A Pro server exposes 30 tools, and a client loads all of their descriptions before it
   reads a number. Core has 9. See [MCP.md](../MCP.md).
 - **Terminal setup.** You deploy with Node and Wrangler, and several integrations need a secret you set yourself. The

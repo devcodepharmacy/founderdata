@@ -24,7 +24,7 @@ its features from its docs and changelog, read on 6 November. They may have chan
 | Payments | Stripe, Lemon Squeezy, Polar, Paddle, Shopify and WooCommerce from a settings page. Stripe Checkout needs no webhook | Stripe, Dodo, Lemon Squeezy, Polar, Paddle, Gumroad, App Store, RevenueCat and any source through `POST /api/v1/payments`. Each needs a webhook and the visitor id in checkout metadata |
 | Revenue attribution | Revenue on every breakdown card | A payment goes to the buyer's last visit from a real source. Renewals, refunds, failed payments and MRR split by source, for Stripe and the App Store together |
 | Which tweet paid | Resolves `t.co` to the tweet, Growth plan | In Pro, reads your own posts with your X token and credits the closest earlier post that links to the landing page within 48 hours. Each post row splits visits, customers and revenue into exact and probable, and nearly every match is probable. X charges $0.005 for each post read |
-| Live view | A 3D globe with visitor detail, replay and a public second-screen mode | An online-now count |
+| Live view | A 3D globe with visitor detail, replay and a public second-screen mode | A globe of who is online now, with the last 30 minutes, hour or 24 hours, their payments and a visitor list |
 | Search Console | One-click Google sign-in, revenue estimated per keyword | In Pro, sign in with your own Google Cloud client. 16 months of queries, with the top 40 queries and 40 pages by clicks and by impressions kept per day. Revenue is per page, not per keyword |
 | Ad spend | Meta Ads spend and ROAS | In Pro, Meta ads and Apple Search Ads spend and ROAS, and spend from other channels |
 | iOS and Android | React Native and Expo SDK, a mobile app the docs call an MVP | Swift SDK with StoreKit 2 and RevenueCat. Pro adds onboarding and paywall funnels, App Store sales, ASO, and an iPhone app you build with your own Apple team. No Android |
@@ -36,7 +36,6 @@ its features from its docs and changelog, read on 6 November. They may have chan
 
 ## What FounderData does not do
 
-- **No live visitor map or globe.** You get an online-now count.
 - **No one-click payment connection.** Each provider needs a webhook, and the checkout must pass the visitor id. DataFast's
   Stripe Checkout path needs no webhook.
 - **No plugins for site builders and stores.** There is no WordPress, Shopify, Webflow or WooCommerce package.

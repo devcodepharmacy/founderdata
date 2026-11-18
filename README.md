@@ -477,3 +477,5 @@ security problems privately, as [SECURITY.md](SECURITY.md) describes.
 
 MIT. FounderData started as a fork of [minilytics](https://github.com/surendrapandar/minilytics) by Surendra Pandar,
 whose copyright notice stays in [LICENSE](LICENSE).
+
+FounderData Pro is not MIT. Its terms are in [docs/PRO.md](docs/PRO.md#license).

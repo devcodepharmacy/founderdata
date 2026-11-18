@@ -31,16 +31,16 @@ beforeAll(async () => {
   const DAY = 86_400_000;
   const day = (d: number) => new Date(now - d * DAY).toISOString().slice(0, 10);
   const stmts: D1PreparedStatement[] = [
-    w.db.prepare("INSERT INTO sites (id, name, domain, timezone, currency, api_key, created_at) VALUES ('rt_eur', 'Euro shop', 'eur.example.com', 'UTC', 'EUR', 'k_rt_eur', ?)").bind(now - 420 * DAY),
+    w.db.prepare("INSERT OR IGNORE INTO sites (id, name, domain, timezone, currency, api_key, created_at) VALUES ('rt_eur', 'Euro shop', 'eur.example.com', 'UTC', 'EUR', 'k_rt_eur', ?)").bind(now - 420 * DAY),
     w.db
-      .prepare("INSERT INTO sites (id, name, domain, timezone, currency, api_key, app_bundle_id, asc_app_id, created_at) VALUES ('rt_app', 'Silent app', 'silent.invalid', 'UTC', 'EUR', 'k_rt_app', 'com.example.silent', '6460000001', ?)")
+      .prepare("INSERT OR IGNORE INTO sites (id, name, domain, timezone, currency, api_key, app_bundle_id, asc_app_id, created_at) VALUES ('rt_app', 'Silent app', 'silent.invalid', 'UTC', 'EUR', 'k_rt_app', 'com.example.silent', '6460000001', ?)")
       .bind(now - 420 * DAY),
   ];
   ['USD', 'JPY', 'CHF'].forEach((cc, i) => {
     for (let d = 1; d < 400; d += 9) {
       stmts.push(
         w.db
-          .prepare("INSERT INTO payments (id, site_id, provider, ts, amount, kind, currency) VALUES (?, 'rt_eur', 'stripe', ?, ?, 'payment', ?)")
+          .prepare("INSERT OR IGNORE INTO payments (id, site_id, provider, ts, amount, kind, currency) VALUES (?, 'rt_eur', 'stripe', ?, ?, 'payment', ?)")
           .bind(`rt_p_${cc}_${d}`, now - d * DAY, 1000 + i * 100, cc),
       );
     }
@@ -48,16 +48,16 @@ beforeAll(async () => {
   // A Meta ad account on the euro site, billing in euros, with an ad visit that paid: the phone's Home reads it
   // (yesterday=meta) inside the first round trip.
   stmts.push(
-    w.db.prepare("INSERT INTO meta_settings (site_id, ad_account_id, updated_at) VALUES ('rt_eur', 'act_rt', 1)"),
-    w.db.prepare("INSERT INTO meta_accounts (id, name, currency, timezone) VALUES ('act_rt', 'Euro ads', 'EUR', 'UTC')"),
+    w.db.prepare("INSERT OR IGNORE INTO meta_settings (site_id, ad_account_id, updated_at) VALUES ('rt_eur', 'act_rt', 1)"),
+    w.db.prepare("INSERT OR IGNORE INTO meta_accounts (id, name, currency, timezone) VALUES ('act_rt', 'Euro ads', 'EUR', 'UTC')"),
     w.db
-      .prepare("INSERT INTO sessions (site_id, id, visitor_id, started_at, last_seen_at, hostname, source, channel, ad_id) VALUES ('rt_eur', 'rt_ad', 'rt_v', ?, ?, 'eur.example.com', 'Instagram', 'Paid', 'rt_ad1')")
+      .prepare("INSERT OR IGNORE INTO sessions (site_id, id, visitor_id, started_at, last_seen_at, hostname, source, channel, ad_id) VALUES ('rt_eur', 'rt_ad', 'rt_v', ?, ?, 'eur.example.com', 'Instagram', 'Paid', 'rt_ad1')")
       .bind(now - 3 * DAY, now - 3 * DAY + 60_000),
-    w.db.prepare("INSERT INTO payments (id, site_id, provider, ts, amount, kind, currency, visitor_id, session_id) VALUES ('rt_meta_p', 'rt_eur', 'stripe', ?, 4900, 'payment', 'EUR', 'rt_v', 'rt_ad')").bind(now - 2 * DAY),
+    w.db.prepare("INSERT OR IGNORE INTO payments (id, site_id, provider, ts, amount, kind, currency, visitor_id, session_id) VALUES ('rt_meta_p', 'rt_eur', 'stripe', ?, 4900, 'payment', 'EUR', 'rt_v', 'rt_ad')").bind(now - 2 * DAY),
   );
   for (let d = 1; d <= 7; d++) {
     stmts.push(
-      w.db.prepare("INSERT INTO meta_daily (ad_id, day, account_id, campaign_id, adset_id, spend, impressions, clicks) VALUES ('rt_ad1', ?, 'act_rt', 'c1', 's1', 12000000, 900, 30)").bind(day(d)),
+      w.db.prepare("INSERT OR IGNORE INTO meta_daily (ad_id, day, account_id, campaign_id, adset_id, spend, impressions, clicks) VALUES ('rt_ad1', ?, 'act_rt', 'c1', 's1', 12000000, 900, 30)").bind(day(d)),
     );
   }
   const apple = [['EUR', 'USD', 4.99], ['GBP', 'CHF', 4.49], ['JPY', 'JPY', 800], ['USD', 'USD', 4.99]] as const;
@@ -66,7 +66,7 @@ beforeAll(async () => {
       stmts.push(
         w.db
           .prepare(
-            `INSERT INTO asc_sales (report_date, row_key, site_id, sku, title, product_type, kind, units, proceeds, proceeds_currency, customer_price, customer_currency, country, device)
+            `INSERT OR IGNORE INTO asc_sales (report_date, row_key, site_id, sku, title, product_type, kind, units, proceeds, proceeds_currency, customer_price, customer_currency, country, device)
              VALUES (?, ?, 'rt_app', 'silent_pro', 'Pro', 'IAY', 'iap', ?, ?, ?, ?, ?, 'DE', 'iPhone')`,
           )
           .bind(day(d), `rt|${cc}`, 1 + (d % 5), Math.round(price * 85) / 100, proceedsCc, price, cc),
@@ -74,7 +74,19 @@ beforeAll(async () => {
     }
     stmts.push(w.db.prepare("INSERT OR IGNORE INTO asc_import_days (report_date, status, rows, imported_at) VALUES (?, 'ok', 4, ?)").bind(day(d), now));
   }
-  for (let i = 0; i < stmts.length; i += 200) await w.db.batch(stmts.slice(i, i + 200));
+  // Miniflare's local proxy can drop a large batch's answer while other test files load it ("fetch failed",
+  // ECONNRESET), even after the batch committed. Every seed row is INSERT OR IGNORE on a unique key, so sending the
+  // batch again, up to 3 times, seeds each row once. Any other error fails at once.
+  for (let i = 0; i < stmts.length; i += 200) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await w.db.batch(stmts.slice(i, i + 200));
+        break;
+      } catch (e) {
+        if (attempt >= 3 || !/fetch failed/.test(String(e))) throw e;
+      }
+    }
+  }
   const res = await w.fetch('/api/mobile/login', { method: 'POST', json: { password: 'test-password', name: 'Trips', platform: 'ios' }, headers: { cookie: '' } });
   phone = (await res.json<any>()).token;
 }, 300_000);

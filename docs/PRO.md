@@ -31,6 +31,13 @@ subscription your providers send. When you switch to Pro, the Pro reports cover 
 The **Get the lifetime license** button in a core dashboard opens the checkout. Polar handles the payment and the tax,
 then invites your GitHub account to the private Pro repository. That access is your license.
 
+## License
+
+Core stays MIT. The `pro/` folder and the two Pro edition files come under the license in `pro/LICENSE`. In short, you
+may run Pro for your own websites and apps on as many of your own deployments as you like, and change it for your own
+use. You may not publish or resell the Pro code, or run it as a service for other people's sites. If your GitHub
+access ends, you keep the right to use the copies you already have.
+
 ## Install Pro
 
 Pro installs with git, so the changes you made to your own copy stay. In the dashboard, open a Pro section or
