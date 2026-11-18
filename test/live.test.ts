@@ -120,13 +120,20 @@ describe('GET /api/live', () => {
     const other = await liveData(w.db, 'another-secret', NOW);
     expect(other.visitors[0].id).not.toBe(a.visitors[0].id);
     // Every coordinate has one decimal at most.
-    for (const p of [...a.visitors, ...a.events, ...a.places!]) {
+    expect(a.recent!.length).toBeGreaterThan(0);
+    for (const v of a.recent!) expect(v.id).toMatch(/^[0-9a-f]{8}$/);
+    // A visitor online has the same id in both lists.
+    expect(a.recent!.map((v) => v.id)).toEqual(expect.arrayContaining(a.visitors.map((v) => v.id)));
+    for (const p of [...a.visitors, ...a.events, ...a.places!, ...a.recent!]) {
       for (const c of [p.lat, p.lon]) if (c !== null) expect(Math.round(c * 10) / 10).toBe(c);
     }
   });
 
   it('skips places with places=0', async () => {
-    expect((await liveData(w.db, SECRET, NOW, { places: false })).places).toBeNull();
+    const none = await liveData(w.db, SECRET, NOW, { places: false });
+    expect(none.places).toBeNull();
+    expect(none.recent).toBeNull();
+    expect([none.recentCount, none.recentSites, none.recentRevenue, none.recentEvents]).toEqual([null, null, null, null]);
     const res = await w.fetch('/api/live?places=0');
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
@@ -151,6 +158,32 @@ describe('GET /api/live', () => {
       { country: 'JP', city: null, lat: null, lon: null, visitors: 1 },
       { country: 'US', city: 'Austin', lat: 30.3, lon: -97.7, visitors: 1 },
     ]);
+    // The window's visitors one by one, newest activity first: Paris in the day, not in the hour.
+    // The visit started 7 hours ago counts here: it is not online, but it was seen in the day.
+    expect(day.recent!.map((v) => [v.country, v.city])).toEqual([
+      ['DE', 'Berlin'],
+      ['DE', 'Berlin'],
+      ['US', 'Austin'],
+      ['JP', null],
+      ['DE', 'Berlin'],
+      ['FR', 'Paris'],
+    ]);
+    expect(day.recent).toContainEqual(day.visitors[0]);
+    expect(day.recent!.find((v) => v.city === 'Paris')).toMatchObject({ siteId: shop.id, page: '/pricing', customer: false, lastSeenAt: NOW - 2 * HOUR });
+    expect(hour.recent!.map((v) => v.city)).not.toContain('Paris');
+    expect(hour.recent).toHaveLength(4);
+    // The window's numbers: every visitor counted per site, payments per currency, and its events.
+    expect([day.recentCount, hour.recentCount]).toEqual([6, 4]);
+    expect(day.recentSites).toEqual([
+      { id: shop.id, name: 'Test', domain: 'live-shop.example', visitors: 5 },
+      { id: app.id, name: 'Test', domain: 'live-app.invalid', visitors: 1 },
+    ]);
+    expect(hour.recentSites!.map((s) => s.visitors)).toEqual([3, 1]);
+    // The day has the payment from 61 minutes ago too; the refund and the sandbox purchase count in neither.
+    expect(day.recentRevenue).toEqual([{ currency: 'USD', amount: 16900 + 4900, payments: 2 }]);
+    expect(hour.recentRevenue).toEqual([{ currency: 'USD', amount: 16900, payments: 1 }]);
+    expect(hour.recentEvents).toEqual(hour.events);
+    expect(day.recentEvents!.filter((e) => e.kind === 'payment').map((e) => e.amount)).toEqual([16900, 4900]);
     // Online visitors and events do not depend on the window.
     expect(hour.visitors).toEqual(day.visitors);
     expect(hour.events).toEqual(day.events);
@@ -199,6 +232,13 @@ describe('GET /api/live', () => {
     expect(live.events).toHaveLength(MAX_EVENTS);
     expect(live.events[0].ts).toBeGreaterThan(live.events[MAX_EVENTS - 1].ts);
     expect(live.places).toHaveLength(MAX_PLACES);
+    expect(live.recent).toHaveLength(MAX_VISITORS);
+    expect(live.recent![0].lastSeenAt).toBeGreaterThanOrEqual(live.recent![MAX_VISITORS - 1].lastSeenAt);
+    // The count and the money cover everyone, past the caps of the lists.
+    expect(live.recentSites!.find((s) => s.id === big.id)!.visitors).toBe(160);
+    expect(live.recentCount).toBeGreaterThanOrEqual(160);
+    expect(live.recentRevenue!.find((r) => r.currency === 'USD')!.payments).toBeGreaterThanOrEqual(40);
+    expect(live.recentEvents).toHaveLength(MAX_EVENTS);
   });
 });
 

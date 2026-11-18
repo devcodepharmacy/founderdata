@@ -54,6 +54,20 @@ export interface LivePlace {
   visitors: number;
 }
 
+export interface LiveWindowSite {
+  id: string;
+  name: string;
+  domain: string;
+  visitors: number;
+}
+
+export interface LiveRevenue {
+  currency: string;
+  /** Minor units of `currency`. */
+  amount: number;
+  payments: number;
+}
+
 export interface LiveData {
   now: number;
   windowMinutes: number;
@@ -62,6 +76,18 @@ export interface LiveData {
   visitors: LiveVisitor[];
   events: LiveEvent[];
   places: LivePlace[];
+  /** The visitors seen in the places window, one by one, newest activity first. Empty when no window was asked for. */
+  recent: LiveVisitor[];
+  /** How many visitors that window had. The list above stops at 150; this does not. */
+  recentCount: number;
+  /** The sites with a visitor in that window, most visitors first. */
+  recentSites: LiveWindowSite[];
+  /** That window's payments per currency, largest first. */
+  recentRevenue: LiveRevenue[];
+  /** That window's events, newest first, at most 30. */
+  recentEvents: LiveEvent[];
+  /** The server time the window's numbers were read at; null when no window was asked for. */
+  recentAt: number | null;
 }
 
 /**

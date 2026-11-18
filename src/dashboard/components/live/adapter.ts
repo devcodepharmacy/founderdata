@@ -1,4 +1,4 @@
-import type { LiveData, LiveDevice, LiveEvent, LiveEventKind, LivePlace, LiveSite, LiveVisitor } from './types';
+import type { LiveData, LiveDevice, LiveEvent, LiveEventKind, LivePlace, LiveRevenue, LiveSite, LiveVisitor, LiveWindowSite } from './types';
 
 /**
  * Reads a GET /api/live answer into LiveData. All knowledge of the wire format lives here, so a renamed field is a
@@ -94,28 +94,86 @@ function place(r: Raw): LivePlace | null {
   return { key: `${p.country ?? ''}|${p.city ?? ''}|${p.lat ?? ''}|${p.lon ?? ''}`, ...p };
 }
 
+function windowSite(r: Raw): LiveWindowSite | null {
+  const id = str(pick(r, 'id', 'siteId'));
+  const visitors = num(r.visitors) ?? 0;
+  if (!id || visitors <= 0) return null;
+  return { id, name: str(r.name) ?? str(r.domain) ?? id, domain: str(r.domain) ?? '', visitors };
+}
+
+function revenue(r: Raw): LiveRevenue | null {
+  const currency = str(r.currency)?.toUpperCase();
+  const amount = num(r.amount);
+  if (!currency || amount == null) return null;
+  return { currency, amount, payments: Math.max(0, num(r.payments) ?? 0) };
+}
+
+const unique = (events: LiveEvent[]): LiveEvent[] => [...new Map(events.map((e) => [e.key, e])).values()];
+
 const compact = <T,>(xs: (T | null)[]): T[] => xs.filter((x): x is T => x !== null);
 
-export function parseLive(json: unknown, clock = Date.now()): LiveData {
-  const r = obj(json);
-  const now = ms(r.now) ?? clock;
-  const sites = compact(list(r.sites).map(site));
-  const visitors = compact(list(r.visitors).map((v) => visitor(v, now)));
-  // A visitor id can appear twice if the server lists sessions; keep the most recent.
+/** One entry per id: a visitor id can appear twice if the server lists sessions, so keep the most recent. */
+function latest(visitors: LiveVisitor[]): Map<string, LiveVisitor> {
   const byId = new Map<string, LiveVisitor>();
   for (const v of visitors) {
     const had = byId.get(v.id);
     if (!had || had.lastSeenAt < v.lastSeenAt) byId.set(v.id, v);
   }
+  return byId;
+}
+
+export function parseLive(json: unknown, clock = Date.now()): LiveData {
+  const r = obj(json);
+  const now = ms(r.now) ?? clock;
+  const sites = compact(list(r.sites).map(site));
+  const byId = latest(compact(list(r.visitors).map((v) => visitor(v, now))));
   const events = compact(list(r.events).map(event)).sort((a, b) => b.ts - a.ts);
   const online = num(r.online);
+  const recent = [...latest(compact(list(r.recent).map((v) => visitor(v, now)))).values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
   return {
     now,
     windowMinutes: num(r.windowMinutes) ?? 5,
     online: online != null ? Math.max(0, online) : byId.size,
     sites: sites.sort((a, b) => b.online - a.online || a.name.localeCompare(b.name)),
     visitors: [...byId.values()].sort((a, b) => b.startedAt - a.startedAt),
-    events: [...new Map(events.map((e) => [e.key, e])).values()],
+    events: unique(events),
     places: compact(list(r.places).map(place)),
+    recent,
+    // An older server sends the list without a count: the list's length is then the best number there is.
+    recentCount: Math.max(0, num(r.recentCount) ?? recent.length),
+    recentSites: compact(list(r.recentSites).map(windowSite)).sort((a, b) => b.visitors - a.visitors || a.name.localeCompare(b.name)),
+    recentRevenue: compact(list(r.recentRevenue).map(revenue)).sort((a, b) => b.amount - a.amount),
+    recentEvents: unique(compact(list(r.recentEvents).map(event)).sort((a, b) => b.ts - a.ts)),
+    recentAt: Array.isArray(r.recent) ? now : null,
   };
+}
+
+/**
+ * The visitors the live page lists. Without a window: the visitors online, as parsed. With one: everyone seen in it,
+ * the online visitors' fresher rows winning over the window's list, newest activity first.
+ */
+export function feedVisitors(data: LiveData | null, withRecent: boolean): LiveVisitor[] {
+  if (!data) return [];
+  if (!withRecent) return data.visitors;
+  const byId = new Map<string, LiveVisitor>();
+  for (const v of data.recent) byId.set(v.id, v);
+  for (const v of data.visitors) byId.set(v.id, v);
+  return [...byId.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+}
+
+/**
+ * A window's events and money, kept current between the window's refreshes: the events the server read for the window
+ * plus the ones every poll has brought since, and the payments per currency with the newer ones added. `minutes` cuts
+ * both lists to the window.
+ */
+export function windowActivity(data: LiveData, minutes: number): { events: LiveEvent[]; revenue: LiveRevenue[] } {
+  const since = data.now - minutes * 60_000;
+  const events = unique([...data.events, ...data.recentEvents].filter((e) => e.ts > since).sort((a, b) => b.ts - a.ts));
+  const by = new Map(data.recentRevenue.map((r) => [r.currency, { ...r }]));
+  for (const e of data.events) {
+    if (e.kind !== 'payment' || e.amount == null || !e.currency || e.ts <= since || (data.recentAt !== null && e.ts <= data.recentAt)) continue;
+    const r = by.get(e.currency) ?? { currency: e.currency, amount: 0, payments: 0 };
+    by.set(e.currency, { ...r, amount: r.amount + e.amount, payments: r.payments + 1 });
+  }
+  return { events, revenue: [...by.values()].sort((a, b) => b.amount - a.amount) };
 }

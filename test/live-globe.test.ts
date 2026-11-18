@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLive } from '../src/dashboard/components/live/adapter';
+import { feedVisitors, windowActivity, parseLive } from '../src/dashboard/components/live/adapter';
 import { createDemo } from '../src/dashboard/components/live/demo';
 import { countryPoint, isLand, landDots, placePoint, toVector } from '../src/dashboard/lib/geo';
 import { rotate } from '../src/dashboard/components/live/globe-gl';
@@ -115,6 +115,55 @@ describe('live adapter', () => {
     expect(d.visitors[0].lastSeenAt).toBe(1_700_000_000_000);
   });
 
+  it('reads a window\'s count, sites, money and events, and keeps the money current between refreshes', () => {
+    const now = 1_700_000_000_000;
+    const ev = (id: string, minutesAgo: number, amount: number | null) => ({ id, ts: now - minutesAgo * 60_000, siteId: 's1', kind: amount ? 'payment' : 'signup', amount, currency: amount ? 'usd' : null });
+    const d = parseLive({
+      now,
+      visitors: [],
+      events: [ev('new', 1, 900), ev('known', 30, 1900)],
+      recent: [{ id: 'a', siteId: 's1', lastSeenAt: now - 60_000 }],
+      recentCount: 412,
+      recentSites: [{ id: 's2', name: 'B', domain: 'b.example', visitors: 12 }, { id: 's1', name: 'A', domain: 'a.example', visitors: 400 }, { id: 's3', visitors: 0 }],
+      recentRevenue: [{ currency: 'usd', amount: 6800, payments: 2 }],
+      recentEvents: [ev('known', 30, 1900), ev('old', 600, 4900), ev('joined', 700, null)],
+    });
+    expect([d.recentCount, d.recentAt]).toEqual([412, now]);
+    expect(d.recentSites.map((s) => [s.id, s.visitors])).toEqual([['s1', 400], ['s2', 12]]);
+    expect(d.recentRevenue).toEqual([{ currency: 'USD', amount: 6800, payments: 2 }]);
+    // A day: both lists, each event once. Nothing is newer than the window's read, so the money is the server's.
+    const day = windowActivity(d, 1440);
+    expect(day.events.map((e) => e.key)).toEqual(['new', 'known', 'old', 'joined']);
+    expect(day.revenue).toEqual([{ currency: 'USD', amount: 6800, payments: 2 }]);
+    // A later poll brings a payment the window's read did not have: it is added once.
+    const later = { ...d, now: now + 60_000, events: [{ ...d.events[0], key: 'fresh', ts: now + 30_000 }, ...d.events] };
+    expect(windowActivity(later, 1440).revenue).toEqual([{ currency: 'USD', amount: 7700, payments: 3 }]);
+    expect(windowActivity(later, 1440).events[0].key).toBe('fresh');
+    // An older server sends the list only: its length is the count.
+    const old = parseLive({ now, recent: [{ id: 'a' }, { id: 'b' }] });
+    expect([old.recentCount, old.recentSites, old.recentRevenue, old.recentEvents]).toEqual([2, [], [], []]);
+    expect(parseLive({ now }).recentAt).toBeNull();
+  });
+
+  it('reads the recent visitors, newest activity first, and an empty list without them', () => {
+    const d = parseLive({
+      now: 1_700_000_000_000,
+      visitors: [{ id: 'on', siteId: 's1', startedAt: 1_699_999_900_000, lastSeenAt: 1_699_999_990_000, page: '/now' }],
+      recent: [
+        { id: 'old', siteId: 's1', country: 'fr', startedAt: 1_699_900_000_000, lastSeenAt: 1_699_900_100_000 },
+        { id: 'on', siteId: 's1', startedAt: 1_699_999_900_000, lastSeenAt: 1_699_999_700_000, page: '/then' },
+        { id: 'mid', siteId: 's2', startedAt: 1_699_990_000_000, lastSeenAt: 1_699_990_100_000 },
+      ],
+    });
+    expect(d.recent.map((v) => v.id)).toEqual(['on', 'mid', 'old']);
+    expect(d.recent[2].country).toBe('FR');
+    expect(parseLive({ visitors: [] }).recent).toEqual([]);
+    // The list: the window's visitors, the online row winning, newest activity first. Without a window, only online.
+    expect(feedVisitors(d, true).map((v) => [v.id, v.page])).toEqual([['on', '/now'], ['mid', null], ['old', null]]);
+    expect(feedVisitors(d, false).map((v) => v.id)).toEqual(['on']);
+    expect(feedVisitors(null, true)).toEqual([]);
+  });
+
   it('keeps one row per visitor', () => {
     const d = parseLive({ visitors: [{ id: 'a', lastSeenAt: 10_000_000_000_000 }, { id: 'a', lastSeenAt: 10_000_000_100_000, page: '/new' }] });
     expect(d.visitors).toHaveLength(1);
@@ -131,6 +180,10 @@ describe('live demo', () => {
     expect(first.visitors.length).toBe(first.online);
     expect(first.sites.reduce((n, s) => n + s.online, 0)).toBe(first.online);
     expect(first.places.length).toBeGreaterThan(10);
+    // A day of visitors who came and went, newest first, none of them online.
+    expect(first.recent.length).toBeGreaterThan(100);
+    expect(first.recent[0].lastSeenAt).toBeGreaterThanOrEqual(first.recent[first.recent.length - 1].lastSeenAt);
+    expect(first.recent.every((v) => v.lastSeenAt > start - 24 * 3_600_000)).toBe(true);
     // Coordinates in the demo are one decimal at most, like the server's.
     for (const v of first.visitors) if (v.lat != null) expect(Math.round(v.lat * 10) / 10).toBe(v.lat);
     let later = first;

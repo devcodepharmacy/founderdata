@@ -127,6 +127,8 @@ export function createDemo(seed = 7, start = Date.now()) {
 
   let n = 0;
   let visitors: Visitor[] = [];
+  /** Visitors who left, newest last: the demo's answer to `recent`. */
+  let gone: Visitor[] = [];
   const events: Event[] = [];
   let clock = start;
   let nextPayment = start + 5_000;
@@ -168,9 +170,17 @@ export function createDemo(seed = 7, start = Date.now()) {
     if (v && kind === 'payment') v.customer = true;
   }
 
-  // Open on a crowd that is already there, and a few payments from the last hour.
+  // A day of visitors who came and went, then a crowd that is already there, and a few payments from the last hour.
+  for (let i = 0; i < 140; i++) {
+    const seen = start - 6 * 60_000 - rand() ** 1.4 * 23.8 * 3_600_000;
+    arrive(seen, 20_000 + rand() * 400_000);
+  }
+  gone = visitors.sort((a, b) => a.lastSeenAt - b.lastSeenAt);
+  visitors = [];
   for (let i = 0; i < 17; i++) arrive(start, rand() * 150_000);
   for (let i = 0; i < 4; i++) emit(i % 2 ? 'payment' : i === 2 ? 'trial' : 'payment', start - 300_000 - i * 700_000);
+  // The rest of the day: what a longer window adds to the last hour.
+  for (let i = 0; i < 22; i++) emit(one(['payment', 'payment', 'trial', 'signup']), start - 3_700_000 - rand() * 20 * 3_600_000);
   events.sort((a, b) => b.ts - a.ts);
 
   const places = (() => {
@@ -192,7 +202,9 @@ export function createDemo(seed = 7, start = Date.now()) {
     const expected = (dt / 1000) * (visitors.length < 14 ? 0.32 : visitors.length > 24 ? 0.06 : 0.16);
     let k = Math.floor(expected) + (rand() < expected % 1 ? 1 : 0);
     while (k-- > 0) arrive(now);
+    for (const v of visitors) if (v.leaveAt <= now) gone.push(v);
     visitors = visitors.filter((v) => v.leaveAt > now);
+    gone = gone.filter((v) => v.lastSeenAt > now - 24 * 3_600_000).slice(-150);
     for (const v of visitors) {
       if (rand() < dt / 40_000) {
         const site = SITES.find((s) => s.id === v.siteId)!;
@@ -208,8 +220,9 @@ export function createDemo(seed = 7, start = Date.now()) {
       emit(one(['trial', 'signup', 'signup', 'goal']), now);
       nextOther = now + 15_000 + rand() * 20_000;
     }
-    while (events.length && events[events.length - 1].ts < now - 3_600_000) events.pop();
+    while (events.length && events[events.length - 1].ts < now - 24 * 3_600_000) events.pop();
 
+    const seen = [...gone, ...visitors];
     const online = new Map<string, number>();
     for (const v of visitors) online.set(v.siteId, (online.get(v.siteId) ?? 0) + 1);
     return {
@@ -218,8 +231,16 @@ export function createDemo(seed = 7, start = Date.now()) {
       online: visitors.length,
       sites: SITES.map((s) => ({ id: s.id, name: s.name, domain: s.domain, online: online.get(s.id) ?? 0 })),
       visitors: visitors.slice(-150).map(({ leaveAt: _, ...v }) => ({ ...v, region: v.region || null, city: v.city || null })),
-      events: events.slice(0, 30),
+      events: events.filter((e) => e.ts > now - 3_600_000).slice(0, 30),
       places,
+      recent: [...gone, ...visitors]
+        .slice(-150)
+        .reverse()
+        .map(({ leaveAt: _, ...v }) => ({ ...v, region: v.region || null, city: v.city || null })),
+      recentCount: seen.length,
+      recentSites: SITES.map((s) => ({ id: s.id, name: s.name, domain: s.domain, visitors: seen.filter((v) => v.siteId === s.id).length })),
+      // The whole day, uncapped: the page cuts it to its window (cutToWindow in useLive.ts).
+      recentEvents: events,
     };
   };
 }

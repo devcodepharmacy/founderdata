@@ -23,16 +23,19 @@ import {
   usePresence,
 } from '../components/live/shared';
 import type { LiveData, LiveEvent, LiveSite, LiveVisitor } from '../components/live/types';
+import { feedVisitors, windowActivity } from '../components/live/adapter';
 import { useLive } from '../components/live/useLive';
-import { currencyDecimals, fmtMoney } from '../lib/format';
+import { currencyDecimals, fmtMoney, fmtNumber } from '../lib/format';
 
 /**
- * How far back the globe glows. `now` shows only the visitors online (seen in the last 5 minutes) and the payments and
- * sign-ups of those minutes; a longer window adds a glow wherever visitors were seen in it.
+ * The time the page covers. `now` shows the visitors online (seen in the last 5 minutes) and the last hour's payments.
+ * A longer window shows that window instead: how many visitors it had, on which sites, who they were, what was paid,
+ * and a glow on the globe wherever they were.
  */
 export type GlobeWindow = 'now' | '30m' | '1h' | '24h';
 const WINDOW_MINUTES: Record<GlobeWindow, number | null> = { now: null, '30m': 30, '1h': 60, '24h': 1440 };
 const WINDOW_LABEL: Record<GlobeWindow, string> = { now: 'Now', '30m': '30 min', '1h': '1 h', '24h': '24 h' };
+const WINDOW_HEADING: Record<GlobeWindow, string> = { now: 'Last hour', '30m': 'Last 30 minutes', '1h': 'Last hour', '24h': 'Last 24 hours' };
 const WINDOW_TEXT: Record<GlobeWindow, string> = { now: 'right now', '30m': 'in the last 30 minutes', '1h': 'in the last hour', '24h': 'in the last 24 hours' };
 const WINDOW_KEY = 'fd_live_window';
 
@@ -62,6 +65,10 @@ export function Live() {
   const places = span === 'now' ? NONE : data?.places ?? NONE;
   // The globe draws the events of its window: the online minutes for `now`, at most the hour the server sends.
   const events = useMemo(() => (data ? recentEvents(data.events, data.now, WINDOW_MINUTES[span] ?? data.windowMinutes) : []), [data, span]);
+  // Everyone the chosen window lists, and how many it had. The count comes from the server, because the list stops at
+  // 150; a visitor who arrived since the server counted is in the list already, so the larger of the two is shown.
+  const visitors = useMemo(() => feedVisitors(data, span !== 'now'), [data, span]);
+  const count = span === 'now' ? data?.online ?? 0 : Math.max(data?.recentCount ?? 0, visitors.length);
   const [hover, setHover] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
@@ -87,17 +94,17 @@ export function Live() {
       ) : (
         <main className="grid flex-1 grid-cols-[minmax(0,1fr)] gap-4 px-4 pb-5 sm:px-6 lg:min-h-0 lg:grid-cols-[minmax(270px,1fr)_minmax(0,2.1fr)_minmax(300px,1.15fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-6 lg:px-8 lg:pb-8 lg:[grid-template-areas:'hero_globe_feed'_'side_globe_feed'] 2xl:gap-8">
           <section className="lg:[grid-area:hero]">
-            <Hero data={data} loading={live.status === 'loading'} span={span} places={places.length} />
+            <Hero data={data} loading={live.status === 'loading'} span={span} visitors={visitors} count={count} />
           </section>
           <section className="relative aspect-square w-full lg:aspect-auto lg:max-h-none lg:min-h-0 lg:[grid-area:globe]">
             <LiveGlobe visitors={data?.visitors ?? []} places={places} events={events} highlightId={hover} onHover={setHover} fill={0.88} />
           </section>
           <section className="flex flex-col gap-4 lg:min-h-0 lg:[grid-area:side]">
-            <Sites data={data} />
-            <LastHour data={data} hover={hover} setHover={setHover} />
+            <Sites data={data} span={span} />
+            <Activity data={data} span={span} hover={hover} setHover={setHover} />
           </section>
           <section className="flex flex-col lg:min-h-0 lg:[grid-area:feed]">
-            <Feed data={data} hover={hover} setHover={setHover} />
+            <Feed data={data} span={span} visitors={visitors} count={count} hover={hover} setHover={setHover} />
           </section>
         </main>
       )}
@@ -142,7 +149,7 @@ function Header({ live, root, span, setSpan }: { live: ReturnType<typeof useLive
       </div>
       <div className="ml-auto flex items-center gap-2">
         <Segmented
-          label="Globe shows"
+          label="Time window"
           size="sm"
           className="[&>button]:whitespace-nowrap"
           value={span}
@@ -150,7 +157,7 @@ function Header({ live, root, span, setSpan }: { live: ReturnType<typeof useLive
           options={(Object.keys(WINDOW_LABEL) as GlobeWindow[]).map((w) => ({
             value: w,
             label: WINDOW_LABEL[w],
-            title: w === 'now' ? 'Glow only where people are online now' : `Also glow where people were ${WINDOW_TEXT[w]}`,
+            title: w === 'now' ? 'Who is online now' : `Everyone who visited ${WINDOW_TEXT[w]}`,
           }))}
         />
         {canFull && (
@@ -193,7 +200,7 @@ function Notice({ title, body, retry, demo }: { title: string; body: string; ret
 const panel = 'card p-4 lg:p-5 2xl:p-6';
 const heading = 'text-micro uppercase text-stone-400 2xl:text-[13px]';
 
-function Hero({ data, loading, span, places }: { data: LiveData | null; loading: boolean; span: GlobeWindow; places: number }) {
+function Hero({ data, loading, span, visitors, count }: { data: LiveData | null; loading: boolean; span: GlobeWindow; visitors: LiveVisitor[]; count: number }) {
   if (loading || !data) {
     return (
       <div aria-busy>
@@ -202,26 +209,31 @@ function Hero({ data, loading, span, places }: { data: LiveData | null; loading:
       </div>
     );
   }
-  const sitesOn = data.sites.filter((s) => s.online > 0).length;
-  const appOn = data.visitors.filter((v) => v.platform === 'app').length;
-  const customers = data.visitors.filter((v) => v.customer).length;
+  const past = span !== 'now';
+  const sitesOn = past ? windowSites(data).length : data.sites.filter((s) => s.online > 0).length;
+  // The tags count the listed visitors, so they are left out when the list is cut short.
+  const complete = visitors.length >= count;
+  const appOn = complete ? visitors.filter((v) => v.platform === 'app').length : 0;
+  const customers = complete ? visitors.filter((v) => v.customer).length : 0;
+  const across = sitesOn === 1 ? 'On 1 site' : `Across ${sitesOn} sites`;
+  let label: string;
+  let sub: string;
+  if (past) {
+    label = count === 0 ? `Nobody visited ${WINDOW_TEXT[span]}` : `${count === 1 ? 'visitor' : 'visitors'} ${WINDOW_TEXT[span]}`;
+    sub = count === 0 ? 'A visitor shows up here about 15 seconds after opening a page.' : `${across} · ${data.online} online now`;
+  } else {
+    label = count === 0 ? 'Nobody online right now' : count === 1 ? 'person online now' : 'people online now';
+    sub = count === 0 ? 'A visitor shows up here about 15 seconds after opening a page.' : `${across} in the last ${data.windowMinutes} minutes`;
+  }
   return (
     <div>
       <div className="flex items-end gap-3">
         <span className="text-[clamp(64px,7.2vw,168px)] font-semibold leading-[0.85] tracking-[-0.04em]">
-          <TickingNumber value={data.online} />
+          <TickingNumber value={count} />
         </span>
       </div>
-      <div className="mt-3 text-[15px] font-medium text-stone-600 lg:text-[17px] 2xl:text-[20px]">
-        {data.online === 0 ? 'Nobody online right now' : data.online === 1 ? 'person online now' : 'people online now'}
-      </div>
-      <div className="mt-1 text-[13px] text-stone-400 2xl:text-[15px]">
-        {data.online === 0
-          ? span !== 'now' && places
-            ? `The dim glows show where visitors were ${WINDOW_TEXT[span]}.`
-            : 'A visitor shows up here about 15 seconds after opening a page.'
-          : `${sitesOn === 1 ? 'On 1 site' : `Across ${sitesOn} sites`} in the last ${data.windowMinutes} minutes`}
-      </div>
+      <div className="mt-3 text-[15px] font-medium text-stone-600 lg:text-[17px] 2xl:text-[20px]">{label}</div>
+      <div className="mt-1 text-[13px] text-stone-400 2xl:text-[15px]">{sub}</div>
       {(appOn > 0 || customers > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5 text-[12px] 2xl:text-[14px]">
           {appOn > 0 && <span className="rounded-full border border-stone-200 px-2 py-0.5 text-stone-600">{appOn} in an app</span>}
@@ -234,20 +246,39 @@ function Hero({ data, loading, span, places }: { data: LiveData | null; loading:
   );
 }
 
-function Sites({ data }: { data: LiveData | null }) {
-  if (!data || data.sites.length === 0) return null;
-  const shown = data.sites.slice(0, 8);
-  const rest = data.sites.length - shown.length;
+/**
+ * The sites of a window with their visitor counts, most first. A site whose visitors arrived after the server counted
+ * shows at least the ones online now.
+ */
+function windowSites(data: LiveData): LiveSite[] {
+  const by = new Map<string, LiveSite>(data.recentSites.map((s) => [s.id, { id: s.id, name: s.name, domain: s.domain, online: s.visitors }]));
+  for (const s of data.sites) {
+    const had = by.get(s.id);
+    if (!had || had.online < s.online) by.set(s.id, s);
+  }
+  return [...by.values()].filter((s) => s.online > 0).sort((a, b) => b.online - a.online || a.name.localeCompare(b.name));
+}
+
+/** Visitors per site: online now, or seen in the chosen window. */
+function Sites({ data, span }: { data: LiveData | null; span: GlobeWindow }) {
+  const past = span !== 'now';
+  const sites = useMemo(() => (!data ? [] : past ? windowSites(data) : data.sites), [data, past]);
+  if (!data || sites.length === 0) return null;
+  const shown = sites.slice(0, 8);
+  const rest = sites.length - shown.length;
   const max = Math.max(1, ...shown.map((s) => s.online));
   return (
     <div className={panel}>
-      <div className={heading}>Sites</div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className={heading}>Sites</div>
+        <div className="text-[12px] text-stone-400">{past ? 'Visitors' : 'Online now'}</div>
+      </div>
       <ul className="mt-3 space-y-2.5 2xl:space-y-3.5">
         {shown.map((s) => (
           <SiteRow key={s.id} site={s} max={max} />
         ))}
       </ul>
-      {rest > 0 && <div className="mt-3 text-[12px] text-stone-400">{rest} more with nobody online</div>}
+      {rest > 0 && <div className="mt-3 text-[12px] text-stone-400">{past ? `${rest} more sites` : `${rest} more with nobody online`}</div>}
     </div>
   );
 }
@@ -270,19 +301,26 @@ function SiteRow({ site, max }: { site: LiveSite; max: number }) {
   );
 }
 
-function LastHour({ data, hover, setHover }: { data: LiveData | null; hover: string | null; setHover: (id: string | null) => void }) {
+/** Payments, trials and sign-ups: the last hour for `now`, or the chosen window. */
+function Activity({ data, span, hover, setHover }: { data: LiveData | null; span: GlobeWindow; hover: string | null; setHover: (id: string | null) => void }) {
   const now = useNow(5000);
-  const events = data?.events ?? [];
+  const minutes = WINDOW_MINUTES[span];
+  const { events, totals, count } = useMemo(() => {
+    if (!data) return { events: [], totals: [], count: 0 };
+    if (minutes === null) return { events: data.events, totals: paymentTotals(data.events), count: data.events.filter((e) => e.kind === 'payment').length };
+    const w = windowActivity(data, minutes);
+    return { events: w.events, totals: w.revenue, count: w.revenue.reduce((n, r) => n + r.payments, 0) };
+  }, [data, minutes]);
+  // Names for the rows: `data.sites` has only the sites with someone online.
+  const sites = useMemo(() => (data && minutes !== null ? windowSites(data) : data?.sites ?? []), [data, minutes]);
   const rows = usePresence(events.slice(0, 12), (e) => e.key, 260);
   // Rows that arrive after the page opened flash once.
   const mounted = useRef(Date.now());
   if (!data) return null;
-  const totals = paymentTotals(events);
-  const count = events.filter((e) => e.kind === 'payment').length;
   return (
     <div className={`${panel} flex flex-col lg:min-h-0`}>
       <div className="flex items-baseline justify-between gap-3">
-        <div className={heading}>Last hour</div>
+        <div className={heading}>{WINDOW_HEADING[span]}</div>
         {count > 0 && <div className="text-[12px] text-stone-400">{count === 1 ? '1 payment' : `${count} payments`}</div>}
       </div>
       {totals.length > 0 ? (
@@ -294,12 +332,12 @@ function LastHour({ data, hover, setHover }: { data: LiveData | null; hover: str
           ))}
         </div>
       ) : (
-        <div className="mt-2 text-[13px] text-stone-400">No payments in the last hour.</div>
+        <div className="mt-2 text-[13px] text-stone-400">No payments {span === 'now' ? 'in the last hour' : WINDOW_TEXT[span]}.</div>
       )}
       {rows.length > 0 && (
         <ul className="-mx-2 mt-3 space-y-0.5 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:[mask-image:linear-gradient(to_bottom,black_80%,transparent)]">
           {rows.map(({ item: e, key, leaving }) => (
-            <EventRow key={key} e={e} sites={data.sites} now={now} leaving={leaving} fresh={e.ts > mounted.current - 15_000} lit={hover === e.key} setHover={setHover} />
+            <EventRow key={key} e={e} sites={sites} now={now} leaving={leaving} fresh={e.ts > mounted.current - 15_000} lit={hover === e.key} setHover={setHover} />
           ))}
         </ul>
       )}
@@ -329,15 +367,25 @@ function EventRow({ e, sites, now, leaving, fresh, lit, setHover }: { e: LiveEve
   );
 }
 
-function Feed({ data, hover, setHover }: { data: LiveData | null; hover: string | null; setHover: (id: string | null) => void }) {
+/**
+ * The visitors of the chosen window. `now` lists who is online. A longer window lists everyone seen in it, newest
+ * first: the people online come from every poll, the rest from the window's list, which the page refreshes every few
+ * minutes (useLive).
+ */
+function Feed({ data, span, visitors, count, hover, setHover }: { data: LiveData | null; span: GlobeWindow; visitors: LiveVisitor[]; count: number; hover: string | null; setHover: (id: string | null) => void }) {
   const now = useNow(5000);
-  const visitors = data?.visitors ?? [];
+  const online = useMemo(() => new Set((data?.visitors ?? []).map((v) => v.id)), [data]);
+  const sites = useMemo(() => (data && span !== 'now' ? windowSites(data) : data?.sites ?? []), [data, span]);
   const rows = usePresence(visitors, (v) => v.id, 260);
+  const past = span !== 'now';
+  const capped = past && count > visitors.length;
   return (
     <div className={`${panel} flex flex-col lg:min-h-0 lg:max-h-full`}>
       <div className="flex items-baseline justify-between gap-3">
-        <div className={heading}>Visitors now</div>
-        {data && data.visitors.length > 0 && <div className="text-[12px] text-stone-400">Newest first</div>}
+        <div className={heading}>{past ? 'Visitors' : 'Visitors now'}</div>
+        {data && visitors.length > 0 && (
+          <div className="whitespace-nowrap text-[12px] text-stone-400">{capped ? `Latest ${visitors.length} of ${fmtNumber(count)}` : 'Newest first'}</div>
+        )}
       </div>
       {!data ? (
         <div className="mt-4 space-y-3">
@@ -346,11 +394,11 @@ function Feed({ data, hover, setHover }: { data: LiveData | null; hover: string 
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="mt-2 text-[13px] text-stone-400">Nobody here right now.</div>
+        <div className="mt-2 text-[13px] text-stone-400">{past ? `Nobody visited ${WINDOW_TEXT[span]}.` : 'Nobody here right now.'}</div>
       ) : (
         <ul className="-mx-2 mt-2 min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
           {rows.map(({ item: v, key, leaving }) => (
-            <VisitorRow key={key} v={v} sites={data.sites} now={now} leaving={leaving} lit={hover === v.id} setHover={setHover} />
+            <VisitorRow key={key} v={v} sites={sites} now={now} leaving={leaving} online={!past || online.has(v.id)} dot={past && online.has(v.id)} lit={hover === v.id} setHover={setHover} />
           ))}
         </ul>
       )}
@@ -360,7 +408,13 @@ function Feed({ data, hover, setHover }: { data: LiveData | null; hover: string 
 
 const DEVICE: Record<string, string> = { desktop: 'Desktop', mobile: 'Phone', tablet: 'Tablet' };
 
-function VisitorRow({ v, sites, now, leaving, lit, setHover }: { v: LiveVisitor; sites: LiveSite[]; now: number; leaving: boolean; lit: boolean; setHover: (id: string | null) => void }) {
+/** "4 min ago", "3 h ago": when a visitor who left was last seen. */
+const lastSeen = (ms: number) => {
+  const t = shortAgo(ms);
+  return t === 'now' ? 'just now' : `${t} ago`;
+};
+
+function VisitorRow({ v, sites, now, leaving, online, dot, lit, setHover }: { v: LiveVisitor; sites: LiveSite[]; now: number; leaving: boolean; online: boolean; dot: boolean; lit: boolean; setHover: (id: string | null) => void }) {
   const site = sites.find((s) => s.id === v.siteId);
   const meta = [sourceLabel(v.source), v.device ? DEVICE[v.device] : v.platform === 'app' ? 'App' : null].filter(Boolean).join(' · ');
   return (
@@ -372,6 +426,11 @@ function VisitorRow({ v, sites, now, leaving, lit, setHover }: { v: LiveVisitor;
       <Flag cc={v.country} size={20} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
+          {dot && (
+            <span className="shrink-0" title="Online now">
+              <LiveDot size={6} />
+            </span>
+          )}
           <span className="truncate text-[13.5px] font-medium 2xl:text-[15px]">{placeLabel(v)}</span>
           {v.customer && <span className="shrink-0 rounded-md bg-revenueSoft px-1.5 py-px text-[10.5px] font-semibold text-revenue">Customer</span>}
         </div>
@@ -382,9 +441,15 @@ function VisitorRow({ v, sites, now, leaving, lit, setHover }: { v: LiveVisitor;
           <span className="min-w-0 truncate">{meta}</span>
         </div>
       </div>
-      <span className="shrink-0 tabular-nums text-[12px] text-stone-400" title="Time on the site">
-        {shortAgo(now - v.startedAt)}
-      </span>
+      {online ? (
+        <span className="shrink-0 tabular-nums text-[12px] text-stone-400" title="Time on the site">
+          {shortAgo(now - v.startedAt)}
+        </span>
+      ) : (
+        <span className="shrink-0 tabular-nums text-[12px] text-stone-400" title="Last seen">
+          {lastSeen(now - v.lastSeenAt)}
+        </span>
+      )}
     </li>
   );
 }

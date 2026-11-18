@@ -612,7 +612,20 @@ of their currency, as on `/api/home` (`4900` with `USD` is $49.00).
     "amount": 4900, "currency": "USD", "country": "US", "city": "Austin", "lat": 30.3, "lon": -97.7
   }],
   "places": [{ "country": "US", "city": "Austin", "lat": 30.3, "lon": -97.7, "visitors": 41 }],
-  "placesMinutes": 1440
+  "placesMinutes": 1440,
+  "recent": [{
+    "id": "e5f6a7b8", "siteId": "SITE_ID", "platform": "web",
+    "country": "US", "region": "Texas", "city": "Austin", "lat": 30.3, "lon": -97.7,
+    "page": "/blog/launch", "source": "Twitter", "device": "mobile", "customer": false,
+    "startedAt": 1794655000000, "lastSeenAt": 1794655420000
+  }],
+  "recentCount": 412,
+  "recentSites": [{ "id": "SITE_ID", "name": "Acme", "domain": "acme.example", "visitors": 412 }],
+  "recentRevenue": [{ "currency": "USD", "amount": 34300, "payments": 7 }],
+  "recentEvents": [{
+    "ts": 1794630000000, "siteId": "SITE_ID", "kind": "payment", "label": "Pro yearly",
+    "amount": 4900, "currency": "USD", "country": "US", "city": "Austin", "lat": 30.3, "lon": -97.7
+  }]
 }
 ```
 
@@ -635,16 +648,29 @@ of their currency, as on `/api/home` (`4900` with `USD` is $49.00).
 - `places` groups the visitors seen in the last `placesMinutes` by country and city, most visitors first, at most 60.
   The window is 24 hours (1440) unless you send `?placesMinutes=` with a whole number from 5 to 1440. Under 24 hours,
   a visit also has to have started in the 6 hours before the window, as for `online`. `city` is `null` when the lookup
-  had none. Visits without a country stay out. Send `?places=0` to leave them out: `places` and `placesMinutes` are
-  then `null`. A client that polls every few seconds should ask for places once every few minutes. The dashboard's
+  had none. Visits without a country stay out. Send `?places=0` to leave them out: `places`, `placesMinutes`,
+  `recent` and the four other `recent...` fields are then `null`. A client that polls every few seconds should ask for places once every few minutes. The dashboard's
   live page asks for none by default, so its globe glows only where people are online; its 30 min, 1 h and 24 h
   buttons ask for that window.
+- `recent` lists the visitors seen in the same `placesMinutes` window one by one, in the shape of `visitors`: one entry
+  per visitor and site, the visit seen last, newest activity first, at most 150. Visits without a country count here.
+  A visitor online is in both lists with the same `id`. It comes and goes with `places`, so it can be a few minutes
+  older than `visitors`. The dashboard merges the two and keeps the online row of a visitor in both.
+- `recentCount`, `recentSites`, `recentRevenue` and `recentEvents` are the numbers of the same window. `recentCount`
+  is every visitor seen in it, counted per visitor and site as `online` is, so it can be larger than the 150 entries of
+  `recent`. `recentSites` gives that count per site, most visitors first, sites without a visitor left out.
+  `recentRevenue` sums the window's payments per currency in minor units, largest first, with the same rule for what
+  counts as a payment as `events`. `recentEvents` has the window's events in the shape of `events`, newest first, at
+  most 30. The dashboard's live page shows these when a window is chosen and adds the payments that `events` has
+  brought since.
 - `lat` and `lon` have one decimal, about 11 km, the way collection stores them (docs/PRIVACY.md). Visits recorded
   before migration 0063, and visits Cloudflare could not place, have `null`. Put those at the country's centroid.
 - No names, emails, user ids or customer ids, whatever `PHONE_PII` or `VIEWER_PII` say.
 
-What a call costs: one D1 batch of 3 statements, or 4 with places, every one on an index. With `npm run seed` (about
-750 visits in the last 24 hours) a call read about 370 rows without places and about 1,900 with them. Most of that is
+What a call costs: one D1 batch of 3 statements, or 8 with places and the window's fields, every one on an index. With
+`npm run seed` (about 750 visits in the last 24 hours) a call read about 370 rows without places and about 1,900 with
+them before `recent` existed; `recent` and the per-site count each read the same visits as `places` once more, and
+the window's payments and events read that window's rows. Most of that is
 the visits of the last 6 and 24 hours, so reads grow with your traffic. A call writes nothing. The answer has
 `Cache-Control: no-store`.
 

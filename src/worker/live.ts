@@ -8,6 +8,9 @@
 //              (events_site_time) that are a sign-up or the site's primary goal, each with its visit's location
 //   places     visitors seen in the last placesMinutes (default 24 hours, ?placesMinutes=30 to 1440), by country and
 //              city (skipped with ?places=0)
+//   recent     the same visitors one by one, newest activity first, at most MAX_VISITORS (skipped with ?places=0)
+//   window     what the page shows for that window besides the list: visitors per site, payments per currency, and
+//              the newest MAX_EVENTS events (skipped with ?places=0)
 // The dashboard polls every 10 to 15 seconds while its tab is visible, so it asks for places less often.
 //
 // Privacy: the answer carries no stored visitor or session id (each visit gets an HMAC of its session id, cut to 8
@@ -89,6 +92,16 @@ export interface LiveAnswer {
   places: LivePlace[] | null;
   /** The window `places` covers, in minutes; null with ?places=0. */
   placesMinutes: number | null;
+  /** The visitors seen in that window, one per visitor and site, newest activity first; null with ?places=0. */
+  recent: LiveVisitor[] | null;
+  /** How many visitors that window had, per visitor and site as `online` counts them; null with ?places=0. */
+  recentCount: number | null;
+  /** The sites with a visitor in that window, most visitors first; null with ?places=0. */
+  recentSites: { id: string; name: string; domain: string; visitors: number }[] | null;
+  /** That window's payments per currency, largest first; null with ?places=0. */
+  recentRevenue: { currency: string; amount: number; payments: number }[] | null;
+  /** That window's events in the shape of `events`, newest first, at most MAX_EVENTS; null with ?places=0. */
+  recentEvents: LiveEvent[] | null;
 }
 
 /**
@@ -114,6 +127,35 @@ const text = (v: unknown): string | null => (v === null || v === undefined || v 
 
 const ALL_SITES = 'SELECT id FROM sites';
 const AT = `s.country, s.city, s.lat, s.lon`;
+/** One row per visitor and site: the visit seen last (SQLite's bare columns follow MAX), with what the list shows. */
+const VISIT = `s.site_id, s.visitor_id, s.id AS sid, MAX(s.last_seen_at) AS last_seen, s.started_at, s.hostname, s.region, ${AT},
+               s.exit_page, s.source, s.device`;
+/** "Has paid before" for a visitor row `r`: a real payment, refunds and sandbox purchases left out. */
+const CUSTOMER = `EXISTS (SELECT 1 FROM payments p WHERE p.site_id = r.site_id AND p.visitor_id = r.visitor_id AND p.kind = 'payment'
+                    AND p.provider != '${SANDBOX_PROVIDER}') AS customer`;
+
+const REAL_PAYMENT = `p.kind = 'payment' AND p.provider != '${SANDBOX_PROVIDER}'`;
+
+/** Payments, trials, sign-ups and primary goals from `since` to `now`, newest first, each with its visit's location. */
+function eventsStatement(db: D1Database, since: number, now: number): D1PreparedStatement {
+  return db
+    .prepare(
+      `SELECT * FROM (
+         SELECT p.ts, p.site_id, 'payment' AS kind, p.product AS label, p.amount, p.currency, ${AT}
+         FROM payments p LEFT JOIN sessions s ON s.site_id = p.site_id AND s.id = p.session_id
+         WHERE p.site_id IN (${ALL_SITES}) AND p.ts >= ?1 AND p.ts <= ?2 AND ${REAL_PAYMENT}
+         UNION ALL
+         SELECT sub.trial_start, sub.site_id, 'trial', sub.product, NULL, NULL, ${AT}
+         FROM subscriptions sub LEFT JOIN sessions s ON s.site_id = sub.site_id AND s.id = sub.session_id
+         WHERE sub.site_id IN (${ALL_SITES}) AND sub.trial_start >= ?1 AND sub.trial_start <= ?2 AND sub.sandbox = 0
+         UNION ALL
+         SELECT e.ts, e.site_id, CASE WHEN ${IS_SIGNUP} THEN 'signup' ELSE 'goal' END, e.name, NULL, NULL, ${AT}
+         FROM events e JOIN sites st ON st.id = e.site_id LEFT JOIN sessions s ON s.site_id = e.site_id AND s.id = e.session_id
+         WHERE e.site_id IN (${ALL_SITES}) AND e.ts >= ?1 AND e.ts <= ?2 AND e.type = 'goal' AND (${IS_SIGNUP} OR e.name = st.primary_goal)
+       ) ORDER BY ts DESC, kind LIMIT ${MAX_EVENTS}`,
+    )
+    .bind(since, now);
+}
 
 /** The batch, in the order liveData reads it. Exported so tests can check that each statement uses an index. */
 export function liveStatements(db: D1Database, now: number, places: boolean, placesMinutes = PLACES_MINUTES_MAX): D1PreparedStatement[] {
@@ -126,34 +168,17 @@ export function liveStatements(db: D1Database, now: number, places: boolean, pla
     db.prepare('SELECT id, name, domain FROM sites ORDER BY created_at'),
     db
       .prepare(
-        `SELECT s.site_id, s.id AS sid, MAX(s.last_seen_at) AS last_seen, s.started_at, s.hostname, s.region, ${AT},
-                s.exit_page, s.source, s.device,
-                EXISTS (SELECT 1 FROM payments p WHERE p.site_id = s.site_id AND p.visitor_id = s.visitor_id AND p.kind = 'payment'
-                          AND p.provider != '${SANDBOX_PROVIDER}') AS customer
-         FROM sessions s
-         WHERE s.site_id IN (${ALL_SITES}) AND s.started_at > ?1 AND s.last_seen_at > ?2${countedAllSql('s')}
-         GROUP BY s.site_id, s.visitor_id
-         ORDER BY last_seen DESC, s.site_id, s.visitor_id
-         LIMIT ${ONLINE_ROWS}`,
+        `SELECT r.*, ${CUSTOMER} FROM (
+           SELECT ${VISIT}
+           FROM sessions s
+           WHERE s.site_id IN (${ALL_SITES}) AND s.started_at > ?1 AND s.last_seen_at > ?2${countedAllSql('s')}
+           GROUP BY s.site_id, s.visitor_id
+           ORDER BY last_seen DESC, s.site_id, s.visitor_id
+           LIMIT ${ONLINE_ROWS}
+         ) r ORDER BY r.last_seen DESC, r.site_id, r.visitor_id`,
       )
       .bind(now - ONLINE_STARTED_MS, now - LIVE_WINDOW_MINUTES * 60_000),
-    db
-      .prepare(
-        `SELECT * FROM (
-           SELECT p.ts, p.site_id, 'payment' AS kind, p.product AS label, p.amount, p.currency, ${AT}
-           FROM payments p LEFT JOIN sessions s ON s.site_id = p.site_id AND s.id = p.session_id
-           WHERE p.site_id IN (${ALL_SITES}) AND p.ts >= ?1 AND p.ts <= ?2 AND p.kind = 'payment' AND p.provider != '${SANDBOX_PROVIDER}'
-           UNION ALL
-           SELECT sub.trial_start, sub.site_id, 'trial', sub.product, NULL, NULL, ${AT}
-           FROM subscriptions sub LEFT JOIN sessions s ON s.site_id = sub.site_id AND s.id = sub.session_id
-           WHERE sub.site_id IN (${ALL_SITES}) AND sub.trial_start >= ?1 AND sub.trial_start <= ?2 AND sub.sandbox = 0
-           UNION ALL
-           SELECT e.ts, e.site_id, CASE WHEN ${IS_SIGNUP} THEN 'signup' ELSE 'goal' END, e.name, NULL, NULL, ${AT}
-           FROM events e JOIN sites st ON st.id = e.site_id LEFT JOIN sessions s ON s.site_id = e.site_id AND s.id = e.session_id
-           WHERE e.site_id IN (${ALL_SITES}) AND e.ts >= ?1 AND e.ts <= ?2 AND e.type = 'goal' AND (${IS_SIGNUP} OR e.name = st.primary_goal)
-         ) ORDER BY ts DESC, kind LIMIT ${MAX_EVENTS}`,
-      )
-      .bind(since, now),
+    eventsStatement(db, since, now),
     ...(places
       ? [
           db
@@ -166,6 +191,37 @@ export function liveStatements(db: D1Database, now: number, places: boolean, pla
                LIMIT ${MAX_PLACES}`,
             )
             .bind(placesStarted, now - placesMs),
+          // The same visits one by one. The payments probe runs on the kept rows only, not on every visitor of the day.
+          db
+            .prepare(
+              `SELECT r.*, ${CUSTOMER} FROM (
+                 SELECT ${VISIT}
+                 FROM sessions s
+                 WHERE s.site_id IN (${ALL_SITES}) AND s.started_at > ?1 AND s.last_seen_at > ?2${countedAllSql('s')}
+                 GROUP BY s.site_id, s.visitor_id
+                 ORDER BY last_seen DESC, s.site_id, s.visitor_id
+                 LIMIT ${MAX_VISITORS}
+               ) r ORDER BY r.last_seen DESC, r.site_id, r.visitor_id`,
+            )
+            .bind(placesStarted, now - placesMs),
+          // Every visitor of the window, counted per site: the list above stops at MAX_VISITORS.
+          db
+            .prepare(
+              `SELECT s.site_id, COUNT(DISTINCT s.visitor_id) AS visitors
+               FROM sessions s
+               WHERE s.site_id IN (${ALL_SITES}) AND s.started_at > ?1 AND s.last_seen_at > ?2${countedAllSql('s')}
+               GROUP BY s.site_id`,
+            )
+            .bind(placesStarted, now - placesMs),
+          db
+            .prepare(
+              `SELECT p.currency, SUM(p.amount) AS amount, COUNT(*) AS payments
+               FROM payments p
+               WHERE p.site_id IN (${ALL_SITES}) AND p.ts >= ?1 AND p.ts <= ?2 AND ${REAL_PAYMENT}
+               GROUP BY p.currency`,
+            )
+            .bind(now - placesMs, now),
+          eventsStatement(db, now - placesMs, now),
         ]
       : []),
   ];
@@ -183,17 +239,10 @@ async function visitIds(secret: string, sessionIds: string[]): Promise<string[]>
   );
 }
 
-export async function liveData(db: D1Database, secret: string, now = Date.now(), opts: { places?: boolean; placesMinutes?: number } = {}): Promise<LiveAnswer> {
-  const places = opts.places !== false;
-  const placesMinutes = opts.placesMinutes ?? PLACES_MINUTES_MAX;
-  const [siteRes, onlineRes, eventRes, placeRes] = await db.batch(liveStatements(db, now, places, placesMinutes));
-  const online = onlineRes.results as Record<string, unknown>[];
-  const perSite = new Map<string, number>();
-  for (const r of online) perSite.set(String(r.site_id), (perSite.get(String(r.site_id)) ?? 0) + 1);
-
-  const shown = online.slice(0, MAX_VISITORS);
-  const ids = await visitIds(secret, shown.map((r) => String(r.sid)));
-  const visitors: LiveVisitor[] = shown.map((r, i) => ({
+/** Visitor rows (online or recent) as the answer lists them, each with its opaque visit id. */
+async function visitorsOf(secret: string, rows: Record<string, unknown>[]): Promise<LiveVisitor[]> {
+  const ids = await visitIds(secret, rows.map((r) => String(r.sid)));
+  return rows.map((r, i) => ({
     id: ids[i],
     siteId: String(r.site_id),
     platform: String(r.hostname ?? '').startsWith('ios:') ? 'app' : 'web',
@@ -209,9 +258,21 @@ export async function liveData(db: D1Database, secret: string, now = Date.now(),
     startedAt: Number(r.started_at),
     lastSeenAt: Number(r.last_seen),
   }));
+}
 
-  const events: LiveEvent[] = (eventRes.results as Record<string, unknown>[]).map((r) => {
-    return {
+export async function liveData(db: D1Database, secret: string, now = Date.now(), opts: { places?: boolean; placesMinutes?: number } = {}): Promise<LiveAnswer> {
+  const places = opts.places !== false;
+  const placesMinutes = opts.placesMinutes ?? PLACES_MINUTES_MAX;
+  const [siteRes, onlineRes, eventRes, placeRes, recentRes, countRes, revenueRes, windowEventRes] = await db.batch(liveStatements(db, now, places, placesMinutes));
+  const online = onlineRes.results as Record<string, unknown>[];
+  const perSite = new Map<string, number>();
+  for (const r of online) perSite.set(String(r.site_id), (perSite.get(String(r.site_id)) ?? 0) + 1);
+
+  const visitors = await visitorsOf(secret, online.slice(0, MAX_VISITORS));
+  const recent = recentRes ? await visitorsOf(secret, recentRes.results as Record<string, unknown>[]) : null;
+
+  const eventsOf = (res: D1Result): LiveEvent[] =>
+    (res.results as Record<string, unknown>[]).map((r) => ({
       ts: Number(r.ts),
       siteId: String(r.site_id),
       kind: r.kind as LiveEventKind,
@@ -222,10 +283,14 @@ export async function liveData(db: D1Database, secret: string, now = Date.now(),
       city: text(r.city),
       lat: coord(r.lat, 90),
       lon: coord(r.lon, 180),
-    };
-  });
+    }));
+  const events = eventsOf(eventRes);
 
-  const sites = (siteRes.results as { id: string; name: string; domain: string }[])
+  const allSites = siteRes.results as { id: string; name: string; domain: string }[];
+  const seen = new Map<string, number>();
+  for (const r of (countRes?.results ?? []) as Record<string, unknown>[]) seen.set(String(r.site_id), Number(r.visitors));
+
+  const sites = allSites
     .map((s) => ({ id: s.id, name: s.name, domain: s.domain, online: perSite.get(s.id) ?? 0 }))
     .filter((s) => s.online > 0)
     .sort((a, b) => b.online - a.online);
@@ -247,6 +312,21 @@ export async function liveData(db: D1Database, secret: string, now = Date.now(),
         }))
       : null,
     placesMinutes: placeRes ? placesMinutes : null,
+    recent,
+    recentCount: countRes ? [...seen.values()].reduce((a, b) => a + b, 0) : null,
+    recentSites: countRes
+      ? allSites
+          .map((s) => ({ id: s.id, name: s.name, domain: s.domain, visitors: seen.get(s.id) ?? 0 }))
+          .filter((s) => s.visitors > 0)
+          .sort((a, b) => b.visitors - a.visitors)
+      : null,
+    recentRevenue: revenueRes
+      ? (revenueRes.results as Record<string, unknown>[])
+          .filter((r) => text(r.currency))
+          .map((r) => ({ currency: String(r.currency), amount: Number(r.amount ?? 0), payments: Number(r.payments) }))
+          .sort((a, b) => b.amount - a.amount)
+      : null,
+    recentEvents: windowEventRes ? eventsOf(windowEventRes) : null,
   };
 }
 
