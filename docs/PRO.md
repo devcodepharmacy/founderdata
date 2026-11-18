@@ -18,7 +18,8 @@ update. Pro adds:
 - Search Console, Google rank tracking, the Content view and a page audit
 - AI visibility in ChatGPT, Claude, Gemini and Perplexity
 - Home across all your sites with the Growth row, next actions, and a verdict on every change you log
-- All 30 MCP tools, the `query` tool, alert rules, the alert inbox, the research log and agent skills
+- Mail on your own domains through Cloudflare, with an API that answers like Resend's and an inbox ([MAIL.md](MAIL.md))
+- All 31 MCP tools, the `query` tool, alert rules, the alert inbox, the research log and agent skills
 - Teammates with their own login
 
 Both editions run on your own Cloudflare account, and your data stays in your own D1 database.

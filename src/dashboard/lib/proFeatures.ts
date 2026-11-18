@@ -73,6 +73,7 @@ export const PRO_LIST = [
   'Search Console, Google rank tracking and a page audit',
   'AI visibility in ChatGPT, Claude, Gemini and Perplexity',
   'Home across all your sites with next actions, and a verdict on every change you log',
-  'All 30 MCP tools, the query tool, alert rules and agent skills',
+  'Mail on your own domains through Cloudflare, with an inbox and an API that answers like Resend\'s',
+  'All 31 MCP tools, the query tool, alert rules and agent skills',
   'Teammates with their own login',
 ];

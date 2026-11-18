@@ -220,6 +220,24 @@ Your payment providers (Stripe, Dodo, Lemon Squeezy, Polar, Paddle, Gumroad, Rev
 FounderData. They are already your processors for the payment itself. The checkout metadata you add (`rt_visitor_id`,
 `rt_session_id`, `rt_site_id`) is pseudonymous.
 
+## Mail (Pro)
+
+Mail is the one feature that stores what people write. With it set up, the deployment holds the messages your apps
+send and the messages people send to your addresses.
+
+- **What is stored.** D1 holds each message's sender, recipients, subject, first 200 characters, headers and status.
+  An R2 bucket holds the text, the HTML, the attachments and, for received mail, the raw message.
+- **How long.** Bodies of mail an app sent through the API go after 30 days, with delivery events and webhook
+  deliveries. Inbox mail stays until you delete it. [MAIL.md](MAIL.md#what-is-stored-and-for-how-long) has the table.
+- **Who can read it.** The owner in the dashboard, and a scoped key with `mail:read`. Viewers, viewer teammates, the
+  iPhone app, share links and keys with `read` get no mail.
+- **Where it is.** The bucket is created in the EU when the database is.
+- **Erase.** Erasing a person by email deletes every message with their address on it, the stored objects and their
+  suppression entries, here and on Cloudflare's suppression list.
+- **Cloudflare.** Cloudflare Email Service and Email Routing process every message and keep their own delivery logs.
+  Both are covered by the Cloudflare DPA above.
+- **Your privacy policy** says that you answer support mail from this system, if you do.
+
 ## Meta ads
 
 The spend import sends nothing about visitors to Meta: the Worker only downloads your own ad account's numbers.

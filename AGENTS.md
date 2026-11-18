@@ -69,8 +69,9 @@ Run these in order. Steps marked **(human)** need the person you work for, so as
    exists) also list App Store sales (`ASC_*` secrets), Apple Search Ads spend and ROAS (`ASA_*` secrets), Meta ads
    spend, ROAS and the Conversions API (`META_ACCESS_TOKEN`, then the ad account and URL parameters in the site's
    Settings, Meta ads; `docs/GUIDE.md`, "Meta ads"), Search Console through Connect Google (`GOOGLE_CLIENT_ID` and
-   `GOOGLE_CLIENT_SECRET` secrets, then a click in the SEO tab; `docs/SEO.md`, "Connect Google") and push to the iOS
-   app (`APNS_*` secrets).
+   `GOOGLE_CLIENT_SECRET` secrets, then a click in the SEO tab; `docs/SEO.md`, "Connect Google"), push to the iOS
+   app (`APNS_*` secrets) and mail on their own domains (Workers Paid, `npm run setup -- --mail`, the
+   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, then a domain on the Mail page; `docs/MAIL.md`).
 
 ## Changing the code
 

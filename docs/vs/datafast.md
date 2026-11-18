@@ -48,7 +48,7 @@ its features from its docs and changelog, read on 6 November. They may have chan
 - **No hosted version.** Cloudflare Workers and D1 only, no Docker image, no Postgres.
 - **Setup is a terminal job.** `npm run setup` deploys, but X, Google and DataForSEO each need a secret. Settings, Setup
   checklist tests the DataForSEO login and the X token live and says which row is broken.
-- **A large MCP tool set in Pro.** 30 tools, and no OAuth sign-in for ChatGPT or claude.ai connectors.
+- **A large MCP tool set in Pro.** 31 tools, and no OAuth sign-in for ChatGPT or claude.ai connectors.
 - **No iPhone app from the App Store.** You build it yourself.
 
 ## Moving over
