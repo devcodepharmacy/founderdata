@@ -441,6 +441,13 @@ Three things differ from every other tool:
 - **`send` and `reply` reach people outside.** A sent message cannot be taken back. Pass `idempotency_key` with
   `send` so that a retry sends once. Give `mail:write` only to an agent you would let write in your name, and keep
   its key to the domains it needs on the Mail page's API tab.
+- **Limit what the key can do.** On the Mail page's API tab, set an agent's key to **Replies only**. It then answers
+  only the people already in a thread, and a message that tells the agent to write to a new address gets `403`. Each
+  key also has a daily cap, 1,000 recipients in 24 hours unless you change it.
+- **Check `to` in the answer.** A reply goes to the Reply-To address of the last received message when it set one.
+  The answer to `send` and `reply` names the address the mail went to.
+- **`text_from_html: true`** marks text that was made from an HTML-only message. It can hold words a person does not
+  see in a mail program, such as hidden elements.
 
 A message comes as text, cut at 2,000 characters in `get_thread` and at 40,000 in `get_message`. Attachments come as
 names and sizes. The tool sends no attachments. The route does.

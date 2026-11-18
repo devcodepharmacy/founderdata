@@ -413,7 +413,7 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | Weekly report on Monday 07:05 UTC, per channel / its inbox rows | 2 (the week's marker, then sent), plus 1 for each retry / 1 per site a week |
 | Next actions, computed once a day on the minute-50 tick | 2 per site a day (the claim, then the items) |
 | Resend email event: the first of its type for an email / a retry or a second open | 2 / 0 |
-| Mail ([docs/MAIL.md](docs/MAIL.md)): an app sends to one address / the dashboard or an agent sends / a status event / a received message that starts a thread | 17, or 20 with an idempotency key / 22 / 5 / 15 |
+| Mail ([docs/MAIL.md](docs/MAIL.md)): an app sends to one address / the dashboard or an agent sends / a status event / a received message that starts a thread | 18, or 21 with an idempotency key / 23 or 24 / 5 / 15 |
 | Meta ads import: a new ad and day / a new campaign, ad set or ad name / a run that finds nothing new | 2 (the row and its index entry) / 1 / 1. Today's rows change every hour as spend comes in, so 20 active ads write about 500 rows a day |
 | Meta Conversions API: an event sent or skipped / a tick with nothing pending | 1, plus 1 for the site's status when it changes / 0 |
 | Ad spend from Google Ads, TikTok or any channel without an import (`POST /api/v1/spend` or a CSV): a new or changed row of a day and campaign / a row sent again unchanged | 1 / 0. Meta and Apple Search Ads spend joins in from their imports and writes nothing more |

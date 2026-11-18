@@ -8,13 +8,13 @@
 --
 -- Rows each path writes. D1 counts an index entry an insert or update adds as a row (removing one is free), so these
 -- include the indexes. pro/test/cost.test.ts measures and pins them all.
---   queue a send to N addresses  4 for the message (row, primary key, created and thread indexes) + 2 per address
---                                (the sender counts as one, and from, to, cc, bcc and reply_to count together),
---                                + 2 with an Idempotency-Key, + 1 per attachment, + 5 for the thread a send from the
---                                dashboard or an agent starts
---   mark it sent                 9: the message with its provider_id and open indexes (3), its Message-ID lookup (2),
---                                its `sent` row in mail_events (4), + 1 to close an Idempotency-Key
---   so a send to one address     17 from an app, 20 with an Idempotency-Key, 22 from the dashboard or an agent
+--   queue a send to N addresses  5 for the message (row, primary key, created, thread and open indexes), + 1 with an
+--                                API key (the index by key), + 2 per address (the sender counts as one, and from, to,
+--                                cc, bcc and reply_to count together), + 2 with an Idempotency-Key, + 1 per attachment
+--   mark it sent                 8: the message with its provider_id index (2), its Message-ID lookup (2), its `sent`
+--                                row in mail_events (4), + 1 to close an Idempotency-Key, + 6 for the thread a send
+--                                from the dashboard or an agent starts (5 for the thread, 1 to put the message in it)
+--   so a send to one address     18 from an app, 21 with an Idempotency-Key, 23 from the dashboard, 24 from an agent
 --   a later status change        1 for the message, + 4 for its mail_events row
 --   one inbound message          4 + 2 per address + 2 for its Message-ID, its thread 5 when new and about 4 when it
 --                                grows, + 1 per attachment

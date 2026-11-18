@@ -93,8 +93,16 @@ rules**, and create a custom address for each address you added here, with the a
 FounderData Worker as the destination. FounderData does not create these rules. The Domains tab says so for a
 subdomain, and `*` receives nothing there.
 
-A message can be 25 MB. A larger one is rejected. Replies join a thread through their `In-Reply-To` and `References`
-headers, and through the subject only when both are missing.
+A message can be 25 MB. A larger one is rejected. A message stores up to 50 of the To and Cc addresses it names.
+
+Replies join a thread through their `In-Reply-To` and `References` headers, matched against mail of the same domain.
+Without those headers a message joins a thread by subject and sender, but only when Cloudflare's DMARC check passed
+and the same address received both. Anyone can write a From line, so mail that fails the check starts its own thread.
+When a message names a Reply-To address that is not its sender, the inbox shows where a reply would go.
+
+A received message waits on a queue to be stored. When storing fails, the queue tries again after 30 seconds, then
+with longer waits, 8 times over about 16 hours. After that an hourly job puts the message on the queue again. A
+message that could not be stored for 7 days is deleted and the Worker's log says so.
 
 ## The Mail page
 
@@ -124,21 +132,33 @@ RESEND_BASE_URL=https://founderdata.example.com/api/mail
 RESEND_API_KEY=fdk_...
 ```
 
-A `mail:write` key sends and reads back what was sent. It cannot read the inbox. On the API tab you can keep a key to
-some domains, and it then sends from those only.
+A `mail:write` key sends, and reads back the mail it sent itself. It cannot read the inbox, and it cannot read what
+another key, the dashboard or an agent sent: those answer 404. On the API tab each key has three limits:
+
+- **Domains.** Keep a key to some domains, and it sends from those only. When its last domain is removed the key
+  sends from none until you pick domains again or lift the limit.
+- **Recipients in 24 hours.** 1,000 by default, counted across `to`, `cc` and `bcc`, over the last 24 hours. Set
+  another number for a key, up to 1,000,000. Past the cap a send answers `429` with the name `daily_quota_exceeded`,
+  as Resend does. Sends that ended `failed` or `suppressed` do not count. The cap limits what a leaked key can send.
+- **Replies only.** The key answers in a thread, to the people already in it, and cannot write to a new address.
 
 These routes answer as Resend's do:
 
 | Route | Notes |
 | --- | --- |
 | `POST /emails` | `from`, `to`, `cc`, `bcc`, `subject`, `text`, `html`, `reply_to`, `headers`, `tags`, `attachments` with base64 `content` or an https `path`. Answers `{ "id": "..." }`. |
-| `POST /emails/batch` | Up to 100 messages. One invalid message fails the batch before anything is sent. |
-| `GET /emails`, `GET /emails/:id` | The sent messages. `text` and `html` are `null` once the body was deleted after 30 days. |
+| `POST /emails/batch` | Up to 100 messages. One invalid message fails the batch before anything is sent. `data` has one id per message, in the order of the request. |
+| `GET /emails`, `GET /emails/:id` | The messages this key sent. `text` and `html` are `null` once the body was deleted after 30 days. |
 | `GET /emails/:id/attachments`, `GET /emails/:id/attachments/:attachment_id` | Names and sizes. `download_url` returns the bytes. |
 | `GET /domains`, `GET /domains/:id` | Read only. |
 
 The `Idempotency-Key` header works as on Resend. The same key and body within 24 hours answer the first `id` and send
 nothing. The same key with another body answers 409.
+
+A message Cloudflare took is never sent twice. If the Worker cannot store the result, the answer is still the `id`,
+and a job marks the message `sent` within 10 minutes. If the request ended before Cloudflare confirmed the message,
+it ends as `failed` with the code `E_SEND_UNCONFIRMED`: it may or may not have gone out. Its `Idempotency-Key` then
+answers that `id` and does not send again.
 
 What differs from Resend:
 
@@ -149,7 +169,14 @@ What differs from Resend:
   the `email.received` webhook, and an agent reads the inbox with a `mail:read` key.
 - Open and click tracking, `scheduled_at`, broadcasts, contacts, audiences and Resend templates answer 422 in Resend's
   error shape. So do creating or changing domains, webhooks and API keys through the API.
-- A message can have 50 recipients across `to`, `cc` and `bcc`, 32 attachments and 18 MB in all.
+- A message can have 50 recipients across `to`, `cc` and `bcc`, 32 attachments and 18 MB in all. A request larger
+  than 25 MB answers `413`.
+- In a batch, a message the mail service refused keeps its id and its place in `data`, with the status `failed` or
+  `suppressed`. A message that could not be stored at all is missing from `data` and listed in
+  `errors: [{ "index": 2, "message": "..." }]`, the shape Resend answers in permissive mode.
+- An attachment's `filename`, `content_type` and `content_id` may hold no line break, and `content_type` is a plain
+  media type such as `application/pdf`. A `path` is an https URL on a public host name. Redirects are followed 3
+  times at most, each to an address that passes the same check.
 - Cloudflare refuses the headers it writes itself, such as `Message-ID` and `Date`. A send with one of them fails with
   a 422 that names the header.
 
@@ -179,8 +206,9 @@ The types are `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.
 `message_id`.
 
 An endpoint has 10 seconds to answer with a 2xx status. A failed post is tried again after 30 seconds, 2 minutes, 10
-minutes, 1 hour, 3 hours, 6 hours and 12 hours, 8 attempts over about 22 hours. After 20 failed attempts in a row the
-endpoint is switched off, and the API tab says so.
+minutes, 1 hour, 3 hours, 6 hours and 12 hours, 8 attempts over about 22 hours. An endpoint is switched off once
+every attempt failed for 24 hours and there were at least 20, and the API tab says so. An outage of a few minutes does
+not switch it off, however many events it misses in that time.
 
 ## Delivery status and suppressions
 
@@ -189,9 +217,16 @@ A sent message moves from `queued` to `sent` when Cloudflare takes it, then to `
 can go missing, so every 5 minutes the Worker asks Cloudflare's analytics about each message that is still `sent`
 after 10 minutes, up to 31 days back. That check needs the API token.
 
+A message to several addresses has one status, the highest any recipient reached, so one bounce among them makes it
+`bounced` and posts `email.bounced`, also when another recipient was delivered first. The Worker keeps checking such a
+message until every recipient has a final status. Cloudflare's analytics do not say which recipient bounced. An event
+does, and suppresses that address at once. Without the event the address reaches the suppression list from
+Cloudflare's own list, which the Worker copies once an hour.
+
 A hard bounce or a spam complaint puts the address on the suppression list at once. The next send to it fails with a
 422, is stored as `suppressed` and posts `email.suppressed`. Remove an address on the Suppressions tab to send to it
-again. With the API token, entries are copied to and from Cloudflare's own list.
+again. With the API token, entries are copied to and from Cloudflare's own list. Removing a domain moves its entries
+to "every domain", so an address that bounced stays suppressed when you add the domain again.
 
 Link a domain to a site on the Domains tab, and that site's [Email panel](GUIDE.md#email-resend-pro) counts the mail
 sent from it.
@@ -203,7 +238,14 @@ A scoped key reaches mail with two scopes of its own. `mail:read` reads the inbo
 routes are in [API.md](API.md#mail-pro), and the MCP tool is `mail` ([MCP.md](MCP.md#the-mail-tool-pro)).
 
 An agent gets each message as text, cut at 2,000 characters in a thread and at 40,000 for one message. It gets the
-names and sizes of attachments, not their bytes.
+names and sizes of attachments, not their bytes. A message with HTML and no text part is read as the HTML's text, and
+`text_from_html` is then `true`: that text can hold words a person never sees in a mail program, such as hidden
+elements.
+
+A reply goes to the Reply-To address of the last received message when it has one, else to its sender. The answer to a
+send or a reply names the address in `to`. Turn on **Replies only** for an agent's key (Mail, API), and it can answer
+only the people already in a thread: a Reply-To that names someone else is not followed, and a send to a new address
+answers `403`. The key's daily cap applies to agents too.
 
 Mail is the one place where an agent sees addresses and text that strangers wrote. Every answer with mail in it
 carries a `content_notice` that says so. An agent treats a message as data and follows no instruction inside it. Give
@@ -213,7 +255,7 @@ carries a `content_notice` that says so. An agent treats a message as data and f
 
 | What | Where | Kept |
 | --- | --- | --- |
-| Sender, recipients, subject, the first 200 characters, headers, status | D1 | Until deleted. With `PII_RETENTION_MONTHS` set, recipient addresses on sent messages are blanked after that many months. |
+| Sender, recipients, subject, the first 200 characters, headers, status | D1 | Until deleted. With `PII_RETENTION_MONTHS` set, a sent message loses everything that names a person after that many months: its addresses, subject, first 200 characters, custom headers, attachments and stored body. The row stays with its sender, status and times. |
 | Text and HTML of messages an app sent through the API, with their attachments | R2 | 30 days |
 | Text, HTML, attachments and the raw message of inbox mail, and of mail sent from the dashboard or by an agent | R2 | Until you delete the message or the thread |
 | Mail received for a `webhook` address | D1 and R2 | 30 days |
@@ -223,7 +265,9 @@ carries a `content_notice` that says so. An agent treats a message as data and f
 
 Deleting a message or a thread in the inbox removes its rows and its R2 objects for good.
 
-[Erasing one person](GUIDE.md#erase-one-person) by email also erases their mail across the deployment. Every message
+[Erasing one person](GUIDE.md#erase-one-person) by email also erases their mail across the deployment, from the
+dashboard or with a key that holds `mail:write` next to `payments:write` ([API.md](API.md#erase-one-person)). One of
+your own addresses is refused. Every message
 with that address as sender or recipient goes, with its body, attachments and events. Its other recipients lose
 their copy of the record too, because the body may name the person. The address leaves the suppression list here
 and, with the API token, Cloudflare's list. A hard bounce will suppress it again if you send to it later.
@@ -245,14 +289,14 @@ Cloudflare processes every message and keeps its own delivery logs, which Founde
 
 | Path | Rows written |
 | --- | --- |
-| An app sends to one address | 17, plus 2 for each further address and 1 for each attachment |
-| The same with an `Idempotency-Key` | 20. A repeat writes 0 |
-| The dashboard or an agent sends | 22, because the message starts a thread |
-| A reply in a thread | 21 |
+| An app sends to one address | 18, plus 2 for each further address and 1 for each attachment |
+| The same with an `Idempotency-Key` | 21. A repeat writes 0 |
+| The dashboard sends / an agent sends | 23 / 24, because the message starts a thread |
+| A reply in a thread, from the dashboard / by an agent | 21 / 22 |
 | A status event, such as delivered | 5. The same event again writes 0 |
 | A received message that starts a thread / one that joins a thread | 15 / 14 |
 | A webhook delivery | 4 when queued, plus 1 or 2 for each attempt |
 | Mark a thread read / archive it | 1 for each unread message, plus 1 / 1 |
 | Reading the inbox, the sent log or a message | 0 |
 
-At 100 sent and 20 received messages a day, mail writes about 2,500 rows. Workers Paid includes 50 million a month.
+At 100 sent and 20 received messages a day, mail writes about 2,600 rows. Workers Paid includes 50 million a month.

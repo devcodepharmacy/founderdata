@@ -2344,7 +2344,8 @@ distinct combination. A copy-paste Next.js middleware and Cloudflare Worker are 
 FounderData Pro's mail belongs to the deployment, not to a site, so these routes take no `?site=`. They need a scoped
 key with `mail:read` to read and `mail:write` to write. Neither scope includes the other, and `read` reaches none of
 them. A key that the owner kept to some mail domains (Mail, API in the dashboard) reads and writes those domains
-only. Setup, limits and retention are in [MAIL.md](MAIL.md).
+only. The owner can also set a key to replies only, and each key has a daily cap on recipients
+([MAIL.md](MAIL.md#move-an-app-off-resend)). Setup, limits and retention are in [MAIL.md](MAIL.md).
 
 Apps that send mail use `/api/mail` instead, which answers like Resend's API
 ([MAIL.md](MAIL.md#move-an-app-off-resend)).
@@ -2374,8 +2375,10 @@ the next page, `null` on the last.
 
 The thread and its newest messages, the oldest of them first. `limit` is 1 to 50, 20 by default, and
 `messages_total` counts every message of the thread. Each message comes as text, cut at 2,000 characters with
-`text_cut: true`. A message that has only HTML comes as its text with the tags removed. `html=1` adds the HTML and
-`headers=1` the headers. Reading marks nothing as read.
+`text_cut: true`. A message that has only HTML comes as its text with the tags removed, and `text_from_html` is then
+`true`: such text can hold words a person does not see in a mail program, such as hidden elements. `html=1` adds the
+HTML and `headers=1` the headers. Reading marks nothing as read. A key kept to some domains gets the thread's messages
+of those domains only.
 
 ```json
 { "thread": { "id": "9a4e1d2c-7b3f-4e5a-8c6d-1f2e3d4c5b6a", "subject": "Refund for order 1042", "unread": 1, "message_count": 2 },
@@ -2384,7 +2387,7 @@ The thread and its newest messages, the oldest of them first. `limit` is 1 to 50
                   "cc": [], "bcc": [], "reply_to": [], "subject": "Refund for order 1042",
                   "snippet": "Hi, I was charged twice for", "status": "received", "source": "inbound", "error": null,
                   "created_at": 1795075530123, "read_at": null, "text": "Hi, I was charged twice for order 1042.",
-                  "text_cut": false, "body_deleted": false,
+                  "text_cut": false, "text_from_html": false, "body_deleted": false,
                   "attachments": [ { "n": 0, "filename": "receipt.pdf", "content_type": "application/pdf", "size": 48211, "cid": null } ],
                   "unparsed": false, "truncated": false,
                   "spam_score": 2, "auth": { "spf": "pass", "dkim": "pass", "dmarc": "pass" } } ],
@@ -2454,26 +2457,34 @@ Needs `mail:write`. Sends one message and starts a thread, so an answer lands in
 | `idempotency_key` | Or the `Idempotency-Key` header. The same key and body within 24 hours send once and answer the first `id` |
 
 ```json
-{ "id": "0b7d6f1c-2a9e-4c7e-9f0a-3d5b8e1c2a47", "status": "sent", "thread_id": "3d5b8e1c-2a47-4c7e-9f0a-6f1c2a9e0b7d" }
+{ "id": "0b7d6f1c-2a9e-4c7e-9f0a-3d5b8e1c2a47", "status": "sent", "thread_id": "3d5b8e1c-2a47-4c7e-9f0a-6f1c2a9e0b7d",
+  "to": ["ann@example.net"] }
 ```
 
-`sent` means Cloudflare took the message. Read its events for what happened next.
+`sent` means Cloudflare took the message. Read its events for what happened next. `to` is who it went to. A repeat
+of an `idempotency_key` answers the first `id` without `to`.
 
 | Status | When |
 | --- | --- |
-| `400` | A field is missing or invalid, the domain is not set up for sending, the key may not send from it, or the `idempotency_key` came with another body before. The error names the cause |
+| `400` | A field is missing or invalid, the domain is not set up for sending, or the `idempotency_key` came with another body before. The error names the cause |
+| `403` | The key may not send from this domain, or the owner set it to replies only, and it cannot write to a new address |
+| `413` | The request is larger than 25 MB |
+| `429` | The key reached its daily cap: 1,000 recipients in 24 hours unless the owner set another number |
 | `422` | The message was stored and then refused: a recipient is on the suppression list, or Cloudflare refused the content or the sender. The answer has the stored `id`, its `status` (`suppressed` or `failed`) and Cloudflare's `code` |
 | `502` | Cloudflare's mail service failed. The message is stored as `failed` |
 | `503` | Mail is not set up on this deployment. The error names the missing binding |
 
-A send to one address writes 22 D1 rows.
+A send to one address writes 24 D1 rows.
 
 ### `POST /api/v1/mail/threads/<id>/reply`
 
-Needs `mail:write`. Send `text` or `html`. The reply goes to the thread's last outside sender, from the address that
-received the thread, with `Re:` in the subject and the headers that keep it in the same conversation.
-`"reply_all": true` copies the other participants, `from` picks another sender, and `attachments` work as in a send.
-It answers and fails like a send. A reply writes 21 rows.
+Needs `mail:write`. Send `text` or `html`. The reply goes to the thread's last outside sender, at its Reply-To
+address when it set one, from the address that received the thread, with `Re:` in the subject and the headers that
+keep it in the same conversation. `"reply_all": true` copies the other participants, `from` picks another sender, and
+`attachments` work as in a send. It answers and fails like a send, and `to` in the answer is the address it chose, so
+check it. A replies-only key answers only people already in the thread and does not follow a Reply-To that names
+someone else. When a recipient is on the suppression list, the error of a reply does not name the address. A reply
+writes 22 rows.
 
 ### `POST /api/v1/mail/threads/<id>/read` and `/archive`
 

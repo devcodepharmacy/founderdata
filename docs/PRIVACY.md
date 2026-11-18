@@ -231,7 +231,9 @@ send and the messages people send to your addresses.
   deliveries. Inbox mail stays until you delete it. [MAIL.md](MAIL.md#what-is-stored-and-for-how-long) has the table.
 - **Who can read it.** The owner in the dashboard, and a scoped key with `mail:read`. Viewers, viewer teammates, the
   iPhone app, share links and keys with `read` get no mail.
-- **Where it is.** The bucket is created in the EU when the database is.
+- **Where it is.** The bucket is created in the EU when the database is. The queue is different: Cloudflare Queues
+  have no jurisdiction setting, and a queue message for received mail or a delivery event carries the sender's and
+  the recipient's address until the Worker has handled it. Bodies never go on the queue.
 - **Erase.** Erasing a person by email deletes every message with their address on it, the stored objects and their
   suppression entries, here and on Cloudflare's suppression list. The admin login does that, and so does a key that
   holds `mail:write` next to `payments:write`. A key without `mail:write` erases the site's rows only and answers
