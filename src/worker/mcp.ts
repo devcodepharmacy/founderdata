@@ -517,7 +517,10 @@ function nextStep(res: Response, msg: string): string {
 }
 
 async function callTool(app: App, c: Context<AppEnv>, tool: Tool, a: Args) {
+  // from and to are days wherever a tool declares them as days. FounderData Pro's mail tool takes addresses under the same names.
+  const props = ((tool.inputSchema as { properties?: Record<string, { pattern?: string }> }).properties ?? {});
   for (const k of ['from', 'to']) {
+    if (props[k]?.pattern !== DAY.source) continue;
     if (a[k] !== undefined && (typeof a[k] !== 'string' || !DAY.test(a[k] as string))) return toolError(`${k} is a day as YYYY-MM-DD`);
   }
   if (a.period !== undefined) {
