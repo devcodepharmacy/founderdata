@@ -97,7 +97,7 @@ Cloudflare's free plan covers about 3,100 web visits a day. [What it costs](#wha
 ## FounderData Pro
 
 Pro is a lifetime license for €19.99 or $19.99: you pay once and get every future update
-([buy it on Polar](https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtp)). It adds the reports below to your
+([buy it on Polar](https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtpjbcy7I63PRvbm)). It adds the reports below to your
 own deployment, on your own Cloudflare account. Core already stores every page view, app event, payment and
 subscription, so the Pro reports cover your history from the first day.
 
