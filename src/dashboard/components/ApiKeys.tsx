@@ -16,7 +16,7 @@ import { SetupRow, SkeletonRows, Spinner, StatusChip, Tabs, toast } from './ui';
  * the changes it logged on this site. The legacy read keys (rtr_) are listed under them.
  */
 
-type Scope = 'read' | 'read:revenue' | 'read:rows' | 'notes:write' | 'alerts:write' | 'payments:write' | 'seo:write' | 'aso:write' | 'research:write' | 'spend:write' | 'spend:ai' | 'spend:seo';
+type Scope = 'read' | 'read:revenue' | 'read:rows' | 'notes:write' | 'alerts:write' | 'payments:write' | 'seo:write' | 'aso:write' | 'research:write' | 'spend:write' | 'spend:ai' | 'spend:seo' | 'mail:read' | 'mail:write';
 
 interface ApiKey {
   id: string;
@@ -57,6 +57,8 @@ const SCOPES: { id: Scope; label: string; text: string }[] = [
   { id: 'spend:write', label: 'Send ad spend', text: 'Send spend from Google Ads, TikTok or a newsletter, as rows or a CSV. Records it, costs nothing.' },
   { id: 'spend:ai', label: 'Spend on AI checks', text: 'Add prompts and competitors to AI visibility. Each prompt costs money every day on every engine you turned on.' },
   { id: 'spend:seo', label: 'Spend on SEO', text: "Buy keyword research with your DataForSEO account, up to the site's monthly cap." },
+  { id: 'mail:read', label: 'Read mail', text: 'Inbox threads, sent messages and their delivery events, with addresses and message text.' },
+  { id: 'mail:write', label: 'Send mail', text: 'Send from your mail domains, reply, mark read and archive. It does not include Read mail.' },
 ];
 const SCOPE_LABEL = Object.fromEntries(SCOPES.map((s) => [s.id, s.label])) as Record<Scope, string>;
 
@@ -74,6 +76,8 @@ const ABILITIES: Record<Scope, { text: string; tools: string[] }> = {
   'spend:write': { text: 'Send ad spend from channels without an import, such as the Google Ads Script in the guide', tools: ['POST /api/v1/spend'] },
   'spend:ai': { text: 'Add AI visibility prompts, each billed every day on every engine you turned on', tools: ['add_ai_prompts'] },
   'spend:seo': { text: "Buy keyword research with your DataForSEO account, up to the site's monthly cap", tools: ['research_keywords'] },
+  'mail:read': { text: 'Read the inbox and the sent log, with addresses and message text', tools: ['mail'] },
+  'mail:write': { text: 'Send and reply from your mail domains, as an app through the Resend-compatible API or as an agent', tools: ['mail', 'POST /api/mail/emails'] },
 };
 
 type PresetId = 'read' | 'revenue' | 'growth' | 'custom';

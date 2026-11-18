@@ -58,6 +58,13 @@ export const PRO_APPS_PAGE = {
   collected: 'Core already stores the events FounderDataKit sends, so the page shows your history the day you switch.',
 };
 
+/** The Mail page (/mail), the Pro card's text for it. */
+export const PRO_MAIL_PAGE = {
+  title: 'Mail',
+  body: 'Send and receive email on your own domains through Cloudflare. Apps keep the Resend SDK and change one base URL. Replies land in an inbox here, and agents can read and answer them over MCP.',
+  collected: "Sending needs Cloudflare's Workers Paid plan, which includes 3,000 messages a month and charges $0.35 per 1,000 after that.",
+};
+
 /** Everything Pro adds, for the Pro card in Settings. */
 export const PRO_LIST = [
   'MRR, churn, LTV and retention per source, for every subscription provider',

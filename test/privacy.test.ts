@@ -360,6 +360,9 @@ describe('privacy: retention, site delete and the visitor salt', () => {
       expect(await w.db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE site_id = ?`).bind(keep.id).first('n'), `${t} of the other site`).toBe(1);
     }
     expect(JSON.parse((await w.db.prepare("SELECT sites FROM alert_channels WHERE id = 'ch1'").first<string>('sites'))!)).toEqual([keep.id]);
+    // A mail domain belongs to the deployment: it stays, without the link to the deleted site.
+    expect(withSite).toContain('mail_domains');
+    expect(await w.db.prepare("SELECT COUNT(*) AS n FROM mail_domains WHERE name = ? AND site_id IS NULL").bind(`mail_domains-name-${site.id}`).first('n')).toBe(1);
     // About 80 statements, one at a time: give a busy machine room.
   }, 60_000);
 

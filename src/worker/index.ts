@@ -23,7 +23,7 @@ import { importRow } from './imports';
 import { createNote, deleteNote, handleNoteApi, listNotes, noteImpactRoute, overviewOutages, reviewNoteRoute } from './notes';
 import { AUTH_COOKIE, AUTH_DAYS, checkLogin, checkMemberLogin, hasTeam, requireAuth, revokeStaleDevices, sessionCookie, sessionRole, startMemberSession } from './auth';
 import { pro } from './edition';
-import { installPro } from './pro-hooks';
+import { installPro, proHooks } from './pro-hooks';
 import { handleFavicon } from './favicon';
 import { randomId } from './lib/crypto';
 import { deleteIncome, handleDeletePaymentApi, handleGoalApi, handlePaymentApi, listIncome, rematchPayments } from './payments';
@@ -221,6 +221,21 @@ app.use('/api/usage', requireAuth);
 app.use('/api/setup', requireAuth);
 app.use('/api/setup/*', requireAuth);
 app.use('/api/favicon/*', requireAuth);
+// FounderData Pro's mail in the dashboard: the owner only (auth.ts refuses viewers, viewer teammates and phones), and a
+// write must come from the dashboard's own page. The Resend-compatible /api/mail/* takes an API key instead (keys.ts
+// accountKeyOf).
+const sameOriginWrites = async (c: Context<AppEnv>, next: Next) => {
+  if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+    const origin = c.req.header('origin');
+    const fetchSite = c.req.header('sec-fetch-site');
+    if ((origin && origin !== new URL(c.req.url).origin) || (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none')) {
+      return c.json({ error: 'Mail changes must come from the dashboard.' }, 403);
+    }
+  }
+  await next();
+};
+app.use('/api/mail-admin', requireAuth, sameOriginWrites);
+app.use('/api/mail-admin/*', requireAuth, sameOriginWrites);
 
 const loadSite = async (c: Context<AppEnv>, next: Next) => {
   const site = await c.env.DB.prepare('SELECT * FROM sites WHERE id = ?').bind(c.req.param('id')).first<Site>();
@@ -528,6 +543,8 @@ app.delete('/api/sites/:id', async (c) => {
       c.env.DB.prepare('DELETE FROM sub_imports WHERE site_id = ?').bind(id),
       // Apple's sales rows are not the site's data: they stay, unmatched, and match again if the app comes back.
       c.env.DB.prepare('UPDATE asc_sales SET site_id = NULL WHERE site_id = ?').bind(id),
+      // Mail domains belong to the deployment: they stay, without the link to this site's email numbers.
+      c.env.DB.prepare('UPDATE mail_domains SET site_id = NULL WHERE site_id = ?').bind(id),
       forgetAppRejected(c.env.DB, id),
       // The erase log stays, with the site's name: it is the proof that requests were answered (privacy.ts).
       keepErasures(c.env.DB, c.get('site')),
@@ -750,8 +767,31 @@ export async function runPlan(rawEnv: AppEnv['Bindings'], now: number, plan: Pla
   }
 }
 
+/** Why an inbound message is refused when no mail handler is installed. The sender's server reports it back. */
+export const NO_MAIL_HANDLER = 'This address does not accept mail: the FounderData deployment it points to has no mail handler.';
+
 export default {
   fetch: app.fetch,
+  // Inbound mail from Cloudflare Email Routing, one message per recipient. FounderData Pro handles it (pro-hooks.ts);
+  // core has nowhere to put it and rejects it, so the sender learns at once instead of thinking it arrived.
+  async email(message: ForwardableEmailMessage, env: AppEnv['Bindings'], ctx: ExecutionContext) {
+    const hook = proHooks()?.email;
+    if (!hook) {
+      message.setReject(NO_MAIL_HANDLER);
+      return;
+    }
+    await hook(message, env, ctx);
+  },
+  // The MAIL_QUEUE consumer (FounderData Pro mail). Without Pro nothing reads these messages: ack them so they do not
+  // retry until they expire.
+  async queue(batch: MessageBatch<unknown>, env: AppEnv['Bindings'], ctx: ExecutionContext) {
+    const hook = proHooks()?.queue;
+    if (!hook) {
+      batch.ackAll();
+      return;
+    }
+    await hook(batch, env, ctx);
+  },
   async scheduled(event: ScheduledController, env: AppEnv['Bindings'], ctx: ExecutionContext) {
     // Three crons: 03:17 trims old visit data and email dedupe rows and imports Apple Search Ads, 10:30 re-imports the last three App Store sales days, and every 5 minutes (TICK_CRON) the tick.
     // Every tick collects and posts DataForSEO rank checks and runs a few AI checks. One tick an hour runs each hourly job,

@@ -226,6 +226,24 @@ export interface Pro {
   home?: ProHome;
   /** Pro's parts of the daily alerts and the weekly report. */
   digest?: ProDigest;
+
+  // ---- mail (pro/worker/mail/, migration 0070)
+  /**
+   * The Worker's `email()` handler: Cloudflare Email Routing hands over one inbound message per recipient. Without it
+   * core rejects every message with a reason the sender's server reports back (index.ts).
+   */
+  email?(message: ForwardableEmailMessage, env: Bindings, ctx: ExecutionContext): Promise<void>;
+  /**
+   * The Worker's `queue()` handler, for the MAIL_QUEUE consumer: Cloudflare's sending events, inbound parse jobs and
+   * webhook deliveries. Pro acks or retries each message. Without it core acks the batch so nothing piles up.
+   */
+  queue?(batch: MessageBatch<unknown>, env: Bindings, ctx: ExecutionContext): Promise<void>;
+  /**
+   * Erasing a person by email (erase.ts erasePerson) also removes their mail: messages they sent or received, the R2
+   * objects, events, webhook deliveries and suppressions. Mail belongs to the deployment, so this covers every site.
+   * Returns counts by name, which join the answer and the erase log. Called only for an erase by email.
+   */
+  erasePerson?(a: { env: Bindings; email: string }): Promise<Record<string, number>>;
 }
 
 // ---------- the installed edition

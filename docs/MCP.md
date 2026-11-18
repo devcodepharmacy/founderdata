@@ -23,6 +23,7 @@ Make a key for the agent in Settings, Agents. Pick the scopes it needs ([API.md]
 - `notes:write` if it should log its changes with `add_note`, and in Pro review them with `review_change`.
 - `research:write` if it should record what it found, decided or paid for with `add_research` ([The research log](#the-research-log-pro)), or track keywords with `research_keywords` ([SEO.md](SEO.md#keyword-research-and-rank-tracking)).
 - `spend:seo` if it should buy keyword research with your DataForSEO account (`research_keywords` with `mode`), up to the site's monthly cap. `research:write` does not include it.
+- `mail:read` and `mail:write` if it should read and send the deployment's mail with the Pro tool `mail`. Mail answers hold addresses and message text that strangers wrote. `read` reaches none of it.
 - One site, several, or all sites. A key for all sites unlocks `get_portfolio`.
 
 `spend:ai` adds one tool, `add_ai_prompts`, which saves prompts for the AI visibility runner ([AI-VISIBILITY.md](AI-VISIBILITY.md)). Each prompt is billed on the owner's engines every day, so give this scope only to an agent that should spend. `seo:write` and `aso:write` are for push scripts: no tool writes the SEO snapshot, the ASO data or AI

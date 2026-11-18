@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PRO_CHECKOUT_URL, PRO_PAGE, PRO_PRICE } from '../../shared/product';
 import { PRO_INSTALL_PROMPT } from '../../shared/pro-prompts';
-import { PRO_APPS_PAGE, PRO_LIST, PRO_SECTIONS } from '../lib/proFeatures';
+import { PRO_APPS_PAGE, PRO_LIST, PRO_MAIL_PAGE, PRO_SECTIONS } from '../lib/proFeatures';
 import { matchRoute } from '../lib/routes';
 import { Code } from './Code';
 
@@ -34,7 +34,7 @@ export function ProActions({ compact = false }: { compact?: boolean }) {
 /** What a core build shows in place of a FounderData Pro section. */
 export function ProUpsellView() {
   const route = matchRoute(window.location.pathname);
-  const section = route.page === 'dashboard' ? PRO_SECTIONS[route.view] : route.page === 'apps' ? PRO_APPS_PAGE : undefined;
+  const section = route.page === 'dashboard' ? PRO_SECTIONS[route.view] : route.page === 'apps' ? PRO_APPS_PAGE : route.page === 'mail' ? PRO_MAIL_PAGE : undefined;
   return (
     <div className="card mx-auto my-6 max-w-2xl px-6 py-8">
       <div className="mb-2 inline-flex rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-stone-500">FounderData Pro</div>

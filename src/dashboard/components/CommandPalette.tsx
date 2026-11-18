@@ -116,6 +116,7 @@ export function CommandPalette() {
     if (current) out.push({ id: 'go-settings', group: 'Go to', label: `${current.name} settings and install`, run: () => navigate(`/site/${current.id}/settings`) });
     if (!isViewer()) out.push({ id: 'go-alerts', group: 'Go to', label: 'Notifications and alerts', run: () => navigate('/notifications') });
     out.push({ id: 'go-apps', group: 'Go to', label: 'Connected apps', hint: isPro ? undefined : 'Pro', run: () => navigate('/apps') });
+    if (!isViewer()) out.push({ id: 'go-mail', group: 'Go to', label: 'Mail', hint: isPro ? undefined : 'Pro', run: () => navigate('/mail') });
     for (const t of ['system', 'light', 'dark'] as const)
       out.push({ id: `t-${t}`, group: 'Theme', label: t === 'system' ? 'Follow the system' : t === 'light' ? 'Light' : 'Dark', run: () => setThemePref(t) });
     return out;

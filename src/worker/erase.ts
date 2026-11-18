@@ -5,6 +5,7 @@
 import type { Context } from 'hono';
 import type { AppEnv, Site } from './env';
 import { cleanNote, handlerOf, logErasure } from './privacy';
+import { proHooks } from './pro-hooks';
 
 /** Visitor ids per batch: each statement binds them all, and D1 allows 100 bound parameters. */
 const IDS_PER_BATCH = 50;
@@ -155,7 +156,10 @@ export async function erasePerson(c: Context<AppEnv>) {
     for (const r of paid.results) if (!visitors.includes(r.id)) visitors.push(r.id);
   }
   const more = visitors.length > MAX_VISITORS;
-  const res = await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email);
+  const erased = await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email);
+  // FounderData Pro's mail: the messages to and from this address, across the deployment (pro-hooks.ts erasePerson).
+  const mail = email ? await proHooks()?.erasePerson?.({ env: c.env, email }) : undefined;
+  const res = { ...erased, ...mail };
   await logErasure(c.env.DB, site, email && userId ? 'email+user_id' : email ? 'email' : 'user_id', res, { handler: handlerOf(c), note: cleanNote(b.note) });
   return c.json({ ok: true, ...res, ...(more ? { more: true } : {}) });
 }

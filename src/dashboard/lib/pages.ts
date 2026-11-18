@@ -18,6 +18,8 @@ export const Pages = {
   Notifications: lazyNamed(() => import('../pages/Notifications'), 'Notifications'),
   // Connected apps (/apps) is FounderData Pro's: its page in a Pro build (slot `appsPage`), the Pro card in core.
   Apps: proUi?.slots.appsPage ?? Upsell,
+  // Mail (/mail) is FounderData Pro's too: its page in a Pro build (slot `mailPage`), the Pro card in core.
+  Mail: proUi?.slots.mailPage ?? Upsell,
   Live: lazyNamed(() => import('../pages/Live'), 'Live'),
   SharePage: lazyNamed(() => import('../pages/SharePage'), 'SharePage'),
   Join: lazyNamed(() => import('../pages/Join'), 'Join'),

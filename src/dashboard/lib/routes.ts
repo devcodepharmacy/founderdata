@@ -15,6 +15,7 @@ import { BREAKDOWN_CARDS } from '../../shared/dashboard-tabs';
 export type Route =
   | { page: 'home' }
   | { page: 'apps' }
+  | { page: 'mail' }
   | { page: 'notifications' }
   | { page: 'live' }
   | { page: 'settings'; siteId: string }
@@ -43,6 +44,8 @@ const DASHBOARD: [RegExp, View][] = [
 
 export function matchRoute(path: string, viewer: boolean = isViewer()): Route {
   if (/^\/apps\/?$/.test(path)) return { page: 'apps' };
+  // Mail holds other people's addresses and messages: the owner's only, like Notifications.
+  if (/^\/mail\/?$/.test(path) && !viewer) return { page: 'mail' };
   // The full-screen live view: the globe, who is online and the last hour's payments (pages/Live.tsx).
   if (/^\/live\/?$/.test(path)) return { page: 'live' };
   // Alert channels hold webhook URLs: the owner's only. The viewer login lands on the home page.
@@ -81,6 +84,8 @@ function chunksOf(route: Route) {
       return [Pages.Home];
     case 'apps':
       return [Pages.Apps];
+    case 'mail':
+      return [Pages.Mail];
     case 'notifications':
       return [Pages.Notifications];
     case 'live':

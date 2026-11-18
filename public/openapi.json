@@ -7,7 +7,7 @@
       "name": "MIT",
       "identifier": "MIT"
     },
-    "description": "Web and iOS analytics with revenue attribution, on your own Cloudflare deployment. Every route takes one key in Authorization: Bearer. A scoped key (fdk_..., Settings, API keys) reaches the routes its scopes allow: read, read:revenue, read:rows, notes:write, alerts:write, payments:write, seo:write, aso:write, research:write, spend:ai and spend:seo. GET /api/v1/whoami tells a key what it may do. The older keys still work: a read key (rtr_...) reads, and the site API key (rt_...) writes. Money in every answer is an integer in minor units of the currency the answer names: 2999 with USD is $29.99. Read answers are cached for 60 seconds, and one key gets 120 new answers a minute. docs/API.md has the details. docs/MCP.md covers the MCP server at /mcp."
+    "description": "Web and iOS analytics with revenue attribution, on your own Cloudflare deployment. Every route takes one key in Authorization: Bearer. A scoped key (fdk_..., Settings, API keys) reaches the routes its scopes allow: read, read:revenue, read:rows, notes:write, alerts:write, payments:write, seo:write, aso:write, research:write, spend:write, spend:ai, spend:seo, mail:read and mail:write. GET /api/v1/whoami tells a key what it may do. The older keys still work: a read key (rtr_...) reads, and the site API key (rt_...) writes. Money in every answer is an integer in minor units of the currency the answer names: 2999 with USD is $29.99. Read answers are cached for 60 seconds, and one key gets 120 new answers a minute. docs/API.md has the details. docs/MCP.md covers the MCP server at /mcp."
   },
   "servers": [
     {

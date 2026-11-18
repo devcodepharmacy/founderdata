@@ -49,6 +49,8 @@ only replaced. Revoking a key stops it within a minute and leaves the others alo
 | `research:write` | `POST /api/v1/research` and the MCP tool `add_research` ([Research log](#research-log-pro)), and tracking keywords with `POST /api/v1/ranks/keywords` (up to 200 a request) and the MCP tool `research_keywords` with `track` | `403` |
 | `spend:write` | Sending ad spend from channels without an import: `POST` and `DELETE /api/v1/spend` ([Ad spend](#ad-spend-pro)). It records what you spent elsewhere and bills nothing, unlike `spend:ai` and `spend:seo` | `403` |
 | `spend:seo` | Buying keyword research with your DataForSEO account, up to the site's monthly cap: `POST /api/v1/ranks/research` and `research_keywords` with `mode`, including `mode: "app"` ([Ranks and keyword research](#ranks-and-keyword-research-pro)). `research:write` does not include it | `403` |
+| `mail:read` | FounderData Pro mail: read the inbox, the sent log and delivery events, with addresses and message text (`/api/v1/mail/*` reads and the MCP tool `mail`). `read` does not include it | `403` |
+| `mail:write` | FounderData Pro mail: send from the deployment's mail domains, reply, mark read and archive (`POST /api/mail/emails`, the `/api/v1/mail/*` writes and the MCP tool `mail`). It does not include `mail:read` | `403` |
 
 A `403` names the missing scope and the key's scopes. A key for one site acts on that site. A key for several sites
 or all sites names the site with `?site=<id>` on every route, reads and writes alike; a site it doesn't cover gets

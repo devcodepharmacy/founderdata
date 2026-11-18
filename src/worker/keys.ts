@@ -13,7 +13,7 @@ import { requireAuth, sha256Hex } from './auth';
 import { getSite, type AppEnv, type Site } from './env';
 import { randomId } from './lib/crypto';
 
-export const SCOPES = ['read', 'read:revenue', 'read:rows', 'notes:write', 'alerts:write', 'payments:write', 'seo:write', 'aso:write', 'research:write', 'spend:write', 'spend:ai', 'spend:seo'] as const;
+export const SCOPES = ['read', 'read:revenue', 'read:rows', 'notes:write', 'alerts:write', 'payments:write', 'seo:write', 'aso:write', 'research:write', 'spend:write', 'spend:ai', 'spend:seo', 'mail:read', 'mail:write'] as const;
 export type Scope = (typeof SCOPES)[number];
 /**
  * Scopes that write. spend:ai and spend:seo also write, and each one lets a key start billed calls on the owner's provider
@@ -35,6 +35,8 @@ export const SCOPE_TEXT: Record<Scope, string> = {
   'spend:write': 'send ad spend from channels without an import (Google Ads, TikTok, a newsletter), as rows or a CSV. It records spend and costs nothing',
   'spend:ai': 'add prompts and competitors to the AI visibility runner. Each prompt is billed daily on every engine the owner turned on',
   'spend:seo': "spend the owner's DataForSEO money on keyword research, up to the site's monthly cap",
+  'mail:read': "read the deployment's mail: inbox threads, sent messages and their events, with addresses and message text",
+  'mail:write': "send mail from the deployment's domains and change the inbox (reply, mark read, archive). It does not include mail:read",
 };
 
 /** The scopes the old keys have. They can't change. */
@@ -203,6 +205,7 @@ const WRITE_TEXT: Record<WriteScope, string> = {
   'spend:write': 'send ad spend',
   'spend:ai': 'add AI visibility prompts, which cost money on every enabled engine',
   'spend:seo': "spend DataForSEO money on keyword research",
+  'mail:write': 'send mail',
 };
 
 /**
@@ -245,6 +248,38 @@ export const requireWriteKey = (scope: WriteScope) => async (c: Context<AppEnv>,
   c.set('site', auth.site);
   await next();
 };
+
+// ---------- routes of the whole deployment (mail)
+
+/** Scopes of routes that belong to the deployment, not to a site. */
+export type AccountScope = Extract<Scope, 'mail:read' | 'mail:write'>;
+
+export type AccountAuth = { key: ApiKey } | { error: string; status: 401 | 403 };
+
+const ACCOUNT_TEXT: Record<AccountScope, string> = {
+  'mail:read': 'read mail',
+  'mail:write': 'send mail',
+};
+
+/**
+ * The scoped key (fdk_) in `Authorization: Bearer` for a route of the whole deployment, such as FounderData Pro's mail.
+ * The key needs exactly `scope`: `read` and the other scopes never reach mail, and mail:write does not include
+ * mail:read, so an app that sends cannot read the inbox. The sites a key covers do not matter here. Old keys (rt_, rtr_)
+ * get 401: they belong to one site.
+ * 401: no key, or an unknown, expired or revoked one. 403: the key lacks the scope.
+ */
+export async function accountKeyOf(c: Context<AppEnv>, scope: AccountScope): Promise<AccountAuth> {
+  if (!bearerSecret(c)) return { error: 'Send a FounderData API key (fdk_...) in Authorization: Bearer. Create one in Settings, Agents.', status: 401 };
+  const key = await scopedKeyOf(c, { write: c.req.method !== 'GET' && c.req.method !== 'HEAD' });
+  if (!key) return { error: 'This API key does not exist, expired or was revoked.', status: 401 };
+  if (!key.scopes.includes(scope)) {
+    return {
+      error: `This key can't ${ACCOUNT_TEXT[scope]}: it needs the ${scope} scope. Create a key with it in Settings, Agents. Its scopes: ${key.scopes.join(', ')}.`,
+      status: 403,
+    };
+  }
+  return { key };
+}
 
 // ---------- the SEO and ASO routes of the dashboard, for a key with seo:write or aso:write
 

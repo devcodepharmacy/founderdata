@@ -59,6 +59,76 @@ describe('scripts/setup.mjs', () => {
     expect(databaseJurisdiction(list, 'founderdata')).toBe('eu');
     expect(databaseJurisdiction(list, 'blog')).toBeNull();
   });
+
+  describe('--mail', () => {
+    const strip = (t: string) => JSON.parse(t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'));
+    const opts = { bucket: 'founderdata-mail', queue: 'founderdata-mail' };
+    const consumer = { queue: 'founderdata-mail', max_batch_size: 10, max_batch_timeout: 2, max_retries: 8 };
+
+    it('keeps the committed config free of mail bindings, so a deploy works on an account without R2 or Queues', () => {
+      const shipped = strip(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));
+      expect(shipped.r2_buckets).toBeUndefined();
+      expect(shipped.queues).toBeUndefined();
+      expect(shipped.send_email).toBeUndefined();
+    });
+
+    it('adds the three bindings to the shipped config, with the EU jurisdiction, and keeps every comment', async () => {
+      const { writeMailBindings } = await import(/* @vite-ignore */ SCRIPT);
+      const config = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+      const { text, notes } = writeMailBindings(config, { ...opts, jurisdiction: 'eu' });
+      const j = strip(text);
+      expect(j.send_email).toEqual([{ name: 'EMAIL' }]);
+      expect(j.r2_buckets).toEqual([{ binding: 'MAIL_BUCKET', bucket_name: 'founderdata-mail', jurisdiction: 'eu' }]);
+      expect(j.queues).toEqual({ producers: [{ binding: 'MAIL_QUEUE', queue: 'founderdata-mail' }], consumers: [consumer] });
+      expect(j.d1_databases).toEqual(strip(config).d1_databases);
+      expect(notes).toEqual([]);
+      const comments = (t: string) => t.split('\n').filter((l) => l.trim().startsWith('//'));
+      expect(comments(text).slice(0, comments(config).length)).toEqual(comments(config));
+      // Idempotent: a second run changes nothing.
+      expect(writeMailBindings(text, { ...opts, jurisdiction: 'eu' }).text).toBe(text);
+      expect(strip(writeMailBindings(config, opts).text).r2_buckets).toEqual([{ binding: 'MAIL_BUCKET', bucket_name: 'founderdata-mail' }]);
+    });
+
+    it('patches a local config that already has other bindings, and leaves what is there', async () => {
+      const { writeMailBindings } = await import(/* @vite-ignore */ SCRIPT);
+      const local = `{
+  "name": "founderdata",
+  // a comment with brackets [ { that must not count
+  "send_email": [ { "name": "ALERTS" } ],
+  "r2_buckets": [],
+  "queues": { "producers": [ { "binding": "OTHER", "queue": "other" } ], },
+  "vars": { "DATA_JURISDICTION": "eu" }
+}`;
+      const { text } = writeMailBindings(local, opts);
+      const j = strip(text);
+      expect(j.send_email).toEqual([{ name: 'EMAIL' }, { name: 'ALERTS' }]);
+      expect(j.r2_buckets).toEqual([{ binding: 'MAIL_BUCKET', bucket_name: 'founderdata-mail' }]);
+      expect(j.queues.producers).toEqual([{ binding: 'MAIL_QUEUE', queue: 'founderdata-mail' }, { binding: 'OTHER', queue: 'other' }]);
+      expect(j.queues.consumers).toEqual([consumer]);
+      expect(j.vars).toEqual({ DATA_JURISDICTION: 'eu' });
+      expect(text).toContain('// a comment with brackets [ { that must not count');
+      expect(writeMailBindings(text, opts).text).toBe(text);
+    });
+
+    it('leaves an existing EMAIL binding as it is, and says when it only sends to fixed addresses', async () => {
+      const { writeMailBindings } = await import(/* @vite-ignore */ SCRIPT);
+      const local = '{ "name": "x", "send_email": [{ "name": "EMAIL", "destination_address": "me@acme.example" }] }';
+      const { text, notes } = writeMailBindings(local, opts);
+      expect(strip(text).send_email).toEqual([{ name: 'EMAIL', destination_address: 'me@acme.example' }]);
+      expect(notes[0]).toMatch(/destination_address/);
+    });
+
+    it('names the bucket and queue after the database, and reads Wrangler list output', async () => {
+      const { mailResourceName, listsBucket, listsQueue } = await import(/* @vite-ignore */ SCRIPT);
+      expect(mailResourceName('founderdata')).toBe('founderdata-mail');
+      expect(mailResourceName('My_Analytics')).toBe('my-analytics-mail');
+      expect(listsBucket('name:           founderdata-mail\ncreation_date:  2026-11-18T08:00:00.000Z\n', 'founderdata-mail')).toBe(true);
+      expect(listsBucket('name:           founderdata-mail-old\n', 'founderdata-mail')).toBe(false);
+      const table = '┌──────┬──────────────────┐\n│ id   │ name             │\n│ abc  │ founderdata-mail │\n└──────┴──────────────────┘';
+      expect(listsQueue(table, 'founderdata-mail')).toBe(true);
+      expect(listsQueue(table, 'founderdata')).toBe(false);
+    });
+  });
 });
 
 describe('data location', () => {
