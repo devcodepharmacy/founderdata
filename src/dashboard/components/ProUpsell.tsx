@@ -21,6 +21,10 @@ export function ProActions({ compact = false }: { compact?: boolean }) {
         </button>
         <span className="text-[13px] text-stone-500">{PRO_PRICE}, paid once</span>
       </div>
+      <p className="mt-3 text-[13px] text-stone-500">
+        After you pay, connect your GitHub account on Polar's purchase page and accept the invitation GitHub sends you.
+        Then come back here and press Install Pro.
+      </p>
       {open && (
         <div className="mt-4 text-left">
           <p className="mb-2 text-[13px] text-stone-500">Paste this into the AI agent that manages this deployment (Claude Code, Cursor, Codex). It merges Pro into your copy and keeps your own changes.</p>

@@ -12,6 +12,9 @@ export const CORE_REPO = 'https://github.com/founderdata/founderdata';
 /** The private FounderData Pro repository. A buyer's GitHub account gets read access when they buy. */
 export const PRO_REPO = 'https://github.com/founderdata/founderdata-pro';
 
+/** Polar's customer portal for FounderData Pro. A buyer connects their GitHub account here to get the invitation. */
+export const PRO_PORTAL = 'https://polar.sh/founderdataapp/portal';
+
 /** The latest release, as JSON ({ version, date, notes }). The Updates card in Settings reads it in the browser. */
 export const RELEASE_URL = 'https://raw.githubusercontent.com/founderdata/founderdata/main/release.json';
 

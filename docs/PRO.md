@@ -28,8 +28,18 @@ subscription your providers send. When you switch to Pro, the Pro reports cover 
 
 ## Buy
 
-The **Get the lifetime license** button in a core dashboard opens the checkout. Polar handles the payment and the tax,
-then invites your GitHub account to the private Pro repository. That access is your license.
+The **Get the lifetime license** button in a core dashboard opens the checkout. Polar handles the payment and the tax.
+Your license is read access to the private Pro repository on GitHub, and you claim it in three steps:
+
+1. After you pay, Polar opens your purchase page. Later, open it from the **Access purchase** button in Polar's order
+   email, or sign in at [polar.sh/founderdataapp/portal](https://polar.sh/founderdataapp/portal) with the email you
+   paid with.
+2. Press **Connect GitHub account** and pick the account that git uses on the machine with your FounderData copy.
+3. Accept the invitation at
+   [github.com/founderdata/founderdata-pro/invitations](https://github.com/founderdata/founderdata-pro/invitations).
+   GitHub also emails it to you.
+
+Then install Pro as below.
 
 ## License
 
@@ -44,10 +54,13 @@ Pro installs with git, so the changes you made to your own copy stay. In the das
 Settings, click **Already bought? Install Pro** and paste the prompt into the AI agent that manages your deployment
 (Claude Code, Cursor, Codex). The prompt tells it to:
 
-1. Commit your uncommitted changes.
-2. Add the Pro repository as the `pro` remote, fetch it and run `git merge pro/main`.
-3. Resolve conflicts so your changes and Pro's both survive.
-4. Run `npm install`, `npm run typecheck && npm test`, then `npm run setup` to migrate and deploy.
+1. Check that git can read the Pro repository, and walk you through the steps under [Buy](#buy) when it can't.
+2. Commit your uncommitted changes.
+3. Add the Pro repository as the `pro` remote, fetch it and run `git merge pro/main`.
+4. Resolve conflicts so your changes and Pro's both survive.
+5. Run `npm install`, `npm run typecheck && npm test`, then `npm run setup` to migrate and deploy.
+6. Check that Pro is live: `curl -s -o /dev/null -w '%{http_code}' <worker url>/api/apps` prints 401 on Pro and 404
+   on core.
 
 By hand:
 
