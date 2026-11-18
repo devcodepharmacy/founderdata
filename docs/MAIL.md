@@ -145,6 +145,8 @@ What differs from Resend:
 - `download_url` is a route of this API. Fetch it with the same `Authorization` header. It does not expire while the
   body is stored.
 - Sending uses the first `reply_to` address. The message's record keeps all of them.
+- Received mail is not on this API. The package's `emails.receiving` calls answer 404. An app gets inbound mail from
+  the `email.received` webhook, and an agent reads the inbox with a `mail:read` key.
 - Open and click tracking, `scheduled_at`, broadcasts, contacts, audiences and Resend templates answer 422 in Resend's
   error shape. So do creating or changing domains, webhooks and API keys through the API.
 - A message can have 50 recipients across `to`, `cc` and `bcc`, 32 attachments and 18 MB in all.
@@ -200,7 +202,7 @@ A scoped key reaches mail with two scopes of its own. `mail:read` reads the inbo
 `mail:write` sends, replies, marks read and archives. Neither includes the other, and `read` reaches no mail. The
 routes are in [API.md](API.md#mail-pro), and the MCP tool is `mail` ([MCP.md](MCP.md#the-mail-tool-pro)).
 
-An agent gets each message as text, cut at 4,000 characters in a thread and at 40,000 for one message. It gets the
+An agent gets each message as text, cut at 2,000 characters in a thread and at 40,000 for one message. It gets the
 names and sizes of attachments, not their bytes.
 
 Mail is the one place where an agent sees addresses and text that strangers wrote. Every answer with mail in it

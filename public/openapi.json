@@ -12392,7 +12392,7 @@
           }
         ],
         "summary": "One thread with its newest messages (Pro)",
-        "description": "The thread and its newest messages, the oldest of them first. Each message comes as text, cut at 4,000 characters: read one message for the rest. Reading marks nothing as read. Needs a scoped key with mail:read. read does not include it, and neither does mail:write. A key kept to some mail domains (Mail, API in the dashboard) sees those domains only. Not cached.",
+        "description": "The thread and its newest messages, the oldest of them first. Each message comes as text, cut at 2,000 characters: read one message for the rest. Reading marks nothing as read. Needs a scoped key with mail:read. read does not include it, and neither does mail:write. A key kept to some mail domains (Mail, API in the dashboard) sees those domains only. Not cached.",
         "parameters": [
           {
             "name": "limit",
@@ -12410,6 +12410,19 @@
             "in": "query",
             "required": false,
             "description": "1 adds each message's HTML.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ]
+            }
+          },
+          {
+            "name": "headers",
+            "in": "query",
+            "required": false,
+            "description": "1 adds each message's headers.",
             "schema": {
               "type": "string",
               "enum": [
@@ -12513,6 +12526,19 @@
             "in": "query",
             "required": false,
             "description": "1 adds the message's HTML.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ]
+            }
+          },
+          {
+            "name": "headers",
+            "in": "query",
+            "required": false,
+            "description": "1 adds the message's headers.",
             "schema": {
               "type": "string",
               "enum": [
@@ -14848,7 +14874,7 @@
           },
           "text_cut": {
             "type": "boolean",
-            "description": "true when text was cut: at 4,000 characters in a thread, at 40,000 for one message."
+            "description": "true when text was cut: at 2,000 characters in a thread, at 40,000 for one message."
           },
           "html": {
             "type": [
@@ -14891,7 +14917,8 @@
             "type": [
               "object",
               "null"
-            ]
+            ],
+            "description": "Only with headers=1."
           },
           "unparsed": {
             "type": "boolean"

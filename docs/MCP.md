@@ -442,7 +442,7 @@ Three things differ from every other tool:
   `send` so that a retry sends once. Give `mail:write` only to an agent you would let write in your name, and keep
   its key to the domains it needs on the Mail page's API tab.
 
-A message comes as text, cut at 4,000 characters in `get_thread` and at 40,000 in `get_message`. Attachments come as
+A message comes as text, cut at 2,000 characters in `get_thread` and at 40,000 in `get_message`. Attachments come as
 names and sizes. The tool sends no attachments. The route does.
 
 ### The tool budget

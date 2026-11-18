@@ -2373,9 +2373,9 @@ the next page, `null` on the last.
 ### `GET /api/v1/mail/threads/<id>`
 
 The thread and its newest messages, the oldest of them first. `limit` is 1 to 50, 20 by default, and
-`messages_total` counts every message of the thread. Each message comes as text, cut at 4,000 characters with
-`text_cut: true`. A message that has only HTML comes as its text with the tags removed. `html=1` adds the HTML.
-Reading marks nothing as read.
+`messages_total` counts every message of the thread. Each message comes as text, cut at 2,000 characters with
+`text_cut: true`. A message that has only HTML comes as its text with the tags removed. `html=1` adds the HTML and
+`headers=1` the headers. Reading marks nothing as read.
 
 ```json
 { "thread": { "id": "9a4e1d2c-7b3f-4e5a-8c6d-1f2e3d4c5b6a", "subject": "Refund for order 1042", "unread": 1, "message_count": 2 },
@@ -2386,7 +2386,7 @@ Reading marks nothing as read.
                   "created_at": 1795075530123, "read_at": null, "text": "Hi, I was charged twice for order 1042.",
                   "text_cut": false, "body_deleted": false,
                   "attachments": [ { "n": 0, "filename": "receipt.pdf", "content_type": "application/pdf", "size": 48211, "cid": null } ],
-                  "headers": { "message-id": "<a1@example.net>" }, "unparsed": false, "truncated": false,
+                  "unparsed": false, "truncated": false,
                   "spam_score": 2, "auth": { "spf": "pass", "dkim": "pass", "dmarc": "pass" } } ],
   "messages_total": 2, "content_notice": "..." }
 ```
@@ -2397,7 +2397,7 @@ may not be who the `from` field says. The API serves attachment names and sizes,
 ### `GET /api/v1/mail/messages/<id>`
 
 One message, received or sent, with up to 40,000 characters of text, and `events`: a sent message's delivery events,
-oldest first. `html=1` adds the HTML.
+oldest first. `html=1` adds the HTML and `headers=1` the headers.
 
 ```json
 { "message": { "id": "0b7d6f1c-2a9e-4c7e-9f0a-3d5b8e1c2a47", "direction": "out", "status": "delivered",
