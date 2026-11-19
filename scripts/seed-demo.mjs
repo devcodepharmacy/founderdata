@@ -111,7 +111,7 @@ const insertEvents = (siteId, sid, vid, events) => {
 
 const SITE_IDS = ['demo0001', 'demo0002', 'demo0003', 'demo0004', 'demo0005'];
 const ids = SITE_IDS.map(q).join(', ');
-for (const table of ['events', 'sessions', 'visitors', 'payments', 'payment_claims', 'funnels', 'subscription_signals', 'subscriptions', 'stripe_objects', 'seo_snapshots', 'site_usage', 'asc_sales', 'notes', 'aso_keywords', 'aso_settings', 'aso_snapshots', 'aso_reviews', 'alert_rules']) {
+for (const table of ['events', 'sessions', 'visitors', 'payments', 'payment_claims', 'funnels', 'subscription_signals', 'subscriptions', 'stripe_objects', 'seo_snapshots', 'site_usage', 'asc_sales', 'notes', 'aso_keywords', 'aso_settings', 'aso_snapshots', 'aso_reviews', 'alert_rules', 'replays']) {
   out.push(`DELETE FROM ${table} WHERE site_id IN (${ids});`);
 }
 out.push(`DELETE FROM sites WHERE id IN (${ids});`);
@@ -1317,7 +1317,71 @@ const seoParts = (() => {
   for (const r of live) insert('sessions', r);
 }
 
+// ---------- People and recordings (FounderData Pro's People section, pro/docs/replay-plan.md)
+// ShipKit records visits. Four people with a story: Anna signed in on her Mac and her iPhone, hit a broken button and
+// paid; Ben signed up from X and saw an error; Kenji came back three times with cookies and never signed in; Lea's
+// recorded visit had nothing go wrong. Each recorded visit has an index row (`replays`); the recording itself would be
+// in R2, which the seed does not fill. Page activity is the `activity` event the tracker sends (collect.ts parseActivity).
+{
+  const MIN = 60_000;
+  const HOUR = 60 * MIN;
+  const site = shipkit;
+  const web = (vid, sid, start, o) => {
+    const pages = o.pages;
+    insert('sessions', {
+      site_id: site, id: sid, visitor_id: vid, started_at: start, last_seen_at: start + o.minutes * MIN, duration: o.minutes * MIN, pageviews: pages.length,
+      goals: (o.goals ?? []).length, hostname: 'shipkit.example.com', entry_page: pages[0], exit_page: pages.at(-1), referrer: o.referrer ?? null,
+      referrer_domain: o.domain ?? null, source: o.source ?? 'Direct/None', channel: o.channel ?? 'Direct', country: o.geo[0], region: o.geo[1], city: o.geo[2],
+      browser: o.os === 'iOS' ? 'Mobile Safari' : 'Chrome', os: o.os ?? 'Mac OS', device: o.os === 'iOS' ? 'Mobile' : 'Desktop',
+    });
+    const step = (o.minutes * MIN) / (pages.length + 1);
+    insertEvents(site, sid, vid, pages.map((path, i) => ({ ts: start + Math.round(i * step), type: 'pageview', path })));
+    for (const [name, i] of o.goals ?? []) insertEvents(site, sid, vid, [{ ts: start + Math.round((i + 0.6) * step), type: 'goal', name, path: pages[i] }]);
+    for (const [i, act] of o.activity ?? []) insertEvents(site, sid, vid, [{ ts: start + Math.round((i + 0.9) * step), type: 'activity', path: pages[i], props: act }]);
+    if (o.recorded) insert('replays', { site_id: site, session_id: sid, visitor_id: vid, started_at: start, entry_page: pages[0] });
+  };
+  const BERLIN = ['DE', 'Berlin', 'Berlin'];
+  // Anna: her Mac's visitor id is kept in cookies (Remember visitors), so its visits join; identify() names it and her iPhone.
+  insert('visitors', {
+    site_id: site, id: 'people-anna-mac', first_seen: now - 21 * DAY, user_id: 'usr_anna', name: 'Anna Weber', email: 'anna.weber@example.com',
+    first_source: 'Google', first_channel: 'Organic Search', first_referrer: 'www.google.com', first_entry_page: '/',
+    traits: json({ plan: 'Pro', company: 'Acme Labs', seats: '5', role: 'Founder' }),
+  });
+  insert('visitors', { site_id: site, id: 'people-anna-iphone', first_seen: now - 3 * DAY, user_id: 'usr_anna', name: 'Anna Weber', email: 'anna.weber@example.com' });
+  web('people-anna-mac', 'people-anna-s1', now - 21 * DAY, { geo: BERLIN, minutes: 6, source: 'Google', channel: 'Organic Search', referrer: 'www.google.com', domain: 'google.com', pages: ['/', '/blog/launch-checklist', '/pricing'] });
+  web('people-anna-mac', 'people-anna-s2', now - 9 * DAY, {
+    geo: BERLIN, minutes: 8, pages: ['/pricing', '/signup', '/dashboard'], goals: [['signup', 1]], recorded: true,
+    activity: [[0, { c: [{ t: 4200, l: 'Start free trial', k: 'button' }] }], [1, { c: [{ t: 21000, l: 'Create account', k: 'submit' }] }]],
+  });
+  web('people-anna-iphone', 'people-anna-s3', now - 3 * DAY, {
+    geo: BERLIN, minutes: 5, os: 'iOS', pages: ['/dashboard', '/billing'], recorded: true,
+    activity: [[1, { c: [{ t: 6100, l: 'Pay now', k: 'button', n: 5, r: 1 }, { t: 15400, l: 'Pay now', k: 'button' }], e: [{ t: 6900, m: "TypeError: Cannot read properties of undefined (reading 'card')", s: 'https://shipkit.example.com/assets/billing.js:212' }] }]],
+  });
+  insert('payments', { id: 'pay_people_anna', site_id: site, provider: 'stripe', ts: now - 3 * DAY + 4 * MIN, amount: 4900, kind: 'payment', currency: 'USD', visitor_id: 'people-anna-iphone', session_id: 'people-anna-s3', customer_id: 'cus_people_anna', email: 'anna.weber@example.com', name: 'Anna Weber', product: 'shipkit_pro_monthly', matched_by: 'metadata', channel: 'Organic Search', source: 'Google' });
+  web('people-anna-mac', 'people-anna-s4', now - 2 * HOUR, { geo: BERLIN, minutes: 4, pages: ['/dashboard', '/settings', '/docs/webhooks'], recorded: true, activity: [[1, { c: [{ t: 3000, l: 'Invite teammate', k: 'button' }] }]] });
+
+  // Ben: found ShipKit on X, signed up, and saw an error on the next visit.
+  insert('visitors', { site_id: site, id: 'people-ben-1', first_seen: now - 6 * DAY, user_id: 'usr_ben', name: 'Ben Okafor', email: 'ben.okafor@example.com', first_source: 'X', first_channel: 'Organic Social', traits: json({ plan: 'Trial', company: 'Okafor Studio' }) });
+  web('people-ben-1', 'people-ben-s1', now - 6 * DAY, { geo: ['GB', 'England', 'London'], minutes: 7, source: 'X', channel: 'Organic Social', referrer: 't.co', domain: 't.co', pages: ['/', '/features', '/signup'], goals: [['signup', 2]], recorded: true, activity: [[2, { c: [{ t: 9000, l: 'Create account', k: 'submit' }] }]] });
+  web('people-ben-1', 'people-ben-s2', now - 26 * HOUR, {
+    geo: ['GB', 'England', 'London'], minutes: 3, pages: ['/dashboard', '/integrations'], recorded: true,
+    activity: [[1, { c: [{ t: 2500, l: 'Connect Stripe', k: 'button' }], e: [{ t: 2700, m: 'Error: Request failed with status 500', s: 'https://shipkit.example.com/assets/app.js:88' }] }]],
+  });
+
+  // Kenji: no name, but his visitor id came back on three days (Remember visitors).
+  insert('visitors', { site_id: site, id: 'people-kenji-1', first_seen: now - 12 * DAY, first_source: 'Reddit', first_channel: 'Organic Social' });
+  web('people-kenji-1', 'people-kenji-s1', now - 12 * DAY, { geo: ['JP', 'Tokyo', 'Tokyo'], minutes: 4, source: 'Reddit', channel: 'Organic Social', referrer: 'www.reddit.com/r/SaaS', domain: 'reddit.com', pages: ['/blog/stripe-webhooks', '/pricing'] });
+  web('people-kenji-1', 'people-kenji-s2', now - 5 * DAY, { geo: ['JP', 'Tokyo', 'Tokyo'], minutes: 2, pages: ['/pricing'], recorded: true, activity: [[0, { c: [{ t: 8000, l: 'Monthly', k: 'button', n: 4, r: 1 }, { t: 12000, l: 'Yearly', k: 'button' }] }]] });
+  web('people-kenji-1', 'people-kenji-s3', now - 50 * MIN, { geo: ['JP', 'Tokyo', 'Tokyo'], minutes: 3, pages: ['/pricing', '/faq'], recorded: true });
+
+  // Lea: one calm recorded visit.
+  insert('visitors', { site_id: site, id: 'people-lea-1', first_seen: now - 4 * HOUR });
+  web('people-lea-1', 'people-lea-s1', now - 4 * HOUR, { geo: ['ES', 'Madrid', 'Madrid'], minutes: 2, source: 'ChatGPT', channel: 'AI', referrer: 'chatgpt.com', domain: 'chatgpt.com', pages: ['/', '/features'], recorded: true, activity: [[1, { c: [{ t: 5000, l: 'See pricing', k: 'link' }] }]] });
+}
+
 flushInserts();
+// ShipKit records visits (People and recordings). After the flush: the sites row is one of the rows it writes.
+out.push(`UPDATE sites SET record_visits = 1 WHERE id = ${q(shipkit)};`);
 // The snapshot parts go in after the rows above: each is one row, its text appended in chunks under the statement limit.
 for (const [part, value] of Object.entries(seoParts)) {
   const text = JSON.stringify(value);

@@ -169,7 +169,7 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
           update={update}
           overview={overview}
           view={view}
-          hidePeriod={!!setup || view === 'seo' || view === 'ai' || view === 'aso' || (view === 'content' && window.location.pathname.includes('/content/page/'))}
+          hidePeriod={!!setup || view === 'seo' || view === 'ai' || view === 'aso' || view === 'people' || (view === 'content' && window.location.pathname.includes('/content/page/'))}
         />
         <SiteTimezoneNote site={site} />
 
