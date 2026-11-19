@@ -12,7 +12,8 @@
   if (!script) return;
 
   var siteId = script.getAttribute('data-website-id');
-  var endpoint = script.getAttribute('data-api') || new URL(script.src).origin + '/api/event';
+  var host = new URL(script.src).origin;
+  var endpoint = script.getAttribute('data-api') || host + '/api/event';
   var allowLocal = script.hasAttribute('data-allow-localhost');
   var cookieDomain = script.getAttribute('data-domain');
   var VID = 'rt_vid', SID = 'rt_sid', CONSENT = 'rt_consent', MKT = 'rt_mkt', YEAR = 31536000, SESSION = 1800;
@@ -105,7 +106,8 @@
       if (oldSid && !readCookie(SID)) writeCookie(SID, oldSid, SESSION);
     }
   }
-  var cookies = dataCookies || readCookie(CONSENT) === '1';
+  // rt_consent=r: kept because the site turned on Remember visitors, not by the visitor's consent (config below).
+  var cookies = dataCookies || /^[1r]$/.test(readCookie(CONSENT));
   // Marketing consent (docs/GUIDE.md, "Meta Conversions API"): 1 granted, 0 withdrawn on this page, null never given.
   var marketing = script.getAttribute('data-marketing') === 'on' || readCookie(MKT) === '1' ? 1 : null;
   // Cookies left by an older version of this script, without consent: remove them.
@@ -138,7 +140,9 @@
     if (granted) writeCookie(MKT, '1', YEAR);
     else removeCookies([MKT]);
   }
+  var refused = false;
   function consent(granted) {
+    refused = !granted;
     if (granted) {
       cookies = true;
       writeCookie(CONSENT, '1', YEAR);
@@ -175,19 +179,50 @@
       if (fbp && /^fb\.\d\.\d{10,13}\.\d{1,20}$/.test(fbp)) body.fbp = fbp;
     }
     for (var k in extra) if (extra[k] !== undefined) body[k] = extra[k];
-    var json = JSON.stringify(body);
+    var json = JSON.stringify(body), a = body.a;
+    // The server takes 8 KB: drop the page's oldest clicks, then its oldest errors, until it fits.
+    while (json.length > 8000 && a && (a.c && a.c.length ? a.c.shift() : a.e && a.e.shift())) json = JSON.stringify(body);
     // text/plain keeps this a "simple" request: no CORS preflight, works with sendBeacon.
     // Without ids the response carries them, so use fetch to read it.
     if (beacon && id && nav.sendBeacon) {
       try { if (nav.sendBeacon(endpoint, new Blob([json], { type: 'text/plain' }))) return; } catch (e) {}
     }
     if (!id) awaiting++;
+    // A pageview's answer carries the site's tracker config (cfg) in both modes.
+    var read = !id || type === 'pageview';
     try {
       fetch(endpoint, { method: 'POST', body: json, keepalive: true, credentials: 'omit', headers: { 'Content-Type': 'text/plain' } })
-        .then(function (r) { return id || r.status !== 202 ? null : r.json(); })
-        .then(remember, noop)
+        .then(function (r) { return r.status !== 202 ? null : read ? r.text() : ''; })
+        .then(function (t) {
+          if (t === null) return; // an error answer says nothing about the config
+          var j = t ? JSON.parse(t) : {};
+          if (!id) remember(j);
+          if (type === 'pageview') config(j.cfg || {});
+        })
+        .catch(noop)
         .then(function () { if (!id) awaiting--; });
     } catch (e) { if (!id) awaiting--; }
+  }
+
+  // ---- tracker config from the server (docs/API.md, "Tracker config")
+  // rm: Remember visitors. Keep the visitor in cookies as consent would (rt_consent=r), unless this page said no.
+  // rec: record this visit. Load /js/replay.js once and hand it what it needs in window.founderdata._rec.
+  var rec = null, cfgSeen = false;
+  function config(cfg) {
+    cfgSeen = true;
+    if (cfg.rm && !cookies && !refused) {
+      cookies = true;
+      writeCookie(CONSENT, 'r', YEAR);
+      ids();
+    } else if (!cfg.rm && !dataCookies && readCookie(CONSENT) === 'r') consent(false);
+    var id = ids();
+    if (!cfg.rec || rec || !id) return;
+    rec = cfg.rec;
+    api._rec = { site: siteId, sid: id.sid, host: host, url: /\/api\/event$/.test(endpoint) ? endpoint.slice(0, -6) + '/rec' : host + '/api/rec', cfg: rec };
+    var el = d.createElement('script');
+    el.async = true;
+    el.src = host + '/js/replay.js' + (rec.v ? '?v=' + encodeURIComponent(rec.v) : '');
+    (d.head || d.documentElement).appendChild(el);
   }
 
   // ---- Core Web Vitals (LCP, INP, CLS, TTFB, FCP) of this page load, measured as web-vitals does. They ride on
@@ -236,11 +271,56 @@
   // ---- engaged time (only while the tab is visible)
   var visibleSince = d.visibilityState === 'visible' ? Date.now() : 0;
   var pending = 0, pings = 0;
-  function flushTime(beacon) {
+  function flushTime(beacon, end) {
     if (visibleSince) { pending += Date.now() - visibleSince; visibleSince = d.visibilityState === 'visible' ? Date.now() : 0; }
     var v = beacon ? vitals() : undefined; // hidden: the vitals go now, even under a second
-    if (pending >= 1000 || v) { send('ping', { d: Math.round(pending), v: v }, beacon); pending = 0; }
+    var a = beacon || end ? activity() : undefined; // the page's clicks and errors, when it is hidden or left
+    if (pending >= 1000 || v || a) { send('ping', { d: Math.round(pending), v: v, a: a }, beacon); pending = 0; }
   }
+
+  // ---- page activity of a recorded visit: clicks, rage clicks (3 or more on one element, each within 1 s of the
+  // last) and errors. Kept in memory until the server answers, then only when it records the visit. Sent with the
+  // ping, never alone. Labels are visible text, never what someone typed; [data-fd-mask] and [data-fd-block] hide it.
+  var clicks = [], errs = [], actAt = Date.now(), actPath = loc.pathname, lastEl = null, lastAt = 0;
+  function watching() { return rec || !cfgSeen; }
+  function activity() {
+    var a = { p: actPath, s: actAt }, n = clicks.length + errs.length;
+    if (clicks.length) a.c = clicks;
+    if (errs.length) a.e = errs;
+    clicks = [];
+    errs = [];
+    lastEl = null;
+    return n && rec ? a : undefined;
+  }
+  function noteClick(el, kind) {
+    var now = Date.now();
+    if (el === lastEl && now - lastAt < 1000) {
+      var c = clicks[clicks.length - 1];
+      c.n = (c.n || 1) + 1;
+      if (c.n > 2) c.r = 1;
+    } else {
+      var text = el.closest('[data-fd-mask],[data-fd-block]') || el.tagName === 'INPUT' ? '' : el.innerText || el.textContent || '';
+      text = text.replace(/\s+/g, ' ').trim() || el.getAttribute('aria-label') || el.tagName.toLowerCase();
+      clicks.push({ t: now - actAt, l: text.slice(0, 40), k: kind });
+      if (clicks.length > 30) clicks.shift();
+    }
+    lastEl = el;
+    lastAt = now;
+  }
+  function noteError(m, src) {
+    m = String(m || 'Error').slice(0, 200);
+    if (errs.length < 5 && (!errs.length || errs[errs.length - 1].m !== m)) errs.push({ t: Date.now() - actAt, m: m, s: src.slice(-200) });
+  }
+  w.addEventListener('error', function (e) {
+    if (watching() && e.message) noteError(e.message, e.filename ? e.filename.split(/[?#]/)[0] + ':' + e.lineno : '');
+  });
+  w.addEventListener('unhandledrejection', function (e) {
+    if (watching()) noteError(e.reason && e.reason.message || e.reason, '');
+  });
+  d.addEventListener('submit', function (e) {
+    var el = e.submitter || e.target;
+    if (watching() && el && el.closest && !(el === lastEl && Date.now() - lastAt < 1000)) noteClick(el, 'submit');
+  }, true);
   d.addEventListener('visibilitychange', function () {
     if (d.visibilityState === 'visible') visibleSince = Date.now();
     else flushTime(true);
@@ -255,8 +335,10 @@
   function pageview() {
     var page = loc.pathname + loc.search;
     if (page === lastPage) return;
-    if (lastPage !== null) flushTime(false);
+    if (lastPage !== null) flushTime(false, true);
     lastPage = page;
+    actAt = Date.now();
+    actPath = loc.pathname;
     pings = 0;
     send('pageview', { r: firstView ? d.referrer : '' });
     firstView = false;
@@ -342,6 +424,8 @@
   function onClick(e) {
     var el = e.target && e.target.closest ? e.target : null;
     if (!el) return;
+    var hit = e.type === 'click' && watching() && el.closest('a[href],button,[role=button],input[type=submit],input[type=button]');
+    if (hit) noteClick(hit, hit.tagName === 'A' ? 'link' : hit.type === 'submit' && hit.form ? 'submit' : 'button');
     // data-ml-goal is the minilytics attribute, kept for one release.
     var g = el.closest('[data-rt-goal],[data-ml-goal]');
     if (g) {
@@ -370,7 +454,14 @@
   // ---- public API
   function api(cmd, a, b) {
     if (cmd === 'goal' || cmd === 'track') goal(a, b);
-    else if (cmd === 'identify' && a) send('identify', { p: { user_id: a.user_id || a.id, email: a.email, name: a.name } });
+    else if (cmd === 'identify' && a) {
+      // user_id (or id), email and name name the person; other keys are traits (docs/API.md, "identify()").
+      var p = {};
+      for (var k in a) p[k] = a[k];
+      p.user_id = a.user_id || a.id;
+      delete p.id;
+      send('identify', { p: p });
+    }
     else if (cmd === 'pageview') { lastPage = null; pageview(); }
     else if (cmd === 'consent') consent(!!a);
     else if (cmd === 'marketing') setMarketing(!!a);

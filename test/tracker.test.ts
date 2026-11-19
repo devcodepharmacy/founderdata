@@ -34,6 +34,30 @@ interface Opts {
   code?: string;
   /** The page loads in a background tab. */
   hidden?: boolean;
+  /** The tracker config a pageview's answer carries (docs/API.md, "Tracker config"). */
+  cfg?: unknown;
+}
+
+/** A fake element for click capture: a tag, its visible text and attributes, inside [data-fd-mask] or not. */
+interface FakeEl {
+  tagName: string;
+  innerText: string;
+  type?: string;
+  form?: unknown;
+  href?: string;
+  masked?: boolean;
+  attrs?: Record<string, string>;
+}
+function el(tag: string, text = '', more: Partial<FakeEl> = {}) {
+  const e: any = { tagName: tag.toUpperCase(), innerText: text, textContent: text, attributes: [], ...more };
+  e.getAttribute = (n: string) => e.attrs?.[n] ?? null;
+  e.closest = (sel: string) => {
+    if (sel.includes('data-fd-mask')) return e.masked ? {} : null;
+    if (sel.includes('button')) return /^(A|BUTTON|INPUT)$/.test(e.tagName) || e.attrs?.role === 'button' ? e : null;
+    if (sel === 'a[href]') return e.tagName === 'A' ? e : null;
+    return null;
+  };
+  return e;
 }
 
 function load(o: Opts = {}) {
@@ -43,6 +67,7 @@ function load(o: Opts = {}) {
   const storageWrites: string[] = [];
   const requests: any[] = [];
   const beacons: any[] = [];
+  const scripts: any[] = [];
   const listeners: { type: string; fn: (e: unknown) => void }[] = [];
   const document = {
     get cookie() {
@@ -66,6 +91,8 @@ function load(o: Opts = {}) {
     visibilityState: o.hidden ? 'hidden' : 'visible',
     readyState: 'complete',
     documentElement: {},
+    head: { appendChild: (s: unknown) => scripts.push(s) },
+    createElement: (tag: string) => ({ tagName: tag.toUpperCase() }),
     addEventListener: (type: string, fn: (e: unknown) => void) => listeners.push({ type, fn }),
     querySelectorAll: () => o.links ?? [],
   };
@@ -86,7 +113,7 @@ function load(o: Opts = {}) {
     },
     screen: { width: 1440 },
     history: { pushState() {}, replaceState() {} },
-    addEventListener() {},
+    addEventListener: (type: string, fn: (e: unknown) => void) => listeners.push({ type: `window:${type}`, fn }),
     crypto: globalThis.crypto,
   };
   if (o.queue)
@@ -109,7 +136,9 @@ function load(o: Opts = {}) {
   const fetch = async (_url: string, init: RequestInit) => {
     const body = JSON.parse(String(init.body));
     requests.push(body);
-    return body.vid ? new Response(null, { status: 202 }) : Response.json(SERVER_IDS, { status: 202 });
+    const cfg = body.t === 'pageview' && o.cfg ? { cfg: o.cfg } : {};
+    if (body.vid) return Object.keys(cfg).length ? Response.json(cfg, { status: 202 }) : new Response(null, { status: 202 });
+    return Response.json({ ...SERVER_IDS, ...cfg }, { status: 202 });
   };
   const ctx = vm.createContext({
     window,
@@ -148,7 +177,15 @@ function load(o: Opts = {}) {
     document.visibilityState = 'visible';
     for (const l of listeners) if (l.type === 'visibilitychange') l.fn({});
   };
-  return { ml, window, store, jar, cookieWrites, storageWrites, requests, beacons, click, emit, hide, show };
+  /** Clicks a fake element (el()), as the browser's click event. */
+  const press = (target: unknown) => {
+    for (const l of listeners) if (l.type === 'click') l.fn({ type: 'click', target });
+  };
+  /** Fires a window event: error or unhandledrejection. */
+  const fire = (type: string, e: unknown) => {
+    for (const l of listeners) if (l.type === `window:${type}`) l.fn(e);
+  };
+  return { ml, window, store, jar, cookieWrites, storageWrites, requests, beacons, scripts, click, press, fire, emit, hide, show };
 }
 
 describe('tracker: cookieless by default', () => {
@@ -358,5 +395,136 @@ describe('tracker: Core Web Vitals', () => {
     await tick();
     t.hide();
     expect((await Promise.all(t.beacons))[0]).toMatchObject({ t: 'ping', v: { t: 100, c: 0, p: '/pricing' } });
+  });
+});
+
+describe('tracker: config from the server', () => {
+  const REC = { mask: '[data-fd-mask]', block: '[data-fd-block]', v: '7' };
+
+  it('loads nothing more and sends no activity when the answer has no cfg', async () => {
+    const t = load();
+    t.press(el('button', 'Buy'));
+    await tick();
+    t.hide();
+    expect(t.scripts).toEqual([]);
+    expect((t.ml as any)._rec).toBeUndefined();
+    expect((await Promise.all(t.beacons)).every((b) => b.a === undefined)).toBe(true);
+  });
+
+  it('rec loads /js/replay.js once and hands it the visit in window.founderdata._rec', async () => {
+    const t = load({ cfg: { rec: REC } });
+    await tick();
+    expect(t.scripts).toHaveLength(1);
+    expect(t.scripts[0]).toMatchObject({ async: true, src: 'https://stats.example/js/replay.js?v=7' });
+    expect((t.window.founderdata as any)._rec).toEqual({ site: 'site123', sid: SERVER_IDS.sid, host: 'https://stats.example', url: 'https://stats.example/api/rec', cfg: REC });
+    t.ml('pageview');
+    await tick();
+    expect(t.scripts).toHaveLength(1);
+  });
+
+  it('sends chunks next to a proxied data-api endpoint', async () => {
+    const t = load({ cfg: { rec: REC }, attrs: { 'data-api': 'https://acme.example/fd/api/event', 'data-cookies': 'on' } });
+    await tick();
+    expect((t.ml as any)._rec).toMatchObject({ url: 'https://acme.example/fd/api/rec', sid: t.jar.get('rt_sid') });
+  });
+
+  it('sends the clicks, rage clicks and errors of a recorded page with the ping when it is hidden', async () => {
+    const t = load({ cfg: { rec: REC } });
+    // Before the answer arrives: kept, in case the server records the visit.
+    t.press(el('button', '  Start\n trial  '));
+    await tick();
+    const buy = el('button', 'Buy');
+    for (let i = 0; i < 4; i++) t.press(buy);
+    t.press(el('a', 'Pricing', { href: 'https://example.com/pricing' }));
+    t.press(el('div', 'Not a control'));
+    t.press(el('button', 'Anna Example', { masked: true }));
+    t.press(el('input', '', { type: 'submit', form: {}, attrs: { 'aria-label': 'Send' } }));
+    t.fire('error', { message: 'TypeError: x is undefined', filename: 'https://example.com/app.js?v=3', lineno: 12 });
+    t.fire('error', { message: 'TypeError: x is undefined', filename: 'https://example.com/app.js?v=3', lineno: 12 });
+    t.fire('unhandledrejection', { reason: new Error('fetch failed') });
+    t.hide();
+    const [ping] = await Promise.all(t.beacons);
+    expect(ping).toMatchObject({ t: 'ping', vid: SERVER_IDS.vid });
+    expect(ping.a.p).toBe('/pricing');
+    expect(typeof ping.a.s).toBe('number');
+    expect(ping.a.c.map((c: any) => [c.l, c.k, c.n, c.r])).toEqual([
+      ['Start trial', 'button', undefined, undefined],
+      ['Buy', 'button', 4, 1],
+      ['Pricing', 'link', undefined, undefined],
+      ['button', 'button', undefined, undefined],
+      ['Send', 'submit', undefined, undefined],
+    ]);
+    expect(ping.a.e).toEqual([
+      { t: expect.any(Number), m: 'TypeError: x is undefined', s: 'https://example.com/app.js:12' },
+      { t: expect.any(Number), m: 'fetch failed', s: '' },
+    ]);
+    // Sent once: the next hide carries engaged time only.
+    t.show();
+    t.hide();
+    expect((await Promise.all(t.beacons)).slice(1).every((b) => b.a === undefined)).toBe(true);
+  });
+
+  it('sends a page\'s activity when a single-page app moves on, with that page\'s path', async () => {
+    const t = load({ cfg: { rec: REC } });
+    await tick();
+    t.press(el('button', 'Next'));
+    t.window.location.pathname = '/checkout';
+    t.window.history.pushState();
+    await tick();
+    const ping = t.requests.find((r) => r.t === 'ping');
+    expect(ping.a).toMatchObject({ p: '/pricing', c: [{ l: 'Next', k: 'button' }] });
+    expect(t.requests.at(-1)).toMatchObject({ t: 'pageview', u: 'https://example.com/checkout' });
+  });
+
+  it('drops the oldest clicks to keep the ping under 8 KB', async () => {
+    const t = load({ cfg: { rec: REC }, href: `https://example.com/pricing?q=${'x'.repeat(6500)}` });
+    await tick();
+    for (let i = 0; i < 30; i++) t.press(el('button', `Button number ${i} with a long label`));
+    t.hide();
+    const [ping] = await Promise.all(t.beacons);
+    expect(JSON.stringify(ping).length).toBeLessThanOrEqual(8000);
+    expect(ping.a.c.length).toBeLessThan(30);
+    expect(ping.a.c.at(-1).l).toBe('Button number 29 with a long label');
+  });
+
+  it('rm keeps the visitor in cookies with rt_consent=r, and a later answer without it removes them', async () => {
+    const t = load({ cfg: { rm: 1 } });
+    await tick();
+    expect(t.jar.get('rt_vid')).toBe(SERVER_IDS.vid);
+    expect(t.jar.get('rt_sid')).toBe(SERVER_IDS.sid);
+    expect(t.jar.get('rt_consent')).toBe('r');
+    const next = load({ cookies: Object.fromEntries(t.jar) });
+    expect(next.requests[0]).toMatchObject({ vid: SERVER_IDS.vid, sid: SERVER_IDS.sid });
+    await tick();
+    expect(next.jar.size).toBe(0);
+  });
+
+  it('rm leaves real consent alone, and a page that said no stays without cookies', async () => {
+    const consented = load({ cfg: {}, cookies: { rt_consent: '1', rt_vid: 'returning-visitor-1', rt_sid: 'session-0000001' } });
+    await tick();
+    expect(consented.jar.get('rt_consent')).toBe('1');
+    const refused = load({ cfg: { rm: 1 }, queue: [['consent', false]] });
+    await tick();
+    expect(refused.jar.size).toBe(0);
+  });
+
+  it('the minified build loads the recorder and sends activity the same way', async () => {
+    const t = load({ code: MINIFIED, cfg: { rec: REC } });
+    await tick();
+    t.press(el('button', 'Buy'));
+    t.hide();
+    expect(t.scripts[0].src).toBe('https://stats.example/js/replay.js?v=7');
+    expect((await Promise.all(t.beacons))[0].a.c[0]).toMatchObject({ l: 'Buy', k: 'button' });
+  });
+});
+
+describe('tracker: identify()', () => {
+  it('sends extra keys as traits next to the user id, email and name', async () => {
+    const t = load();
+    await tick();
+    t.ml('identify', { id: 'u_42', email: 'anna@acme.example', name: 'Anna', plan: 'pro', seats: 3 });
+    await tick();
+    const call = t.requests.find((r) => r.t === 'identify');
+    expect(call.p).toEqual({ user_id: 'u_42', email: 'anna@acme.example', name: 'Anna', plan: 'pro', seats: 3 });
   });
 });
