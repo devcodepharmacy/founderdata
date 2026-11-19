@@ -46,7 +46,8 @@ Mail belongs to the deployment, not to a site. One inbox and one sent log cover 
 4. Wait for the DNS records to read **verified**. Cloudflare adds them to a zone it hosts. **Check again** reads
    their state.
 
-5. Under the domain, add the addresses that should receive mail, such as `support`. See [Receive mail](#receive-mail).
+5. A new domain starts with the catch-all address `*`, so all its mail lands in the inbox. Add the addresses you send
+   from or want to sort, such as `support`. See [Receive mail](#receive-mail).
 
 6. Send a test with **New message** on the Inbox tab to a mailbox you own, and answer it. The answer shows up in the
    same thread.
@@ -84,8 +85,9 @@ Each address on a domain has one action:
 | `webhook` | Stored for 30 days outside the inbox, and posted as `email.received`. For mail an app reads. |
 | `drop` | Accepted and thrown away. |
 
-The address `*` takes mail for every address without its own entry. An exact address wins over `*`. Mail to an
-address with no entry and no `*` is rejected, and the sender gets a bounce.
+The address `*` takes mail for every address without its own entry. Each new domain gets one with the action
+`inbox`. An exact address wins over `*`. Mail to an address with no entry and no `*` is rejected, and the sender gets
+a bounce.
 
 **On a subdomain, add a routing rule per address.** Cloudflare's catch-all rule works on the zone's own name only.
 For `reply.acme.example` in the zone `acme.example`, open Email Routing in the Cloudflare dashboard, then **Routing
