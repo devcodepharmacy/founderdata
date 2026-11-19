@@ -13,9 +13,10 @@ without a name) is still personal data.
 
 | Table | What it holds | Personal? | How long |
 | --- | --- | --- | --- |
-| `visitors` | Visitor id, first seen, and the first visit's source, channel, campaign, referring domain and entry page (first touch). `user_id`, `name`, `email` only when your site calls `identify()` or a payment carries them. For apps, whether the id persists: after consent, or with the opt-in `installId: .vendor`, a hash of `identifierForVendor` (see "The visitor id"). | Yes. Pseudonymous, and identifying once `identify()` fills it | Deleted once no visit or payment points at it after `RETENTION_MONTHS`. Name, email and user id cleared after `PII_RETENTION_MONTHS` without a visit, when set |
+| `visitors` | Visitor id, first seen, and the first visit's source, channel, campaign, referring domain and entry page (first touch). `user_id`, `name`, `email` only when your site calls `identify()` or a payment carries them. `traits`: the other keys your site passes to `identify()`, at most 20, each value cut to 100 characters. For apps, whether the id persists: after consent, or with the opt-in `installId: .vendor`, a hash of `identifierForVendor` (see "The visitor id"). | Yes. Pseudonymous, and identifying once `identify()` fills it | Deleted once no visit or payment points at it after `RETENTION_MONTHS`. Name, email and user id cleared after `PII_RETENTION_MONTHS` without a visit, when set |
 | `sessions` | One visit: visitor id, start and end, pages, referrer, UTM tags, `ref`, country, region, city, coarse coordinates from the same lookup (one decimal, about 11 km), browser, OS, device type, the browser's first language from `Accept-Language` (`de`, never the full header), app version, app properties. Whether the visit came from a hosting network such as AWS (a 0 or 1 flag, from the network number Cloudflare reports; the IP is not kept). For a visit from another network's ad (its URL carried `gclid`, `gbraid`, `wbraid`, `msclkid`, `ttclid`, `twclid`, `li_fat_id`, `rdt_cid`, `ScCid` or `epik`): the network, the click id and when it was first seen. For a visit from a Meta ad or link (its URL carried `fbclid` or `ad_id`): Meta's click id and when it was first seen, the ad id, and the visit's user agent. Whether the visitor gave marketing consent (`founderdata('marketing', true)`), and with that consent the Meta browser id from the `_fbp` cookie, when a Meta pixel on the site set one | Yes, pseudonymous | `RETENTION_MONTHS` (default 24). The user agent, the Meta click id and the Meta browser id are cleared 28 days after the visit, and the browser id also when consent is withdrawn; the ad id stays. Other networks' click ids are cleared 90 days after the visit, the window Google Ads takes offline conversions in; the network name stays |
-| `events` | Pageviews, goals, outbound clicks: visitor and visit id, time, path, goal name, the properties you send, and the visit's hosting-network flag | Yes, pseudonymous. Properties hold whatever you put in them | `RETENTION_MONTHS` |
+| `events` | Pageviews, goals, outbound clicks: visitor and visit id, time, path, goal name, the properties you send, and the visit's hosting-network flag. On a recorded visit (Pro), one `activity` row per page with its clicks (the button's visible text, up to 40 characters, never what was typed), rage clicks and JavaScript error messages | Yes, pseudonymous. Properties hold whatever you put in them | `RETENTION_MONTHS` |
+| `replays` | One row per recorded visit (Pro): site, visit id, visitor id, start time and entry page. The recording itself is in R2, see "Recordings (Pro)" | Yes, pseudonymous | As long as the recording |
 | `vitals` | Page speed of one page load: site, time, path, device type (desktop, mobile or tablet) and the five timings LCP, INP, CLS, TTFB and FCP. No visitor id, no visit id, no IP, no user agent. The browser measures them with its own `PerformanceObserver`, and the tracker sends them inside the engaged-time ping it already sends when the page is hidden | No. A row can't be tied to a visitor or a visit | 90 days, or `RETENTION_MONTHS` when shorter. Settings, Daily write cap, sets the share of page loads stored, 0 turns it off |
 | `payments` | Provider, amount, currency, product, time, your payment id, subscription id, the provider's customer id, buyer email and name when the provider sends them, the visitor and visit credited, and a copy of that visit's channel, source and campaign (so revenue keeps its source after the visit is deleted) | Yes | Kept for your books. Email and name cleared after `PII_RETENTION_MONTHS`, when set. Erase clears the person's fields and the copied source |
 | `subscriptions` | Subscription state for MRR: provider ids, customer id, credited visitor and visit, a copy of that visit's source, prices and dates | Yes, pseudonymous | Kept for MRR. Erase clears the visitor, visit, customer id and source |
@@ -242,6 +243,34 @@ send and the messages people send to your addresses.
   Both are covered by the Cloudflare DPA above.
 - **Your privacy policy** says that you answer support mail from this system, if you do.
 
+## Recordings (Pro)
+
+Record visits is off for every site until you turn it on (docs/GUIDE.md, "People and recordings"). A recording is a
+copy of the page as the visitor saw it, and of what they did on it: the page's HTML and styles, mouse moves, scrolls,
+clicks and the size of the window.
+
+- **What is hidden.** Every input is masked in the browser, before anything is sent: typing shows as dots. Text inside
+  an element with `data-fd-mask` is masked the same way. An element with `data-fd-block` is left out, and the player
+  shows an empty box. Canvas, web fonts and frames from other domains are not recorded. Mask anything else that shows
+  personal data, such as names and addresses on account pages.
+- **Where it is.** In the R2 bucket `npm run setup -- --replay` creates on your own Cloudflare account, in the EU when
+  the database is. Each chunk is a file `r/<site id>/<visit id>/<number>`. D1 holds one row per recording in
+  `replays`. Nothing goes to another company.
+- **How long.** The days you pick for the site: 7, 30 or 90, 30 by default. With "keep only visits where something
+  happened", a recording without a goal or a payment goes after 24 hours. A rule on the bucket deletes every file 90
+  days after upload, whatever the setting.
+- **Who can watch.** People who sign in to the dashboard. Share links show no recordings.
+- **Erase.** Erasing a person deletes their recordings, files and rows, and the erase log counts them.
+- **Which visits.** Your own visits with `?rt_ignore=true` and bots are never recorded. The share of visits recorded and
+  the most visits a day are site settings.
+- **Your privacy policy** says that you record visits to improve the site, what you mask, and how long you keep them.
+  Session recording reads the visitor's screen, so in the EU it often needs consent. Ask your counsel.
+
+**Remember visitors.** A site setting that keeps a visitor id in first-party cookies (`rt_vid`, `rt_sid` and
+`rt_consent=r`) without the visitor's consent, so People can follow someone across days. It is off by default. Storing
+an id on the device without consent breaks Article 5(3) of the ePrivacy Directive in most of the EU, so turn it on only
+where your counsel says you may.
+
 ## Meta ads
 
 The spend import sends nothing about visitors to Meta: the Worker only downloads your own ad account's numbers.
@@ -291,6 +320,8 @@ of that data. Before you turn it on:
    person, so the log itself holds no personal data, and it outlives the site. With one shared admin password, "who"
    means the login, not a named colleague, so put the name in the note.
 9. **Breach readiness.** Read the breach procedure below once, before you need it.
+10. **Recordings and Remember visitors (Pro).** Both are off by default. Before you turn either on, read "Recordings
+    (Pro)" above and add them to your privacy policy.
 
 ### Legitimate interest balancing test
 

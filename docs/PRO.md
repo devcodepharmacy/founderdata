@@ -20,7 +20,9 @@ starts lower and rises in steps ([Price](#price)). Pro adds:
 - AI visibility in ChatGPT, Claude, Gemini and Perplexity
 - Home across all your sites with the Growth row, next actions, and a verdict on every change you log
 - Mail on your own domains through Cloudflare, with an API that answers like Resend's and an inbox ([MAIL.md](MAIL.md))
-- All 31 MCP tools, the `query` tool, alert rules, the alert inbox, the research log and agent skills
+- People with one story each, from the first visit to the payment, and recordings of their visits, off until you turn
+  them on ([GUIDE.md](GUIDE.md#people-and-recordings-pro))
+- All 32 MCP tools, the `query` tool, alert rules, the alert inbox, the research log and agent skills
 - Teammates with their own login
 
 Both editions run on your own Cloudflare account, and your data stays in your own D1 database.
@@ -128,6 +130,9 @@ This is for contributors.
   Each hook is optional. Core calls it only when Pro is there and works without it.
 - In the dashboard, a Pro section resolves to Pro's component or to the Pro card (`src/dashboard/lib/pages.ts`). Pro
   panels inside core pages render through `ProSlot` by name.
+- Scripts for tracked pages: the build bundles each `pro/js/<name>.ts` into `/js/<name>.js`, a static file next to
+  `/js/script.js` (`vite.config.ts`, `proScripts`). The recorder `/js/replay.js` comes from `pro/js/replay.ts`. Core has
+  no `pro/js`, so its build has no such file.
 - Core never imports from `pro/`. `test/edition.test.ts` fails if a core file does.
 - `npm run check:core` copies the tree without `pro/`, switches the edition files to core, and runs the typecheck, the
   dashboard build and the tests there. In a Pro checkout, run it before every commit.

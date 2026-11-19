@@ -2908,6 +2908,75 @@ the Cache API stop answering within 60 seconds (5 minutes for a badge). A link c
 Turning Show revenue off works the same way: the instance that saved it stops showing revenue at once, other
 instances within 60 seconds. Cached answers are stored per revenue setting, so none with revenue is served after that.
 
+## The tracker
+
+`/js/script.js` posts each event to `POST /api/event` as `text/plain` JSON, so the browser sends no preflight. The fields
+below are the ones the People and recordings work added. The rest is in `src/worker/collect.ts`.
+
+### `identify()` and traits
+
+```js
+founderdata('identify', { user_id: 'u_42', email: 'anna@acme.example', name: 'Anna', plan: 'pro', company: 'Acme' });
+```
+
+`user_id` (or `id`), `email` and `name` name the person. Every other key is a trait, stored on the visitor row as JSON
+in `visitors.traits`. Keys are lowercased and must match `[a-z0-9_]{1,40}`; values are text, numbers or true and false,
+stored as text and cut to 100 characters. The first 20 valid keys count, the rest are dropped. A later call merges its
+traits into the stored ones, and a key sent again replaces its value. When the merge would pass 20 keys, the call's
+own traits replace the stored ones. A call that changes nothing writes no row.
+
+### Tracker config
+
+The answer to a pageview can carry `cfg`, the site's tracker settings. Without Record visits and Remember visitors it
+is absent and nothing changes: cookieless mode answers `{ "vid", "sid" }`, cookie mode an empty `202`.
+
+```json
+{ "vid": "…", "sid": "…", "cfg": { "rm": 1, "rec": { "mask": "[data-fd-mask]", "block": "[data-fd-block]" } } }
+```
+
+In cookie mode the answer is `{ "cfg": { … } }`.
+
+| Key | Meaning |
+| --- | --- |
+| `rm` | Remember visitors is on. The script keeps the visitor in cookies as after `founderdata('consent', true)`, with `rt_consent=r`. When a later answer has no `rm`, the script removes cookies it kept this way. A page that called `founderdata('consent', false)` stays without cookies. |
+| `rec` | Record this visit (Pro). The server decides per visit, by the site's share and daily maximum. The object holds the recorder's settings: `mask` and `block` are CSS selectors, and Pro may add short keys of its own, such as `v` for the recorder's version. |
+
+With `rec`, the script loads `<script host>/js/replay.js` once per page (`?v=<rec.v>` when given), `async`, and sets
+`window.founderdata._rec` before it does:
+
+| Key | Value |
+| --- | --- |
+| `site` | The site id. |
+| `sid` | The visit id. |
+| `host` | The origin the script was loaded from, such as `https://founderdata.example.com`. |
+| `url` | Where chunks go: the `data-api` endpoint with `/api/event` changed to `/api/rec`, else `<host>/api/rec`. The recorder posts to `<url>/<site id>?s=<sid>&n=<chunk number>`. |
+| `cfg` | The `rec` object above. |
+
+Visits with `?rt_ignore=true`, browsers driven by automation (`navigator.webdriver`) and bots never load it.
+
+### Page activity
+
+On a recorded visit, the ping sent when a page is hidden, or left inside a single-page app, carries the page's
+activity in `a`:
+
+```json
+{ "p": "/pricing", "s": 1767225600000,
+  "c": [{ "t": 5200, "l": "Start trial", "k": "button" }, { "t": 9100, "l": "Buy", "k": "button", "n": 5, "r": 1 }],
+  "e": [{ "t": 9300, "m": "TypeError: x is undefined", "s": "https://acme.example/app.js:120" }] }
+```
+
+`p` is the page's path, `s` when it was shown (the browser's clock, in ms), and each `t` is ms after `s`. A click has
+its label `l` (visible text up to 40 characters, else `aria-label`, else the tag name, and the tag name inside
+`data-fd-mask` or `data-fd-block`) and its kind `k`: `button`, `link`, `submit` or `other`. Clicks on one element, each
+within 1 second of the last, count as one entry with `n`, the number of clicks; `r: 1` marks 3 or more, a rage click. An
+error has its message `m` (200 characters) and its source `s`, the file without its query and the line. A page keeps
+at most 30 clicks, the newest, and 5 errors, the first. When the body would pass 8 KB, the script drops the oldest
+clicks first.
+
+The server stores it as one `events` row with `type` `activity`, the page's `path`, and these `p`-less fields as
+`props`, only for a site with Record visits on and a visit it knows. Counts of pageviews, goals and visitors never
+include `activity` rows.
+
 ## CSV export
 
 Logged-in routes, so they need the dashboard cookie. The viewer login gets `403` for the three raw files unless
@@ -2917,7 +2986,7 @@ CSV buttons call them with the period and filters on screen. They take `period`,
 | Route | One row per |
 | --- | --- |
 | `GET /api/sites/<id>/export/sessions.csv` | Visit: visitor and session id, start and last activity, duration, pageviews, goals, platform, entry and exit page, referrer, source, channel, UTMs, ref, country, region, city, browser, OS, device, app version, browser language, ad network and `datacenter`. The file keeps every visit. `datacenter` is 1 for a visit from a hosting network, which the dashboard leaves out unless the site counts them. |
-| `GET /api/sites/<id>/export/events.csv` | Pageview, goal or outbound click: time, type, name, path, props (JSON), session and visitor id. |
+| `GET /api/sites/<id>/export/events.csv` | Pageview, goal, outbound click or page activity: time, type, name, path, props (JSON), session and visitor id. `activity` rows hold a recorded page's clicks and errors ([Page activity](#page-activity)). |
 | `GET /api/sites/<id>/export/payments.csv` | Payment or refund: provider, kind, renewal, amount and currency, amount in the site's currency, product, customer, subscription, email, name, visitor and session, `matched_by`, and the source, channel, UTMs, ref, landing page, country and device of the credited visit. After that visit is deleted (`RETENTION_MONTHS`), the source, channel and campaign come from the copy the payment keeps. Sandbox purchases are included; `provider` says `app_store_sandbox`. |
 | `GET /api/sites/<id>/export/subscriptions.csv` | Subscription, oldest first, every one whatever the period (the rows behind MRR; sandbox ones are left out): id, provider, product, `status` (`trialing`, `active`, `past_due`, `canceled` for auto-renew off, `expired`, `incomplete`), `mrr` and `first_mrr` in the site's currency, the price per period with its currency, interval and count, `started_at`, `trial_start`, `trial_end`, `first_paid_at`, `last_paid_at`, `paid_until`, `canceled_at`, `ended_at`, `end_inferred` (1 when no renewal and no end event came for 30 days after the paid period, so it counts as ended when that period ran out), `past_due_since`, `customer_id`, `email` (from the customer's latest payment; empty for a viewer login without `VIEWER_PII`), `visitor_id`, and the `source`, `channel`, `campaign` and `referrer_domain` of the credited visit. The channel, source and campaign filters apply, as on the Subscriptions tab. The Export CSV button on that tab calls it. |
 | `GET /api/sites/<id>/breakdown?dim=...&format=csv` | Row of a panel: value, visitors, pageviews, revenue, currency, customers, conversion rate, revenue per visitor, and a note on the two revenue-only rows. Up to 500 rows. |
@@ -2997,6 +3066,7 @@ Both take an optional note for the erase log, such as a ticket number: `"note"` 
 DELETE. It is one line of up to 200 characters. Don't put the person's name or email in it.
 
 Both answer with counts: `{ "ok": true, "visitors": 1, "sessions": 4, "events": 23, "claims": 0, "signals": 0, "payments": 2, "subscriptions": 1 }`.
+With recordings (Pro), the answer adds `recordings`: the recorded visits deleted, files and rows.
 `payments` and `subscriptions` count the rows kept with the link to the person removed. They include rows of another
 visitor id that were credited to an erased visit: those lose the visit and its source. Up to 500 visitors go per request; if more
 match, the answer has `"more": true`, so call it again.
