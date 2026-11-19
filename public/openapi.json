@@ -13197,7 +13197,7 @@
           }
         ],
         "summary": "Send a message (Pro)",
-        "description": "Sends one message from an address on a mail domain of the deployment and starts a thread, so an answer lands in the inbox next to it. The body is the one POST /api/mail/emails takes. A retry is safe with the Idempotency-Key header or idempotency_key in the body: the same key and body within 24 hours answer the first id, and another body answers 400. Needs a scoped key with mail:write, which does not include mail:read. A key kept to some mail domains acts on those domains only. The answer names the recipients in to. A key the owner set to replies only gets 403 here. Each key has a daily cap on recipients, 1,000 in 24 hours by default, and answers 429 past it. A send to one address writes 24 D1 rows.",
+        "description": "Sends one message from an address on a mail domain of the deployment and starts a thread, so an answer lands in the inbox next to it. The body is the one POST /api/mail/emails takes: from, to and subject with text or html, or to and a template. A template's from and subject stand in for the ones the body leaves out. A retry is safe with the Idempotency-Key header or idempotency_key in the body: the same key and body within 24 hours answer the first id, and another body answers 400. Needs a scoped key with mail:write, which does not include mail:read. A key kept to some mail domains acts on those domains only. The answer names the recipients in to. A key the owner set to replies only gets 403 here. Each key has a daily cap on recipients, 1,000 in 24 hours by default, and answers 429 past it. A send to one address writes 24 D1 rows, 25 with a template.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -13337,13 +13337,37 @@
                   "idempotency_key": {
                     "type": "string",
                     "maxLength": 256
+                  },
+                  "template": {
+                    "type": "object",
+                    "description": "A published template, by id or alias, instead of text and html. Its from, subject and reply_to fill in what the body leaves out. Values fill its {{{KEY}}} placeholders: HTML-escaped in html, as written in subject and text.",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "variables": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number"
+                          ]
+                        }
+                      },
+                      "language": {
+                        "type": "string",
+                        "description": "A language tag such as de. The template's language of that tag, else its base language, else its default. \"welcome:de\" as id does the same."
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": true,
                 "required": [
-                  "from",
-                  "to",
-                  "subject"
+                  "to"
                 ]
               }
             }
@@ -13954,6 +13978,2134 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/mail/templates": {
+      "get": {
+        "operationId": "listMailTemplates",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "List mail templates (Pro)",
+        "description": "The deployment's mail templates by name, 50 a page, each with its sends over the last days (default 30). Needs a scoped key with mail:read, mail:write or mail:templates. A key kept to some mail domains sees their templates only.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "alias": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "domain_id": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "published"
+                            ]
+                          },
+                          "has_draft": {
+                            "type": "boolean",
+                            "description": "The draft differs from the published version."
+                          },
+                          "published_version": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "from": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "variables": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "created_at": {
+                            "type": "integer"
+                          },
+                          "updated_at": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "domain_id",
+                          "status"
+                        ],
+                        "additionalProperties": true
+                      }
+                    },
+                    "days": {
+                      "type": "integer"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "templates"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Create a mail template (Pro)",
+        "description": "Creates a draft. Publish it before a send can use it. A template belongs to the domain of its from address, or to domain. 422 names the problem: a {{{KEY}}} without a variable, a reserved or repeated key, a type other than string or number, a taken alias, or 500 templates already. Writes 3 D1 rows. Needs a scoped key with mail:templates, which sends nothing; mail:write does not include it. A key kept to some mail domains changes their templates only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "alias": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "A second name sends and routes may use, unique. Letters, digits, dots, dashes and underscores."
+                  },
+                  "from": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The default From, on the template's domain."
+                  },
+                  "subject": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 998
+                  },
+                  "reply_to": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "html": {
+                    "type": "string",
+                    "description": "Up to 512 KB. Placeholders are {{{KEY}}}; each needs a variable."
+                  },
+                  "text": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "variables": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_]{1,50}$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "string",
+                            "number"
+                          ]
+                        },
+                        "fallback_value": {
+                          "type": [
+                            "string",
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Replaces the whole list on update."
+                  },
+                  "domain": {
+                    "type": "string",
+                    "description": "The mail domain, by name or id, when from is not set."
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "Create: the default language, en when left out. Update: the language subject, html and text change."
+                  },
+                  "languages": {
+                    "type": "object",
+                    "description": "Other languages by tag, each { subject, html, text }. null removes one.",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "subject": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "html": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "html"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "html"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "template": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain_id": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "published"
+                          ]
+                        },
+                        "has_draft": {
+                          "type": "boolean",
+                          "description": "The draft differs from the published version."
+                        },
+                        "published_version": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "type": "integer"
+                        },
+                        "published_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "domain_id",
+                        "status"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reply_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "html": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "null: made from the HTML at send. Empty: no text part."
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,50}$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "string",
+                                  "number"
+                                ]
+                              },
+                              "fallback_value": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "published": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true,
+                      "description": "The version sends use, with version and published_at, or null before the first publish."
+                    },
+                    "versions": {
+                      "type": "array",
+                      "description": "The 10 newest published versions, newest first.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": "integer"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "template",
+                    "draft",
+                    "versions"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "template": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain_id": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "published"
+                          ]
+                        },
+                        "has_draft": {
+                          "type": "boolean",
+                          "description": "The draft differs from the published version."
+                        },
+                        "published_version": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "type": "integer"
+                        },
+                        "published_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "domain_id",
+                        "status"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reply_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "html": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "null: made from the HTML at send. Empty: no text part."
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,50}$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "string",
+                                  "number"
+                                ]
+                              },
+                              "fallback_value": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "published": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true,
+                      "description": "The version sends use, with version and published_at, or null before the first publish."
+                    },
+                    "versions": {
+                      "type": "array",
+                      "description": "The 10 newest published versions, newest first.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": "integer"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "template",
+                    "draft",
+                    "versions"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/v1/mail/templates/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The template's id or alias."
+        }
+      ],
+      "get": {
+        "operationId": "getMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Read a mail template (Pro)",
+        "description": "The draft, the published version and the versions kept. Needs a scoped key with mail:read, mail:write or mail:templates. A key kept to some mail domains sees their templates only.",
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "template": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain_id": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "published"
+                          ]
+                        },
+                        "has_draft": {
+                          "type": "boolean",
+                          "description": "The draft differs from the published version."
+                        },
+                        "published_version": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "type": "integer"
+                        },
+                        "published_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "domain_id",
+                        "status"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reply_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "html": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "null: made from the HTML at send. Empty: no text part."
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,50}$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "string",
+                                  "number"
+                                ]
+                              },
+                              "fallback_value": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "published": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true,
+                      "description": "The version sends use, with version and published_at, or null before the first publish."
+                    },
+                    "versions": {
+                      "type": "array",
+                      "description": "The 10 newest published versions, newest first.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": "integer"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "template",
+                    "draft",
+                    "versions"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Change a mail template's draft (Pro)",
+        "description": "Sent fields replace the draft's; null clears alias, from, subject, reply_to or text. Sends keep using the published version until the next publish. Writes 1 D1 row. Needs a scoped key with mail:templates, which sends nothing; mail:write does not include it. A key kept to some mail domains changes their templates only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "alias": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "A second name sends and routes may use, unique. Letters, digits, dots, dashes and underscores."
+                  },
+                  "from": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The default From, on the template's domain."
+                  },
+                  "subject": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 998
+                  },
+                  "reply_to": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "html": {
+                    "type": "string",
+                    "description": "Up to 512 KB. Placeholders are {{{KEY}}}; each needs a variable."
+                  },
+                  "text": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "variables": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_]{1,50}$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "string",
+                            "number"
+                          ]
+                        },
+                        "fallback_value": {
+                          "type": [
+                            "string",
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Replaces the whole list on update."
+                  },
+                  "domain": {
+                    "type": "string",
+                    "description": "The mail domain, by name or id, when from is not set."
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "Create: the default language, en when left out. Update: the language subject, html and text change."
+                  },
+                  "languages": {
+                    "type": "object",
+                    "description": "Other languages by tag, each { subject, html, text }. null removes one.",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "subject": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "html": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "html"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "default_language": {
+                    "type": "string",
+                    "description": "Make this language the default. The old default becomes one of the other languages."
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "template": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain_id": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "published"
+                          ]
+                        },
+                        "has_draft": {
+                          "type": "boolean",
+                          "description": "The draft differs from the published version."
+                        },
+                        "published_version": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "type": "integer"
+                        },
+                        "published_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "domain_id",
+                        "status"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reply_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "html": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "null: made from the HTML at send. Empty: no text part."
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,50}$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "string",
+                                  "number"
+                                ]
+                              },
+                              "fallback_value": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "published": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true,
+                      "description": "The version sends use, with version and published_at, or null before the first publish."
+                    },
+                    "versions": {
+                      "type": "array",
+                      "description": "The 10 newest published versions, newest first.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": "integer"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "template",
+                    "draft",
+                    "versions"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Delete a mail template (Pro)",
+        "description": "Deletes the template and its versions. Sent messages keep its id. Needs a scoped key with mail:templates, which sends nothing; mail:write does not include it. A key kept to some mail domains changes their templates only.",
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/mail/templates/{id}/publish": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The template's id or alias."
+        }
+      ],
+      "post": {
+        "operationId": "publishMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Publish a mail template (Pro)",
+        "description": "The draft becomes the next version, and sends use it. The 10 newest versions are kept. Writes 3 D1 rows, none when the draft is already published. Needs a scoped key with mail:templates, which sends nothing; mail:write does not include it. A key kept to some mail domains changes their templates only.",
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "template": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain_id": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "published"
+                          ]
+                        },
+                        "has_draft": {
+                          "type": "boolean",
+                          "description": "The draft differs from the published version."
+                        },
+                        "published_version": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "type": "integer"
+                        },
+                        "published_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "domain_id",
+                        "status"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reply_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "html": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "null: made from the HTML at send. Empty: no text part."
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,50}$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "string",
+                                  "number"
+                                ]
+                              },
+                              "fallback_value": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "published": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true,
+                      "description": "The version sends use, with version and published_at, or null before the first publish."
+                    },
+                    "versions": {
+                      "type": "array",
+                      "description": "The 10 newest published versions, newest first.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": "integer"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "template",
+                    "draft",
+                    "versions"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/mail/templates/{id}/restore": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The template's id or alias."
+        }
+      ],
+      "post": {
+        "operationId": "restoreMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Put a published version back in the draft (Pro)",
+        "description": "Publish afterwards to send it again. 404 for a version no longer kept. Needs a scoped key with mail:templates, which sends nothing; mail:write does not include it. A key kept to some mail domains changes their templates only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "template": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "domain_id": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "published"
+                          ]
+                        },
+                        "has_draft": {
+                          "type": "boolean",
+                          "description": "The draft differs from the published version."
+                        },
+                        "published_version": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "type": "integer"
+                        },
+                        "published_at": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "domain_id",
+                        "status"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "draft": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reply_to": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "html": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "null: made from the HTML at send. Empty: no text part."
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,50}$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "string",
+                                  "number"
+                                ]
+                              },
+                              "fallback_value": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "published": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true,
+                      "description": "The version sends use, with version and published_at, or null before the first publish."
+                    },
+                    "versions": {
+                      "type": "array",
+                      "description": "The 10 newest published versions, newest first.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer"
+                          },
+                          "published_at": {
+                            "type": "integer"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "template",
+                    "draft",
+                    "versions"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/mail/templates/{id}/preview": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The template's id or alias."
+        }
+      ],
+      "post": {
+        "operationId": "previewMailTemplate",
+        "tags": [
+          "Mail"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Preview a mail template with values (Pro)",
+        "description": "The draft, the published version or a kept version with variables filled in. Missing values take their fallback; one without shows as [KEY] and is listed in missing. Writes nothing. Needs a scoped key with mail:read, mail:write or mail:templates. A key kept to some mail domains sees their templates only.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "published"
+                        ]
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    ]
+                  },
+                  "variables": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": [
+                        "string",
+                        "number"
+                      ]
+                    }
+                  },
+                  "language": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "html": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "from": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "html",
+                    "missing"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"

@@ -19,7 +19,7 @@ starts lower and rises in steps ([Price](#price)). Pro adds:
 - Search Console, Google rank tracking, the Content view and a page audit
 - AI visibility in ChatGPT, Claude, Gemini and Perplexity
 - Home across all your sites with the Growth row, next actions, and a verdict on every change you log
-- Mail on your own domains through Cloudflare, with an API that answers like Resend's and an inbox ([MAIL.md](MAIL.md))
+- Mail on your own domains through Cloudflare, with an API that answers like Resend's, an inbox and templates ([MAIL.md](MAIL.md))
 - People with one story each, from the first visit to the payment, and recordings of their visits, off until you turn
   them on ([GUIDE.md](GUIDE.md#people-and-recordings-pro))
 - All 32 MCP tools, the `query` tool, alert rules, the alert inbox, the research log and agent skills

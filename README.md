@@ -171,8 +171,9 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
   domain, and no recipient address is stored ([docs/GUIDE.md](docs/GUIDE.md#email-resend-pro)).
 - Mail on your own domains through Cloudflare: your apps send through an API that answers like Resend's, so they keep
   the `resend` package and change the base URL and the key. Mail to your addresses lands in an inbox in the dashboard,
-  threaded with your replies, and agents read and answer it with the MCP tool `mail`. Delivery status, a suppression
-  list and signed webhooks come with it. Sending needs Workers Paid, which includes 3,000 messages a month
+  threaded with your replies, and agents read and answer it with the MCP tool `mail`. Templates keep the HTML your apps
+  send in the dashboard, per domain, with versions, so a change to a welcome email needs no deploy. Delivery status, a
+  suppression list and signed webhooks come with it. Sending needs Workers Paid, which includes 3,000 messages a month
   ([docs/MAIL.md](docs/MAIL.md)).
 - Home across all your sites gets a Growth row (ad spend with MER and CAC, Google Search clicks, the AI mention rate),
   search drops in "worth a look" ([docs/SEO.md](docs/SEO.md#search-drop)), and the top 6 next actions across your

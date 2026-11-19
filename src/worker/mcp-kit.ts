@@ -19,7 +19,7 @@ export interface Tool {
   /** The scope a write tool needs; the route checks it. */
   scope?: WriteScope;
   /** The route and query, from the arguments. Throws ArgError for a bad argument. */
-  route: (a: Args) => { method?: 'GET' | 'POST' | 'DELETE'; path: string; query?: string[]; body?: Json; auth?: 'write'; scope?: WriteScope };
+  route: (a: Args) => { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; path: string; query?: string[]; body?: Json; auth?: 'write'; scope?: WriteScope };
   /** Turns the route's JSON into the tool's answer. */
   shape?: (body: unknown, res: Response, a: Args) => unknown;
   /** What to do when the answer is cut to fit. */

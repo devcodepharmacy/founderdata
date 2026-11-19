@@ -390,6 +390,7 @@ number changes:
 | Resend email cleanup, daily: an email past 30 days | 1 |
 | Mail ([MAIL.md](MAIL.md)): an app sends to one address (`POST /api/mail/emails`) / with an `Idempotency-Key` / the same key and body again | 18 (10 when stored, 8 when Cloudflare took it), plus 2 for each further address and 1 for each attachment / 21 / 0 |
 | Mail: the dashboard or an agent sends / a reply in a thread | 23 from the dashboard and 24 from an agent (the send, and 6 for the thread it starts) / 21 from the dashboard and 22 from an agent |
+| Mail: a send with a template / create a template / change its draft / publish it | 1 more than the same send without one / 3 / 1 / 3 |
 | Mail: a status event from Cloudflare, such as delivered / the same event again | 5 (the message, and 4 for its event row), plus 1 or 2 in the Email panel's counts when the domain is linked to a site / 0 |
 | Mail: a received message that starts a thread / one that joins a thread | 15 / 14, plus 1 for each attachment. The `email()` hook itself writes none |
 | Mail: a webhook delivery queued / each attempt | 4 / 1, or 2 when the endpoint's failure count changes |
@@ -2690,6 +2691,8 @@ belongs to the deployment, not to one site, so it has its own page in the header
 - Mail to an address you added lands in the inbox, threaded with your replies.
 - Each sent message shows its status: sent, delivered, delayed, bounced, complained or failed. A hard bounce or a
   complaint puts the address on the suppression list.
+- Templates hold the HTML your apps send, per domain, with versions and a test send. The Templates tab also groups
+  what your apps send without a template, so you can see every kind of email in one place.
 - Agents read and answer mail with a key that has `mail:read` or `mail:write`.
 
 It needs Workers Paid, an R2 bucket and a queue. `npm run setup -- --mail` creates the bucket and the queue.
