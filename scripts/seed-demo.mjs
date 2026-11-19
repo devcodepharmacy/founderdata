@@ -1318,9 +1318,10 @@ const seoParts = (() => {
 }
 
 // ---------- People and recordings (FounderData Pro's People section, pro/docs/replay-plan.md)
-// ShipKit records visits. Four people with a story: Anna signed in on her Mac and her iPhone, hit a broken button and
-// paid; Ben signed up from X and saw an error; Kenji came back three times with cookies and never signed in; Lea's
-// recorded visit had nothing go wrong. Each recorded visit has an index row (`replays`); the recording itself would be
+// ShipKit records visits. Five people with a story: Anna signed in on her Mac, her iPhone and ShipKit's iPhone app, hit a
+// broken button and paid; Ben signed up from X and saw an error; Kenji came back three times with cookies and never
+// signed in; Lea's recorded visit had nothing go wrong; Mia found the iPhone app on the App Store and subscribed there,
+// without a web visit. Each recorded visit has an index row (`replays`); the recording itself would be
 // in R2, which the seed does not fill. Page activity is the `activity` event the tracker sends (collect.ts parseActivity).
 {
   const MIN = 60_000;
@@ -1359,6 +1360,27 @@ const seoParts = (() => {
   });
   insert('payments', { id: 'pay_people_anna', site_id: site, provider: 'stripe', ts: now - 3 * DAY + 4 * MIN, amount: 4900, kind: 'payment', currency: 'USD', visitor_id: 'people-anna-iphone', session_id: 'people-anna-s3', customer_id: 'cus_people_anna', email: 'anna.weber@example.com', name: 'Anna Weber', product: 'shipkit_pro_monthly', matched_by: 'metadata', channel: 'Organic Search', source: 'Google' });
   web('people-anna-mac', 'people-anna-s4', now - 2 * HOUR, { geo: BERLIN, minutes: 4, pages: ['/dashboard', '/settings', '/docs/webhooks'], recorded: true, activity: [[1, { c: [{ t: 3000, l: 'Invite teammate', k: 'button' }] }]] });
+
+  // Anna's iPhone app: the SDK's identify() joins the install to her by user id. App visits are never recorded.
+  const app = (vid, sid, start, o) => {
+    const screens = o.screens;
+    insert('sessions', {
+      site_id: site, id: sid, visitor_id: vid, started_at: start, last_seen_at: start + o.minutes * MIN, duration: o.minutes * MIN, pageviews: screens.length,
+      goals: 0, hostname: 'ios:com.example.shipkit', entry_page: '/' + screens[0], exit_page: '/' + screens.at(-1), referrer: null, referrer_domain: null,
+      source: o.source ?? 'Direct/None', channel: o.channel ?? 'Direct', country: o.geo[0], region: o.geo[1], city: o.geo[2], browser: 'App', os: 'iOS 26.1', device: 'Mobile',
+    });
+    const step = (o.minutes * MIN) / (screens.length + 1);
+    insertEvents(site, sid, vid, screens.map((name, i) => ({ ts: start + Math.round(i * step), type: 'pageview', path: '/' + name })));
+  };
+  insert('visitors', { site_id: site, id: 'people-anna-app', first_seen: now - 26 * HOUR, user_id: 'usr_anna', name: 'Anna Weber', email: 'anna.weber@example.com', persistent: 1 });
+  app('people-anna-app', 'people-anna-s5', now - 26 * HOUR, { geo: BERLIN, minutes: 3, screens: ['Projects', 'Deploys', 'Settings'] });
+
+  // Mia: found the app on the App Store and subscribed in it for $4.99 a month. No web visit, no name.
+  const SEOUL = ['KR', 'Seoul', 'Seoul'];
+  insert('visitors', { site_id: site, id: 'people-mia-app', first_seen: now - 8 * DAY, first_source: 'App Store', first_channel: 'Organic Search', persistent: 1 });
+  app('people-mia-app', 'people-mia-s1', now - 8 * DAY, { geo: SEOUL, minutes: 4, source: 'App Store', channel: 'Organic Search', screens: ['Onboarding', 'Projects', 'Paywall'] });
+  insert('payments', { id: 'pay_people_mia', site_id: site, provider: 'app_store', ts: now - 8 * DAY + 3 * MIN, amount: 499, kind: 'payment', currency: 'USD', visitor_id: 'people-mia-app', session_id: 'people-mia-s1', customer_id: null, product: 'shipkit_app_monthly', matched_by: 'app_event' });
+  app('people-mia-app', 'people-mia-s2', now - 5 * HOUR, { geo: SEOUL, minutes: 6, screens: ['Projects', 'Deploys'] });
 
   // Ben: found ShipKit on X, signed up, and saw an error on the next visit.
   insert('visitors', { site_id: site, id: 'people-ben-1', first_seen: now - 6 * DAY, user_id: 'usr_ben', name: 'Ben Okafor', email: 'ben.okafor@example.com', first_source: 'X', first_channel: 'Organic Social', traits: json({ plan: 'Trial', company: 'Okafor Studio' }) });
