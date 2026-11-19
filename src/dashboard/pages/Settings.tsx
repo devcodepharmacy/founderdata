@@ -349,7 +349,7 @@ function SettingsBody({ site, setSite, save, origin }: { site: Site; setSite: (s
                 <DataLocationCard site={site} />
                 <WriteCapCard site={site} save={save} />
                 {web && <DatacenterCard site={site} save={save} />}
-                {/* FounderData Pro's Record visits card (id record-visits), with Remember visitors inside it. */}
+                {/* FounderData Pro's Record visits card (id record-visits) and its Remember visitors card (id remember-visitors). */}
                 {isPro && web && <ProSlot name="recordVisits" site={site} save={save} />}
                 <ErasuresCard site={site} />
               </>
