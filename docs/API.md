@@ -1981,9 +1981,9 @@ visitor row with the same user id or email (up to 50 each), plus the web visitor
 ```json
 { "rows": [
     { "id": "VISITOR_ID", "known_by": "user_id", "name": null, "email": null, "user_id": null,
-      "country": "DE", "city": "Berlin", "device": "Desktop", "os": "Mac OS", "app": false,
+      "country": "DE", "city": "Berlin", "device": "Desktop", "os": "Mac OS", "app": false, "uses": "both",
       "first_source": "Google", "first_at": 1761955200000, "visits": 7, "last_seen": 1763560000000,
-      "paid": 4900, "payments": 1, "recordings": 2, "recording": { "session_id": "SESSION_ID", "started_at": 1763559000000 } } ],
+      "paid": 4900, "payments": 1, "last_paid": 1763300000000, "recordings": 2, "recording": { "session_id": "SESSION_ID", "started_at": 1763559000000 } } ],
   "next": 1763300000000 }
 ```
 
@@ -1991,15 +1991,17 @@ visitor row with the same user id or email (up to 50 each), plus the web visitor
   `trouble`). A page can hold fewer people than `limit` while `next` is set. Call again with `before=next` until
   `next` is `null`.
 - `known_by` is `user_id`, `email`, `payment`, `app` or `returning`.
+- `uses` says where the person's visits were: `web`, `app` (the iOS SDK) or `both`. `app` is true when the newest visit
+  was in the app.
 - `paid` is payments less refunds in minor units of the site currency, with every payment of the same provider
-  customer. A key without `read:revenue` gets no `paid` and no `payments`.
+  customer. `last_paid` is when the newest payment was. A key without `read:revenue` gets none of the three.
 - `name`, `email` and `user_id` are always `null`. There is no search by name or email; `q` answers `400`.
 
 `GET /api/v1/people/<id>` is one person's story, from any of their visitor ids.
 
 ```json
 { "id": "VISITOR_ID", "known_by": "user_id", "name": null, "email": null, "user_id": null,
-  "story": "This person found you through Google on March 3, came back 6 times and paid $49.",
+  "story": "This person found you through Google on March 3, came back 6 times and paid $49 on March 21, 18 days after the first visit.",
   "traits": { "plan": "pro", "phone": null }, "devices": "iPhone app and Mac",
   "first_at": 1761955200000, "first_source": "Google", "last_seen": 1763560000000, "visits": 7,
   "paid": 4900, "currency": "USD", "currency_decimals": 2,

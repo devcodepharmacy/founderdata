@@ -2163,6 +2163,18 @@
                               "null"
                             ]
                           },
+                          "uses": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "web",
+                              "app",
+                              "both",
+                              null
+                            ]
+                          },
                           "name": {
                             "type": "null"
                           },
