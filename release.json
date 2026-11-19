@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
-  "date": "2026-11-17",
-  "notes": "FounderData splits into core, which stays free and open source, and FounderData Pro, a lifetime license."
+  "version": "1.1.0",
+  "date": "2026-11-19",
+  "notes": "FounderData Pro has a launch price that starts at €4.99 and rises in steps. Pro sections now show what each report does and the current price."
 }

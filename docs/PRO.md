@@ -72,10 +72,11 @@ Then install Pro as below.
 
 ## License
 
-Core stays MIT. The `pro/` folder and the two Pro edition files come under the license in `pro/LICENSE`. In short, you
-may run Pro for your own websites and apps on as many of your own deployments as you like, and change it for your own
-use. You may not publish or resell the Pro code, or run it as a service for other people's sites. If your GitHub
-access ends, you keep the right to use the copies you already have.
+Core stays MIT. The `pro/` folder and the two Pro edition files come under the license in `pro/LICENSE`. In short, the
+license belongs to the one person or company that bought it and can't be transferred or shared. You may run Pro for
+your own websites and apps and change it inside your own deployment. You may not share, publish or resell the Pro
+code, use it or parts of it in other software, or run it for other people's sites. If your GitHub access ends, you
+keep the right to use the copies you already have.
 
 ## Install Pro
 
