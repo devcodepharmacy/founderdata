@@ -7,7 +7,8 @@ import { priceOf, type Interval, type SubEvent } from './subscriptions';
 
 /**
  * Polar webhook: POST /api/webhooks/polar/:siteId, signed the Standard Webhooks way (webhook-id, webhook-timestamp,
- * webhook-signature). Polar uses its secret as it is, not base64-decoded, as the HMAC key.
+ * webhook-signature), with either of Polar's two keys (verifyPolarSignature). Orders read total_amount, which every API
+ * version sends; 2027-01 drops amount.
  *
  *   order.paid             a paid order: one-time purchases, the first subscription payment and renewals
  *                          (billing_reason subscription_cycle)
@@ -27,10 +28,15 @@ import { priceOf, type Interval, type SubEvent } from './subscriptions';
 export const POLAR_PROVIDER = 'polar';
 const orderId = (id: string) => `polar_order_${id}`;
 
-/** Standard Webhooks with Polar's key: the secret's UTF-8 bytes (its SDK base64-encodes the secret first). */
-export function verifyPolarSignature(secret: string, headers: { id: string | null; timestamp: string | null; signature: string | null }, body: string, now = Date.now()) {
-  const key = btoa(String.fromCharCode(...new TextEncoder().encode(secret)));
-  return verifyStandardWebhook(key, headers, body, now);
+/**
+ * Polar signs two ways, by when the endpoint's secret was made. A secret from 8 September 2026 on signs the Standard
+ * Webhooks way: the key is the base64 after `whsec_`. An older secret, or one you typed, signs with the UTF-8 bytes of
+ * the whole secret. Like Polar's SDK, this accepts either.
+ */
+export async function verifyPolarSignature(secret: string, headers: { id: string | null; timestamp: string | null; signature: string | null }, body: string, now = Date.now()) {
+  const legacy = btoa(String.fromCharCode(...new TextEncoder().encode(secret)));
+  if (await verifyStandardWebhook(legacy, headers, body, now)) return true;
+  return secret.startsWith('whsec_') && verifyStandardWebhook(secret, headers, body, now);
 }
 
 export async function handlePolarWebhook(c: Context<AppEnv>) {

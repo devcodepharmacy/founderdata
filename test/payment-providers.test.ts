@@ -139,14 +139,16 @@ describe('Lemon Squeezy webhook', () => {
 
 // ---------- Polar
 
-function polarHeaders(body: string, secret = POLAR_SECRET, ts = now()) {
+// Polar's two keys: the secret's UTF-8 bytes (older endpoints), or the base64 after whsec_ (Standard Webhooks).
+const polarKey = (secret: string, standard: boolean) => (standard ? Buffer.from(secret.slice(6), 'base64') : Buffer.from(secret, 'utf8'));
+function polarHeaders(body: string, secret = POLAR_SECRET, ts = now(), standard = false) {
   const id = uid('msg_');
-  const sig = createHmac('sha256', Buffer.from(secret, 'utf8')).update(`${id}.${ts}.${body}`).digest('base64');
+  const sig = createHmac('sha256', polarKey(secret, standard)).update(`${id}.${ts}.${body}`).digest('base64');
   return { 'webhook-id': id, 'webhook-timestamp': String(ts), 'webhook-signature': `v1,${sig}`, 'content-type': 'application/json' };
 }
-async function polar(type: string, data: Record<string, unknown>, opts: { secret?: string; ts?: number } = {}) {
+async function polar(type: string, data: Record<string, unknown>, opts: { secret?: string; ts?: number; standard?: boolean; siteId?: string } = {}) {
   const body = JSON.stringify({ type, data });
-  const res = await w.fetch(`/api/webhooks/polar/${site.id}`, { method: 'POST', headers: polarHeaders(body, opts.secret, opts.ts), body });
+  const res = await w.fetch(`/api/webhooks/polar/${opts.siteId ?? site.id}`, { method: 'POST', headers: polarHeaders(body, opts.secret, opts.ts, opts.standard), body });
   return { status: res.status, body: (await res.json()) as any };
 }
 const polarOrder = (id: string, over: Record<string, unknown> = {}) => ({
@@ -158,6 +160,16 @@ describe('Polar webhook', () => {
   it('checks the Standard Webhooks signature with the secret as it is', async () => {
     expect((await polar('order.paid', polarOrder('o0'), { secret: 'other' })).status).toBe(401);
     expect((await polar('order.paid', polarOrder('o0'), { ts: now() - 600 })).status).toBe(401);
+  });
+
+  it('accepts a whsec_ secret signed either way, as Polar signs endpoints made since September 2026', async () => {
+    const secret = `whsec_${Buffer.from('polar standard webhooks key 0123').toString('base64')}`;
+    const other = (await w.admin('/api/sites', { method: 'POST', json: { domain: 'polar-std.example', currency: 'EUR' } })).body;
+    await w.admin(`/api/sites/${other.id}`, { method: 'PATCH', json: { polar_secret: secret } });
+    forgetSite(other.id);
+    expect((await polar('order.paid', polarOrder('std1'), { secret, standard: true, siteId: other.id })).body.result).toBe('recorded');
+    expect((await polar('order.paid', polarOrder('std2'), { secret, standard: false, siteId: other.id })).body.result).toBe('recorded');
+    expect((await polar('order.paid', polarOrder('std3'), { secret: 'whsec_b3RoZXI=', standard: true, siteId: other.id })).status).toBe(401);
   });
 
   it('records an order from metadata or the tracker\'s reference_id, once, and its refund', async () => {
