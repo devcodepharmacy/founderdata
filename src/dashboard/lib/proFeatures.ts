@@ -95,7 +95,7 @@ export const PRO_CARDS: [group: string, name: string, line: string][][] = [
 /** The Mail page (/mail), the Pro card's text for it. */
 export const PRO_MAIL_PAGE = {
   title: 'Mail',
-  body: 'Send and receive email on your own domains through Cloudflare. Apps keep the Resend SDK and change one base URL. Replies land in an inbox here, and agents can read and answer them over MCP.',
+  body: 'Send and receive email on your own domains through Cloudflare. Apps keep the Resend SDK and change one base URL. Replies land in an inbox here, templates keep the HTML your apps send, and agents can read and answer mail over MCP.',
   collected: "Sending needs Cloudflare's Workers Paid plan, which includes 3,000 messages a month and charges $0.35 per 1,000 after that.",
 };
 
@@ -107,7 +107,7 @@ export const PRO_LIST = [
   'Search Console, Google rank tracking and a page audit',
   'AI visibility in ChatGPT, Claude, Gemini and Perplexity',
   'Home across all your sites with next actions, and a verdict on every change you log',
-  'Mail on your own domains through Cloudflare, with an inbox and an API that answers like Resend\'s',
+  'Mail on your own domains through Cloudflare, with an inbox, templates and an API that answers like Resend\'s',
   'All 31 MCP tools, the query tool, alert rules and agent skills',
   'Teammates with their own login',
 ];

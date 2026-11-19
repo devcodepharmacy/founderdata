@@ -4,7 +4,7 @@ FounderData Pro sends and receives email on your own domains through Cloudflare.
 Email Routing receives. Three kinds of callers use it:
 
 - Your apps send through an API that answers like Resend's, so they keep the `resend` package and change the base URL
-  and the key.
+  and the key. That includes Resend's templates: the HTML lives in FounderData, and an app sends it by name.
 - You read and answer mail on the dashboard's **Mail** page.
 - Agents read and answer it through `/api/v1/mail` or the MCP tool `mail`.
 
@@ -112,7 +112,10 @@ Only the owner sees it. Viewers, viewer teammates and the iPhone app get no mail
 
 - **Inbox** lists threads with their unread count. Open one to read it, reply, archive it or delete it. HTML mail
   renders in a sandboxed frame, and remote images stay blocked until you allow them for that message.
-- **Sent** lists every sent message with its status and delivery events, from apps, the dashboard and agents.
+- **Sent** lists every sent message with its status and delivery events, from apps, the dashboard and agents. Open
+  one to see it as it was sent, while its body is stored. Filter by domain or by template.
+- **Templates** groups by domain the templates you keep here and the kinds of mail your apps send without one. See
+  [Templates](#templates).
 - **Domains** holds the domains, their DNS records and their addresses.
 - **API** shows the base URL, your endpoints for webhooks and which domains each key may send from. **Copy AI
   prompt** gives a coding agent the steps to move one app off Resend.
@@ -169,8 +172,9 @@ What differs from Resend:
 - Sending uses the first `reply_to` address. The message's record keeps all of them.
 - Received mail is not on this API. The package's `emails.receiving` calls answer 404. An app gets inbound mail from
   the `email.received` webhook, and an agent reads the inbox with a `mail:read` key.
-- Open and click tracking, `scheduled_at`, broadcasts, contacts, audiences and Resend templates answer 422 in Resend's
-  error shape. So do creating or changing domains, webhooks and API keys through the API.
+- Open and click tracking, `scheduled_at`, broadcasts, contacts and audiences answer 422 in Resend's error shape. So
+  do creating or changing domains, webhooks and API keys through the API.
+- Templates work, with the differences listed under [Templates](#templates).
 - A message can have 50 recipients across `to`, `cc` and `bcc`, 32 attachments and 18 MB in all. A request larger
   than 25 MB answers `413`.
 - In a batch, a message the mail service refused keeps its id and its place in `data`, with the status `failed` or
@@ -233,11 +237,107 @@ to "every domain", so an address that bounced stays suppressed when you add the 
 Link a domain to a site on the Domains tab, and that site's [Email panel](GUIDE.md#email-resend-pro) counts the mail
 sent from it.
 
+## Templates
+
+A template is HTML you keep in FounderData and send by its id or alias, with values for its variables. Change the
+template and the next send uses the new version. The app does not need a deploy.
+
+```js
+await resend.emails.send({
+  to: 'ann@example.net',
+  template: { id: 'welcome', variables: { NAME: 'Ann', SEATS: 3 } },
+});
+```
+
+Each template belongs to one of your mail domains. That is the domain of its from address, or the one you pick when
+it has none.
+
+### Write one
+
+Use the dashboard (Mail, Templates, **New template**), Resend's calls (`resend.templates.create`, `update`,
+`publish`, `duplicate`, `remove`, `get`, `list`), or the agent API and the MCP tool `mail`. A template has:
+
+| Field | |
+| --- | --- |
+| `name` | Required, up to 100 characters. |
+| `alias` | Optional. A second name a send can use, such as `welcome`. Letters, digits, dots, dashes and underscores. Unique across the deployment. |
+| `from`, `subject`, `reply_to` | Optional defaults. A send that names its own wins. |
+| `html` | Required, up to 512 KB. |
+| `text` | Optional. Leave it out and the text part is made from the HTML at send. An empty string sends no text part. |
+| `variables` | Up to 50, each `{ key, type, fallback_value }`. |
+
+A placeholder is `{{{KEY}}}` in `html`, `subject` or `text`. Each one needs a variable, or the save answers 422. A key
+has up to 50 ASCII letters, digits and underscores, and case matters. `FIRST_NAME`, `LAST_NAME`, `EMAIL`,
+`UNSUBSCRIBE_URL`, `RESEND_UNSUBSCRIBE_URL`, `contact` and `this` are reserved, as on Resend.
+
+A new template is a draft. Sends use the published version only, so publish it first. Editing a published template
+changes its draft, and sends keep the published version until you publish again. FounderData keeps the 10 newest
+published versions. The dashboard shows them, and **Restore** puts one back in the draft.
+
+### Send one
+
+`template: { id, variables }` takes the place of `html` and `text`. A send with both answers 422. The send's `from`,
+`subject` and `reply_to` win over the template's. Without them the template's are used, and when it has none either,
+the send answers 422. The from address has to be on the template's domain.
+
+Each value fills its placeholders:
+
+- In `html` it is HTML-escaped, so a name such as `<b>Ann</b>` shows as written and adds no markup.
+- In `subject` and `text` it goes in as written. A line break in a subject value becomes a space.
+- A missing value takes the variable's `fallback_value`. A variable with neither answers 422 and nothing is sent.
+- A `number` variable takes a JSON number. A `string` variable takes a string or a number.
+- A string can have 2,000 characters.
+- A value for a key the template does not declare answers 422. This catches a typo that would otherwise send the
+  fallback.
+
+A sent message records the template and the version it was made from. The Sent tab filters by template, and the
+Templates tab counts each template's sends over 30 days.
+
+### Who can change them
+
+`mail:templates` is a scope of its own. It creates, changes, publishes and deletes templates, and it sends nothing. A
+`mail:write` key sends with templates and reads them, and a call that changes one answers `403`. A leaked app key
+therefore cannot rewrite the password-reset mail your app sends. Give a build or an agent that uploads templates a
+`mail:templates` key. A key kept to some domains on the API tab sees and changes their templates only.
+
+### What your apps send without templates
+
+The Templates tab also lists, per domain, the kinds of mail your apps sent over the last 30 days through the API. It
+groups each message by the first of these it has:
+
+1. The template it was made from.
+2. A tag named `category`, such as `tags: [{ name: 'category', value: 'receipt' }]`.
+3. The shape of its subject. Addresses, links, amounts, dates, numbers, ids and a greeted name come out, so "Your
+   receipt #4821 for $12.00" and "Your receipt #4822 for $9.50" are one kind.
+
+Each kind shows its sends and delivery counts and the newest message. The preview needs that message's body, which is
+kept for 30 days. Mail from the dashboard and from agents is left out, unless it used a template. The tab reads the
+newest 20,000 sent messages and says so when there were more.
+
+### Where it differs from Resend
+
+Resend's docs leave these open. FounderData does the following, and an app that relies on another behavior may need a
+change.
+
+- Values are HTML-escaped in `html`. Placeholders also work in `subject` and `text`, and `{{{ KEY }}}` with spaces
+  works. `{{KEY}}` with two braces is plain text.
+- Variable types are `string` and `number`. Any other type answers 422.
+- A send with a value for an undeclared variable answers 422.
+- `GET /templates/:id` answers the draft, and `has_unpublished_versions` says whether it differs from the published
+  version. `current_version_id` is `<template id>:<version>`, or `<template id>:draft` before the first publish.
+- `PATCH` with `variables` replaces the whole list. `null` clears `alias`, `from`, `subject`, `reply_to` or `text`.
+- `duplicate` makes a draft named "<name> (copy)" without an alias.
+- An unknown template answers `404 not_found`. One never published answers 422.
+- A deployment holds 500 templates.
+- A template's answer carries one field Resend's does not: `domain`. Create takes `domain`, a name or id, for a
+  template without a from address. A key kept to one domain needs neither.
+
 ## Agents
 
 A scoped key reaches mail with two scopes of its own. `mail:read` reads the inbox, the sent log and delivery events.
-`mail:write` sends, replies, marks read and archives. Neither includes the other, and `read` reaches no mail. The
-routes are in [API.md](API.md#mail-pro), and the MCP tool is `mail` ([MCP.md](MCP.md#the-mail-tool-pro)).
+`mail:write` sends, replies, marks read and archives. Neither includes the other, and `read` reaches no mail. Any of
+the three mail scopes reads and previews templates, and only `mail:templates` changes them. The routes are in
+[API.md](API.md#mail-pro), and the MCP tool is `mail` ([MCP.md](MCP.md#the-mail-tool-pro)).
 
 An agent gets each message as text, cut at 2,000 characters in a thread and at 40,000 for one message. It gets the
 names and sizes of attachments, not their bytes. A message with HTML and no text part is read as the HTML's text, and
@@ -264,6 +364,7 @@ carries a `content_notice` that says so. An agent treats a message as data and f
 | Delivery events and webhook deliveries | D1 | 30 days |
 | Idempotency keys | D1 | 24 hours |
 | Suppressed addresses | D1 | Until removed |
+| Templates, with their 10 newest published versions | D1 | Until you delete the template or its domain |
 
 Deleting a message or a thread in the inbox removes its rows and its R2 objects for good.
 
@@ -293,12 +394,14 @@ Cloudflare processes every message and keeps its own delivery logs, which Founde
 | --- | --- |
 | An app sends to one address | 18, plus 2 for each further address and 1 for each attachment |
 | The same with an `Idempotency-Key` | 21. A repeat writes 0 |
+| The same with a template | 1 more, for the template's index |
+| Create a template / change its draft / publish it | 3 / 1 / 3. Publishing an unchanged draft writes 0 |
 | The dashboard sends / an agent sends | 23 / 24, because the message starts a thread |
 | A reply in a thread, from the dashboard / by an agent | 21 / 22 |
 | A status event, such as delivered | 5. The same event again writes 0 |
 | A received message that starts a thread / one that joins a thread | 15 / 14 |
 | A webhook delivery | 4 when queued, plus 1 or 2 for each attempt |
 | Mark a thread read / archive it | 1 for each unread message, plus 1 / 1 |
-| Reading the inbox, the sent log or a message | 0 |
+| Reading the inbox, the sent log, a message, the templates or the catalog | 0 |
 
 At 100 sent and 20 received messages a day, mail writes about 2,600 rows. Workers Paid includes 50 million a month.

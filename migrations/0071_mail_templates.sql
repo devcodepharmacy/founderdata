@@ -4,9 +4,10 @@
 -- Each template belongs to one mail domain. The draft lives on the mail_templates row; each publish copies it into
 -- mail_template_versions, and a send uses the published version. The 10 newest published versions are kept.
 --
--- Rows written: creating or editing a template 1 (+ 1 for each index entry its alias or domain adds), publishing it 2
--- or 3 (the version row and the template row, and the version that falls out of the last 10 is deleted for free). A
--- send with a template writes 1 row more than the same send without one: its entry in mail_messages_by_template.
+-- Rows written (pro/test/cost.test.ts pins them): creating a template 3 (the row, its key, its domain index entry; 1
+-- more with an alias), changing its draft 1, publishing it 3 (the version row with its key, and the template row; the
+-- version that falls out of the newest 10 is deleted for free). A send with a template writes 1 row more than the same
+-- send without one: its entry in mail_messages_by_template.
 
 -- A template.
 --   domain_id          the mail domain it belongs to. Deleting the domain deletes its templates (domains.ts).

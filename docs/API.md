@@ -51,6 +51,7 @@ only replaced. Revoking a key stops it within a minute and leaves the others alo
 | `spend:seo` | Buying keyword research with your DataForSEO account, up to the site's monthly cap: `POST /api/v1/ranks/research` and `research_keywords` with `mode`, including `mode: "app"` ([Ranks and keyword research](#ranks-and-keyword-research-pro)). `research:write` does not include it | `403` |
 | `mail:read` | FounderData Pro mail: read the inbox, the sent log and delivery events, with addresses and message text (`/api/v1/mail/*` reads and the MCP tool `mail`). `read` does not include it | `403` |
 | `mail:write` | FounderData Pro mail: send from the deployment's mail domains, reply, mark read and archive (`POST /api/mail/emails`, the `/api/v1/mail/*` writes and the MCP tool `mail`). It does not include `mail:read` | `403` |
+| `mail:templates` | FounderData Pro mail templates: create, change, publish and delete them (`/api/mail/templates`, the `/api/v1/mail/templates` writes and the MCP tool `mail`). It sends nothing, and `mail:write` does not include it | `403` |
 
 A `403` names the missing scope and the key's scopes. A key for one site acts on that site. A key for several sites
 or all sites names the site with `?site=<id>` on every route, reads and writes alike; a site it doesn't cover gets
@@ -2343,7 +2344,7 @@ distinct combination. A copy-paste Next.js middleware and Cloudflare Worker are 
 
 FounderData Pro's mail belongs to the deployment, not to a site, so these routes take no `?site=`. They need a scoped
 key with `mail:read` to read and `mail:write` to write. Neither scope includes the other, and `read` reaches none of
-them. A key that the owner kept to some mail domains (Mail, API in the dashboard) reads and writes those domains
+them. Templates are the exception: any of the three mail scopes reads them, and only `mail:templates` changes them. A key that the owner kept to some mail domains (Mail, API in the dashboard) reads and writes those domains
 only. The owner can also set a key to replies only, and each key has a daily cap on recipients
 ([MAIL.md](MAIL.md#move-an-app-off-resend)). Setup, limits and retention are in [MAIL.md](MAIL.md).
 
@@ -2446,10 +2447,11 @@ Needs `mail:write`. Sends one message and starts a thread, so an answer lands in
 
 | Field | |
 | --- | --- |
-| `from` | Required. An address on a domain that is set up for sending, with or without a name |
+| `from` | Required unless the template has one. An address on a domain that is set up for sending, with or without a name |
 | `to` | Required. One address or a list. `to`, `cc` and `bcc` take 50 addresses together |
-| `subject` | Required. 998 characters at most |
-| `text`, `html` | One of them is required |
+| `subject` | Required unless the template has one. 998 characters at most |
+| `text`, `html` | One of them is required, unless the send names a `template` |
+| `template` | `{ "id", "variables" }`: a published template by id or alias, in place of `text` and `html` ([Mail templates](#mail-templates)) |
 | `cc`, `bcc`, `reply_to` | An address or a list. Sending uses the first `reply_to` address |
 | `headers` | An object of header names and values. Cloudflare refuses the ones it writes itself, such as `Message-ID` |
 | `tags` | Up to 50 `{ "name", "value" }` pairs of ASCII letters, digits, `_` and `-` |
@@ -2474,7 +2476,7 @@ of an `idempotency_key` answers the first `id` without `to`.
 | `502` | Cloudflare's mail service failed. The message is stored as `failed` |
 | `503` | Mail is not set up on this deployment. The error names the missing binding |
 
-A send to one address writes 24 D1 rows.
+A send to one address writes 24 D1 rows, 25 with a template.
 
 ### `POST /api/v1/mail/threads/<id>/reply`
 
@@ -2491,6 +2493,32 @@ writes 22 rows.
 Need `mail:write`. `read` marks every received message of the thread read, or unread with `{ "read": false }`, and
 answers `{ "ok": true, "unread": 0 }`. `archive` takes the thread out of the inbox, or brings it back with
 `{ "archived": false }`. Archiving deletes nothing.
+
+### Mail templates
+
+A template is HTML with `{{{KEY}}}` placeholders that a send fills in ([MAIL.md](MAIL.md#templates)). Each belongs
+to one mail domain. A key kept to some domains reads and changes their templates only. `<id>` is the id or the alias.
+
+| Route | Scope | |
+| --- | --- | --- |
+| `GET /api/v1/mail/templates` | any mail scope | 50 a page by name, with `next_cursor`. Each has its sends over 30 days in `counts`. `?domain_id=`, `?days=` (1 to 90) |
+| `GET /api/v1/mail/templates/<id>` | any mail scope | `template`, the `draft`, the `published` version and the `versions` kept |
+| `POST /api/v1/mail/templates/<id>/preview` | any mail scope | `{ "version": "draft", "variables": {} }`. Answers `subject`, `html`, `text` and the variables without a value in `missing`, shown as `[KEY]`. Writes nothing |
+| `POST /api/v1/mail/templates` | `mail:templates` | `name`, `html`, and `alias`, `from`, `subject`, `reply_to`, `text`, `variables`, `domain`. A draft. `201`. Writes 3 rows |
+| `PATCH /api/v1/mail/templates/<id>` | `mail:templates` | Changes the draft. `variables` replaces the list, and `null` clears a field. Writes 1 row |
+| `POST /api/v1/mail/templates/<id>/publish` | `mail:templates` | The draft becomes the version sends use. Writes 3 rows |
+| `POST /api/v1/mail/templates/<id>/restore` | `mail:templates` | `{ "version": 2 }` puts that version back in the draft |
+| `DELETE /api/v1/mail/templates/<id>` | `mail:templates` | Deletes it and its versions. Sent mail keeps its id |
+
+```json
+{ "name": "Refund", "alias": "refund", "from": "Acme <hello@acme.example>", "subject": "Your refund of {{{AMOUNT}}}",
+  "html": "<p>Hi {{{NAME}}}, {{{AMOUNT}}} is on its way.</p>",
+  "variables": [{ "key": "NAME", "type": "string", "fallback_value": "there" }, { "key": "AMOUNT", "type": "string" }] }
+```
+
+`422` names the problem: a placeholder without a variable, a reserved or repeated key, a type other than `string` or
+`number`, an alias already taken, a from address on another domain, or 500 templates already. Apps use Resend's own
+template calls on `/api/mail/templates` instead ([MAIL.md](MAIL.md#templates)).
 
 ## Alert rules (Pro)
 

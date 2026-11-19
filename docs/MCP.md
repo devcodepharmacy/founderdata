@@ -24,6 +24,7 @@ Make a key for the agent in Settings, Agents. Pick the scopes it needs ([API.md]
 - `research:write` if it should record what it found, decided or paid for with `add_research` ([The research log](#the-research-log-pro)), or track keywords with `research_keywords` ([SEO.md](SEO.md#keyword-research-and-rank-tracking)).
 - `spend:seo` if it should buy keyword research with your DataForSEO account (`research_keywords` with `mode`), up to the site's monthly cap. `research:write` does not include it.
 - `mail:read` and `mail:write` if it should read and send the deployment's mail with the Pro tool `mail`. Mail answers hold addresses and message text that strangers wrote. `read` reaches none of it.
+- `mail:templates` if it should write and publish the mail templates your apps send. It sends nothing.
 - One site, several, or all sites. A key for all sites unlocks `get_portfolio`.
 
 `spend:ai` adds one tool, `add_ai_prompts`, which saves prompts for the AI visibility runner ([AI-VISIBILITY.md](AI-VISIBILITY.md)). Each prompt is billed on the owner's engines every day, so give this scope only to an agent that should spend. `seo:write` and `aso:write` are for push scripts: no tool writes the SEO snapshot, the ASO data or AI
@@ -415,7 +416,8 @@ body, like every other tool.
 
 `mail` reads and writes the deployment's mail ([MAIL.md](MAIL.md)). It takes no `site`. Reads need a key with
 `mail:read` and writes one with `mail:write`. Neither scope includes the other, and a key with only `read` gets a
-403 that names the scope to ask for.
+403 that names the scope to ask for. Any mail scope reads templates, and `save_template` and `publish_template` need
+`mail:templates`.
 
 | `action` | Arguments | Route |
 | --- | --- | --- |
@@ -424,10 +426,15 @@ body, like every other tool.
 | `get_message` | `message_id` | `GET /api/v1/mail/messages/<id>` |
 | `list_sent` | `q`, `status`, `limit`, `cursor` | `GET /api/v1/mail/sent` |
 | `domains` | none | `GET /api/v1/mail/domains` |
-| `send` | `from`, `to`, `subject`, `text` or `html`, `cc`, `bcc`, `reply_to`, `idempotency_key` | `POST /api/v1/mail/send` |
+| `send` | `from`, `to`, `subject`, `text` or `html`, `cc`, `bcc`, `reply_to`, `idempotency_key`. Or `template_id` and `variables` in place of `text` and `html` | `POST /api/v1/mail/send` |
 | `reply` | `thread_id`, `text` or `html`, `from`, `reply_all` | `POST /api/v1/mail/threads/<id>/reply` |
 | `mark_read` | `thread_id`, `read` | `POST /api/v1/mail/threads/<id>/read` |
 | `archive` | `thread_id`, `archived` | `POST /api/v1/mail/threads/<id>/archive` |
+| `list_templates` | `limit`, `cursor` | `GET /api/v1/mail/templates` |
+| `get_template` | `template_id` | `GET /api/v1/mail/templates/<id>` |
+| `preview_template` | `template_id`, `version`, `variables` | `POST /api/v1/mail/templates/<id>/preview` |
+| `save_template` | `name`, `html`, `alias`, `from`, `subject`, `reply_to`, `text`, `variables`, `domain`. With `template_id` it changes that template's draft | `POST` or `PATCH /api/v1/mail/templates` |
+| `publish_template` | `template_id` | `POST /api/v1/mail/templates/<id>/publish` |
 
 An argument that belongs to another action is refused, not dropped. The answers are the routes' answers
 ([API.md](API.md#mail-pro)).
