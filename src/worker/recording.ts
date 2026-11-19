@@ -1,4 +1,4 @@
-// The site settings of Record visits and Remember visitors (migration 0071, docs/GUIDE.md "People and recordings (Pro)").
+// The site settings of Record visits and Remember visitors (migration 0072, docs/GUIDE.md "People and recordings (Pro)").
 // Core stores them and the tracker reads them from the pageview answer (collect.ts trackerConfig). FounderData Pro
 // draws the card that changes them and decides which visits to record.
 import type { Site } from './env';

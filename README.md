@@ -381,8 +381,8 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | Web: first pageview of a new visitor / each further pageview or goal. An ad click id, the language and the first touch add columns, not rows. A later page that brings any ad click id, Meta's included, into a direct visit writes 1 row more, or 2 on the visitor's first visit | 11 / 5 |
 | Web: page speed (Core Web Vitals) of one page load, in the ping it already sends | 1, at the default 100% sample |
 | Web: `identify()` | 0 when no field changes. Otherwise 1 for the visitor row, plus 1 for each of email and user id the visitor has after the call. Traits ride on the same row |
-| Web: clicks, rage clicks and errors of one page in a recorded visit (Pro), in the ping it already sends | 0 when the page had none, else 1 |
-| Recorded visit (Pro): the index row with its first chunk / each later chunk | 1 / 0. Each chunk is 1 Worker request and 1 R2 write |
+| Web: clicks, rage clicks and errors of one page in a recorded visit (Pro), in the ping it already sends | 0 when the page had none, else 4: one `activity` event, its 2 index entries and the id counter |
+| Recorded visit (Pro): the index row with its first chunk / each later chunk | 3 (the row and its 2 index entries) / 0. Each chunk is 1 Worker request and 1 R2 write |
 | App: typical session of a known install | 36 |
 | App: a new install's first session / a relaunch the same day without consent. An install that Apple Search Ads attributes writes 2 rows more when Apple answers | 7 / 3 to 5 |
 | Payment from Stripe, the App Store or another provider | 5 to 9. A subscription event that cancels a paying subscription or fails its renewal adds 1 alert inbox row |

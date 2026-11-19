@@ -472,7 +472,7 @@ app.patch('/api/sites/:id', async (c) => {
     if (!Number.isInteger(pct) || pct < 0 || pct > 100) return c.json({ error: 'Enter the vitals sample as a whole percent from 0 to 100' }, 400);
     next.vitals_sample = pct;
   }
-  // Record visits and Remember visitors (migration 0071, docs/GUIDE.md "People and recordings (Pro)").
+  // Record visits and Remember visitors (migration 0072, docs/GUIDE.md "People and recordings (Pro)").
   const recordError = patchRecording(b as Record<string, unknown>, next);
   if (recordError) return c.json({ error: recordError }, 400);
   if (typeof b.revenuecat_auth === 'string' && !b.revenuecat_auth.includes('•')) {

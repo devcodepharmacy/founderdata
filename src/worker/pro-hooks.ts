@@ -252,7 +252,7 @@ export interface Pro {
    */
   eraseRefusal?(a: { env: Bindings; email: string }): Promise<{ error: string; status: 400 | 503 } | null>;
 
-  // ---- people and recordings (pro/docs/replay-plan.md, migration 0071)
+  // ---- people and recordings (pro/docs/replay-plan.md, migration 0072)
   /**
    * Whether to record this visit, asked for every pageview of a site with `record_visits` on and the REPLAY_BUCKET
    * binding (collect.ts trackerConfig). Return the recorder's settings to record, which the pageview answer carries as

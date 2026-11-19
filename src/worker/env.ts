@@ -217,7 +217,7 @@ export interface Site {
   keep_ua?: number;
   /** 1 = visits from hosting networks count like any other; 0 (the default) hides them (migration 0065, src/worker/datacenter.ts). */
   show_datacenter?: number;
-  /** Record visits (FounderData Pro, migration 0071): 1 = on. Off by default. */
+  /** Record visits (FounderData Pro, migration 0072): 1 = on. Off by default. */
   record_visits?: number;
   /** Percent of visits recorded, 1 to 100. */
   record_sample?: number;
@@ -227,7 +227,7 @@ export interface Site {
   record_daily_max?: number;
   /** 1 = after 24 hours keep only recorded visits with a goal or a payment. */
   record_only_active?: number;
-  /** Remember visitors (migration 0071): 1 = the tracker keeps the visitor id in first-party cookies, as with consent. */
+  /** Remember visitors (migration 0072): 1 = the tracker keeps the visitor id in first-party cookies, as with consent. */
   remember_visitors?: number;
 }
 

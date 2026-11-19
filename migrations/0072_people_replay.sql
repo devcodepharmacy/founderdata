@@ -21,6 +21,7 @@ ALTER TABLE sites ADD COLUMN remember_visitors INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE visitors ADD COLUMN traits TEXT;
 
 -- One row per recorded visit, written with its first chunk. The chunks are R2 objects r/<site_id>/<session_id>/<n>.
+-- WITHOUT ROWID: the primary key is the table, so a new recording writes 3 rows (the row and its 2 index entries).
 CREATE TABLE replays (
   site_id TEXT NOT NULL,
   session_id TEXT NOT NULL,
@@ -28,7 +29,7 @@ CREATE TABLE replays (
   started_at INTEGER NOT NULL,
   entry_page TEXT,
   PRIMARY KEY (site_id, session_id)
-);
+) WITHOUT ROWID;
 CREATE INDEX idx_replays_started ON replays (site_id, started_at);
 CREATE INDEX idx_replays_visitor ON replays (site_id, visitor_id);
 

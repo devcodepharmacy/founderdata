@@ -1,4 +1,4 @@
-// People and recordings, core's part (migration 0071, docs/API.md "The tracker"): the tracker config on the pageview
+// People and recordings, core's part (migration 0072, docs/API.md "The tracker"): the tracker config on the pageview
 // answer, page activity on the ping, identify() traits, the site settings, and the hooks FounderData Pro fills.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MAX_TRAITS, parseActivity, traitsOf } from '../src/worker/collect';
@@ -207,7 +207,8 @@ describe('people and recordings in the Worker', () => {
     const activity = { p: '/pricing', s: 1_767_225_600_000, c: [{ t: 1200, l: 'Start trial', k: 'button' }, { t: 4000, l: 'Buy', k: 'button', n: 4, r: 1 }], e: [{ t: 4100, m: 'TypeError: x', s: 'https://people.example/app.js:12' }] };
     // The SPA moved on before the page was left: the row keeps the activity's own path.
     expect((await event({ t: 'ping', d: 5000, vid: 'actvisitor0001', sid: 'actsession0001', u: 'https://people.example/checkout', a: activity })).status).toBe(202);
-    expect(w.takeRowsWritten()).toBe(2);
+    // The ping's 1, and the events row with its 2 index entries and the id counter: 4.
+    expect(w.takeRowsWritten()).toBe(5);
     const row = await w.db.prepare("SELECT * FROM events WHERE site_id = ? AND type = 'activity' AND session_id = 'actsession0001'").bind(site.id).first<any>();
     expect(row).toMatchObject({ visitor_id: 'actvisitor0001', path: '/pricing', name: null, datacenter: 0 });
     expect(JSON.parse(row.props)).toEqual({ s: activity.s, c: activity.c, e: activity.e });
@@ -241,7 +242,7 @@ describe('people and recordings in the Worker', () => {
         w.admin(`/api/sites/${s.id}/goal`),
       ]);
       for (const r of [overview, pages, goals, exits, goal]) expect(r.status).toBe(200);
-      const strip = (b: any) => JSON.parse(JSON.stringify(b, (k, v) => (k === 'generated_at' || k === 'cached_at' ? undefined : v)));
+      const strip = (b: any) => JSON.parse(JSON.stringify(b, (k, v) => (k === 'generated_at' || k === 'cached_at' || k === 'range' ? undefined : v)));
       return [overview, pages, goals, exits, goal].map((r) => strip(r.body));
     };
     const plain = await reads();
@@ -310,6 +311,16 @@ describe('people and recordings in the Worker', () => {
     await w.db.prepare("INSERT INTO replays (site_id, session_id, visitor_id, started_at) VALUES (?, 'gonesession001', 'gonevisitor001', 1)").bind(s.id).run();
     expect((await w.admin(`/api/sites/${s.id}`, { method: 'DELETE' })).status).toBe(200);
     expect((await w.db.prepare('SELECT COUNT(*) AS n FROM replays WHERE site_id = ?').bind(s.id).first<{ n: number }>())?.n).toBe(0);
+  });
+
+  it('writes 3 rows for a new recording\'s index row, and none for a repeat', async () => {
+    const insert = () =>
+      w.db.prepare("INSERT OR IGNORE INTO replays (site_id, session_id, visitor_id, started_at, entry_page) VALUES (?, 'costsession001', 'costvisitor001', ?, '/')").bind(site.id, Date.now()).run();
+    w.takeRowsWritten();
+    await insert();
+    expect(w.takeRowsWritten()).toBe(3);
+    await insert();
+    expect(w.takeRowsWritten()).toBe(0);
   });
 
   it('reads replays by site and day, and by visitor, through an index', async () => {

@@ -107,17 +107,19 @@ describe('free-plan cost: D1 rows written per write path', () => {
     expect(await rows('web: identify again with the same fields (every page of a signed-in user)', () => web({ t: 'identify', p: { email: 'a@example.com' } }))).toBe(0);
     // A change rewrites the row and both identity entries: 3.
     expect(await rows('web: identify adds a user id (row, visitors_user and visitors_email)', () => web({ t: 'identify', p: { email: 'a@example.com', user_id: 'u_cost_1' } }))).toBe(3);
-    // Traits (migration 0071) are a column of the same row. A call that changes only traits sets that column alone, so the
+    // Traits (migration 0072) are a column of the same row. A call that changes only traits sets that column alone, so the
     // identity indexes are not rewritten: 1. The same traits again: 0. With an identity change they ride on its update.
     expect(await rows('web: identify with new traits only', () => web({ t: 'identify', p: { email: 'a@example.com', user_id: 'u_cost_1', plan: 'pro' } }))).toBe(1);
     expect(await rows('web: identify with the same traits again', () => web({ t: 'identify', p: { email: 'a@example.com', user_id: 'u_cost_1', plan: 'pro' } }))).toBe(0);
-    expect(await rows('web: identify, first email with traits', () => web({ t: 'identify', vid: 'costtraitvid01', sid: 'costtraitsid01', p: { email: 't@example.com', plan: 'pro' } }))).toBe(2);
+    const fresh = await rows('web: identify, first email of a new visitor', () => web({ t: 'identify', vid: 'costtraitvid01', sid: 'costtraitsid01', p: { email: 't1@example.com' } }));
+    expect(await rows('web: identify, first email of a new visitor, with traits', () => web({ t: 'identify', vid: 'costtraitvid02', sid: 'costtraitsid02', p: { email: 't2@example.com', plan: 'pro' } }))).toBe(fresh);
     // Page activity of a recorded visit (Record visits on): 1 events row on the ping it rides on, none when the page had none.
+    // Like any event, the row writes 4: itself, its 2 index entries and the id counter.
     forgetSite(site.id);
     await w.admin(`/api/sites/${site.id}`, { method: 'PATCH', json: { record_visits: 1 } });
     forgetSite(site.id);
     const act = { p: '/pricing', s: Date.now(), c: [{ t: 900, l: 'Buy', k: 'button', n: 3, r: 1 }], e: [{ t: 1000, m: 'TypeError: x', s: 'app.js:1' }] };
-    expect(await rows('web: ping with the page activity of a recorded visit', () => web({ t: 'ping', d: 30_000, a: act }))).toBe(2);
+    expect(await rows('web: ping with the page activity of a recorded visit', () => web({ t: 'ping', d: 30_000, a: act }))).toBe(5);
     expect(await rows('web: ping of a recorded visit, page without clicks or errors', () => web({ t: 'ping', d: 30_000, a: { p: '/pricing', c: [] } }))).toBe(1);
     await w.admin(`/api/sites/${site.id}`, { method: 'PATCH', json: { record_visits: 0 } });
     forgetSite(site.id);

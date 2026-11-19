@@ -58,7 +58,7 @@ export interface Site {
   show_datacenter?: number;
   /** Sessions from hosting networks in the last 30 days, on GET /api/sites/:id. */
   datacenter_visits?: number;
-  /** Record visits (FounderData Pro, migration 0071): 1 = on. */
+  /** Record visits (FounderData Pro, migration 0072): 1 = on. */
   record_visits?: number;
   /** Percent of visits recorded, 1 to 100. */
   record_sample?: number;

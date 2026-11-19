@@ -1,4 +1,4 @@
-// Page activity is an events row with type 'activity' (migration 0071, docs/API.md "Page activity"). It must change no
+// Page activity is an events row with type 'activity' (migration 0072, docs/API.md "Page activity"). It must change no
 // number: every statement that reads `events` filters its type, or is on the list below with the reason it may see
 // every type. A new read of events that does neither fails here. Pro's queries are checked too in a Pro checkout.
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';

@@ -325,8 +325,8 @@ number changes:
 | Web: each further pageview, goal or outbound click | 5 |
 | Web: engaged-time ping | 1 |
 | Web: `identify()` | 0 when no field changes, as on every page of a signed-in user. Otherwise 1 for the visitor row, plus 1 for each of email and user id the visitor has after the call (their indexes join one person's daily ids). Traits are a column of the same row: a call that changes only traits writes 1 |
-| Web: the ping when a page of a recorded visit is hidden or left, with its clicks, rage clicks and errors ([People and recordings](#people-and-recordings-pro)) | 1 more (an `activity` event), 0 when the page had none |
-| Recorded visit (Pro): the first chunk / each later chunk | 1 (its row in `replays`) / 0. Each chunk is 1 Worker request, about one every 30 seconds of the visit, and 1 R2 write |
+| Web: the ping when a page of a recorded visit is hidden or left, with its clicks, rage clicks and errors ([People and recordings](#people-and-recordings-pro)) | 4 more (one `activity` event: the row, its 2 index entries and the id counter), 0 when the page had none |
+| Recorded visit (Pro): the first chunk / each later chunk | 3 (its row in `replays` and 2 index entries) / 0. Each chunk is 1 Worker request, about one every 30 seconds of the visit, and 1 R2 write |
 | Web: the ping when a page is hidden, with that page load's Core Web Vitals ([Page speed](#page-speed)) | 2: the ping and 1 row in `vitals`. At a lower sample, 1 for the loads it skips |
 | App: new install's first `session_start` | 7 (6 with a kept install id: consent or `.vendor`) |
 | App: relaunch on the same day without consent, `session_start` only | 3 within 30 minutes of the last activity (the session continues), 5 later |
@@ -2656,10 +2656,14 @@ is hidden. A click's label is the button's visible text, cut to 40 characters. I
 
 ### What it costs
 
-Most sites stay on the free plan. A recorded visit writes 1 row in D1. It uploads a chunk about every 30 seconds, and
-each chunk is 1 Worker request and 1 R2 write. At the default limit of 1,000 recorded visits a day, 3 minutes each,
-that is about 7,000 requests a day and 210,000 R2 writes a month. R2's free tier includes 1 million writes and 10 GB
-a month. Cloudflare asks for a payment method once to turn on R2.
+Most sites stay on the free plan. A recorded visit writes 3 rows in D1 for its index row. Each page where someone
+clicked or saw an error writes 4 more. The visit uploads a chunk about every 30 seconds, and each chunk is 1 Worker
+request and 1 R2 write.
+
+Say you keep the default limit of 1,000 recorded visits a day, each 3 minutes long with clicks on 3 pages. That is
+about 15,000 rows written and 7,000 requests a day, out of the free plan's 100,000 of each. It is also 210,000 R2
+writes a month. R2's free tier includes 1 million writes and 10 GB a month. Cloudflare asks for a payment method once
+to turn on R2. To write fewer rows, lower **Most visits recorded a day** or **Share of visits recorded**.
 
 ### Settings
 
