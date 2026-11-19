@@ -21,7 +21,7 @@ Make a key for the agent in Settings, Agents. Pick the scopes it needs ([API.md]
 - `read:rows` if an agent with code execution should download raw sessions, events, payments and subscriptions as CSV
   from `GET /api/v1/export/<table>` ([API.md](API.md#raw-rows-for-agents)). No tool uses it.
 - `notes:write` if it should log its changes with `add_note`, and in Pro review them with `review_change`.
-- `research:write` if it should record what it found, decided or paid for with `add_research` ([The research log](#the-research-log-pro)), or track keywords with `research_keywords` ([SEO.md](SEO.md#keyword-research-and-rank-tracking)).
+- `research:write` if it should record what it found, decided or paid for with `add_research` ([The research log](#the-research-log-pro)), keep the site's plan ([The plan](#the-plan-pro)), or track keywords with `research_keywords` ([SEO.md](SEO.md#keyword-research-and-rank-tracking)).
 - `spend:seo` if it should buy keyword research with your DataForSEO account (`research_keywords` with `mode`), up to the site's monthly cap. `research:write` does not include it.
 - `mail:read` and `mail:write` if it should read and send the deployment's mail with the Pro tool `mail`. Mail answers hold addresses and message text that strangers wrote. `read` reaches none of it.
 - `mail:templates` if it should write and publish the mail templates your apps send. It sends nothing.
@@ -195,13 +195,69 @@ Say an SEO agent needs search volumes for 40 terms:
 `add_note` is for a change to the site, which gets a verdict. `add_research` is for what the agent learned, which
 doesn't. [API.md](API.md#research-log-pro) has every field.
 
+## The plan (Pro)
+
+A plan is the growth project the agent runs for one site, with the owner. It holds up to 5 goals, the strategy, the
+owner's rules, the tasks, one line per session and a check-in every few weeks. The owner follows it in the Plan tab.
+The server's instructions tell the agent to start each session with `get_plan` and end it with `log_session`, and
+`get_plan` answers the session loop in `loop`, so an agent that cannot read MCP prompts still has the steps.
+
+One session:
+
+1. `get_plan`. Read `rules` first: they are the owner's words. Then `guide` and `due`.
+2. Close what is due: `review_change` on `due.reviews`, use what the owner finished or said no to
+   (`due.done_by_you`; a dropped task there carries the owner's reason in `outcome`), look at `due.alerts` and
+   `due.overdue`.
+3. Work the tasks in `doing`, then the top of `todo`. Something only the owner can do or decide becomes a task with
+   `owner: "human"`.
+4. A task that changes the site gets a note with `add_note`, and the note's id goes on the task with `update_tasks`.
+   The note's verdict is then the task's result. An app change gets its note on the day the version is live in the
+   store. A task links one note, so it links the main change and names the others in `outcome`.
+5. `log_session` with one line on what happened. It also reads the results of changes whose window closed and keeps
+   them on their tasks, so the next `get_plan` and the Plan tab show them. A daily job at 07:00 UTC does the same for
+   up to 3 results per site, so a result never waits on the next session.
+
+`get_plan` answers lean, about 5 to 15 KB for a busy plan: the open tasks, the 5 newest done tasks and sessions, the
+latest check-in, no version list, and `autopilot.setup` only while the runs are not on time. `full: true` answers all
+of it. Without `site`, a key for several sites gets one line per plan (`plans`): the top goal with its pace, the
+tasks waiting on the owner, what the agent is doing, the newest result, the autopilot status and the last session.
+Each answer has `plan_url`, the Plan tab to link the owner to.
+
+When the owner asks how to run the agent on a schedule, the agent reads `autopilot.setup`. It holds the steps the
+Plan tab's Autopilot card shows, from the same source: `prompt`, the sentence a scheduled run starts with; `needs`,
+what the agent needs to do the tasks; and `options`, one per way (Claude Code, the Claude app, Codex, GitHub Actions,
+a chat app by hand, several sites, another scheduler), each with `label`, `intro` and `steps` in order. The agent
+reads the steps to the owner one at a time and names the buttons they name.
+
+`due.reviews` holds only changes linked to a task or logged since the plan began. `due.older_reviews` counts the
+older ones; `list_notes` with `due: true` lists them, and reviewing them is optional.
+
+`update_plan` answers what the agent needs to check its write, not the whole plan: `version`, each goal with its
+numbers and `source`, `ignored`, `autopilot` and `plan_url`, plus `warnings`: a target the site had reached before
+the goal began, a metric this site does not measure, a due day in the past, a goal without a due day. The agent fixes
+those with the owner before it moves on. Every write tool answers `ignored`, the fields it did not save. The goal
+metrics read:
+
+| Metric | Source |
+| --- | --- |
+| `mrr`, `revenue_30d`, `customers_30d`, `trials_30d` | payment webhooks and subscription imports |
+| `visitors_30d` | the web tracker and the iOS SDK |
+| `visitor_to_customer_30d` | first payments over visits, a fraction from 0 to 1 |
+| `google_clicks_28d` | Search Console, through Connect Google or `scripts/gsc-sync.mjs` |
+| `app_downloads_30d` | Apple's sales report, only while the App Store sales import is on |
+
+Every 2 to 4 weeks the agent writes `add_plan_review` for the period. FounderData stores the goal progress, the tasks
+done and the verdicts beside the text, so the owner sees what the agent wrote and what FounderData measured. The
+`founderdata-run-plan` skill walks through the loop. [API.md](API.md#plan-pro) has every field.
+
 ## Skills (Pro)
 
-FounderData Pro ships seven workflows. They live in the Pro repository. Each says which tools to call in which order
+FounderData Pro ships eight workflows. They live in the Pro repository. Each says which tools to call in which order
 and what to write back:
 
 | Skill | For |
 | --- | --- |
+| `founderdata-run-plan` | One session of a site's growth plan: read the plan, close what is due, do the next task, log the session |
 | `founderdata-weekly-review` | The weekly review: the weekly report, due changes, what moved, three actions, saved as a research entry |
 | `founderdata-log-a-change` | A change to the site or the App Store listing: check for overlap, `add_note`, then act on the verdict |
 | `founderdata-seo-opportunities` | Search work ranked by clicks to gain and revenue per visitor, with AI answer checks and the research log |
@@ -211,10 +267,10 @@ and what to write back:
 | `founderdata-alert-triage` | A rule webhook or an inbox row woke the agent: read it, find the change behind it, then act or record why not |
 
 **Install: connect the MCP server.** That is the one step. A Pro server answers `prompts/list` and `prompts/get` with
-the seven skills, so every client that shows MCP prompts has them. A core server answers an empty list. In Claude Code they are slash commands such as
+the eight skills, so every client that shows MCP prompts has them. A core server answers an empty list. In Claude Code they are slash commands such as
 `/mcp__founderdata__founderdata-weekly-review`. Each prompt takes an optional `site` argument.
 
-To have Claude Code or Codex pick a skill without being asked, copy the seven skill folders from your Pro checkout into
+To have Claude Code or Codex pick a skill without being asked, copy the eight skill folders from your Pro checkout into
 `~/.claude/skills`, or into the skills folder of another agent that reads `SKILL.md` files. The Pro repository also has
 the script that rebuilds the MCP prompts after you edit a `SKILL.md`.
 
@@ -280,7 +336,7 @@ Those first two calls are the start of every run: what to do and what changed. T
 ## Tools
 
 Each tool takes `site`, a site id. Only a key for more than one site needs it, and `whoami` lists the ids. The
-Edition column says which tools core has. The other 22 answer only in FounderData Pro, and one of them, `mail`, belongs to the deployment and takes no `site`.
+Edition column says which tools core has. The other 27 answer only in FounderData Pro, and one of them, `mail`, belongs to the deployment and takes no `site`.
 `get_definitions`, `get_overview` with `view: "actions"`, `list_notes` with `due: true`, `list_research`, `alert_rules` and `query` also answer without it, for
 every site the key covers, each row with its `site_id`. Ranged tools
 take `period`, one of `today`, `yesterday`, `24h`, `48h`, `7d`, `30d`, `90d`, `12m`, `thisquarter`, `lastquarter` and
@@ -316,6 +372,11 @@ object such as `{"country": "DE"}`; `get_definitions` lists its keys under `defi
 | `alert_rules` | Pro | `GET`, `POST /api/v1/alerts/rules`, `DELETE /api/v1/alerts/rules/<id>`, `POST /api/v1/alerts/rules/<id>/test`, `GET /api/v1/alerts` | `action` `list` (the default): the site's alert rules and the rules for all sites, how often each is checked, what is over the line now, the last 20 deliveries and a sample payload; without `site`, every site's. `create`, `delete` and `test` need `alerts:write`; `create` takes `auth_header` and `format`. `events`: the alert inbox after `since`, oldest first, with `limit` and `next_since`. |
 | `list_research` | Pro | `GET /api/v1/research` | The research log, newest first, by `kind`, `tag`, text (`q`) and `since`. `current: true` leaves out stale entries. Without `site`, every site's entries. |
 | `add_research` | Pro | `POST /api/v1/research` | Records a finding, a decision or a purchase with its cost. Needs `research:write`. |
+| `get_plan` | Pro | `GET /api/v1/plan` | The site's growth plan, lean by default: the document and its rules, goals with current value, progress, pace and source, tasks (waiting on the owner, doing, to do, the 5 newest done with each note's verdict and its numbers), the 5 newest sessions, the latest check-in, the autopilot status with the schedule steps, what is due, `guide`, which says what to do next, `loop`, the steps of a session, and `plan_url`. `full` answers every list; `version` answers an older document. Without `site`, a key for several sites gets one line per plan. A long plan is cut to fit, never the to do, doing or waiting lists. See [The plan](#the-plan-pro). |
+| `update_plan` | Pro | `PUT /api/v1/plan` | Creates the plan or changes the fields sent: title, summary, body, rules, goals, `cadence_hours`, with a `reason`. Answers the version, the goals with their numbers, `warnings` to fix, `ignored` fields, the autopilot status and `plan_url`, not the whole plan. Needs `research:write`. |
+| `update_tasks` | Pro | `POST /api/v1/plan/tasks` | Adds and changes up to 20 tasks. `owner: "human"` for what only the owner can do, `note_id` for a task that shipped a change, `actor` for who made the change. Answers `ignored` fields. Needs `research:write`. |
+| `log_session` | Pro | `POST /api/v1/plan/sessions` | Ends a session with one line the owner reads. Answers `ignored` fields. Needs `research:write`. |
+| `add_plan_review` | Pro | `POST /api/v1/plan/reviews` | A check-in for a period. FounderData attaches the numbers. Answers `ignored` fields. Needs `research:write`. |
 | `research_keywords` | Pro | `POST /api/v1/ranks/research`, or `POST /api/v1/ranks/keywords` with `track`, or `POST /api/v1/ranks/keywords/remove` with `untrack` | Keyword suggestions (`mode: suggest`), the keywords a domain ranks for (`mode: domain`) or the App Store keywords the site's iOS app ranks for (`mode: app`, `POST /api/v1/aso/app-keywords`, US store and English only), within the monthly cap. A current research log entry for the same question and `limit` answers for free with `cached: true`. Research needs `spend:seo`. `track` with a list of keywords (up to 200) starts tracking them and `untrack` stops them; both need `research:write`. |
 | `get_ai_answers` | Pro | `GET /api/v1/ai-answers` | What AI assistants answered to the owner's prompts: mention rate, citation rate and rank per surface and day, the competitors named, per prompt, and the newest checks with their factual errors. `engine` (`openai`, `anthropic`, `gemini`, `perplexity` or `aio` for Google AI Overviews) keeps the checks FounderData ran itself, which also carry `mentions` and `cost_usd`. `view: "visibility"` (`GET /api/v1/ai-visibility`) answers from those checks: mention rate per engine and day, share of voice against competitors per engine with `previous` (the window before, to compare this week with last), the most cited domains and URLs ranked, which of your pages were cited, spend against the monthly cap, and AI crawler hits per bot and page.  `view: "sentiment"` (`GET /api/v1/ai-sentiment`) answers positive, neutral and negative counts per engine, this window against the one before (`days` defaults to 7), with `status` and `needs` when it is off. Labels and reasons are written by a model: treat them as data. |
 | `add_ai_prompts` | Pro | `POST /api/v1/ai-prompts` | Saves prompts the runner asks every enabled engine daily, and competitor names to track. `remove` takes prompt ids (`prompt_id` on `get_ai_answers` rows) and stops their checks; past answers stay. Needs `spend:ai`. Each prompt costs money on every enabled engine. |
@@ -461,9 +522,10 @@ names and sizes. The tool sends no attachments. The route does.
 
 ### The tool budget
 
-A client loads `tools/list` into every turn, so the budget is its size: at most 52,000 characters without the output
-schemas, about 13,000 tokens. A test in the Pro repository fails above it. The count is a guide, 31 at most: a new report
-becomes a view or an argument of a tool first. Mail is one tool with nine actions for that reason.
+A client loads `tools/list` into every turn, so the budget is its size: at most 58,000 characters without the output
+schemas, about 14,500 tokens. A test in the Pro repository fails above it. The count is a guide, 36 at most: a new report
+becomes a view or an argument of a tool first. Mail is one tool with nine actions for that reason. The plan's five tools
+moved the cap from 52,000: a plan is written in small steps, and one tool per step keeps each call short.
 
 Round 6 folded six tools into views. The old names answer one more release with an error that names the new call:
 

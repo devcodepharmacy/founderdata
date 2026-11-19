@@ -169,7 +169,7 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
           update={update}
           overview={overview}
           view={view}
-          hidePeriod={!!setup || view === 'seo' || view === 'ai' || view === 'aso' || (view === 'content' && window.location.pathname.includes('/content/page/'))}
+          hidePeriod={!!setup || view === 'plan' || view === 'seo' || view === 'ai' || view === 'aso' || (view === 'content' && window.location.pathname.includes('/content/page/'))}
         />
         <SiteTimezoneNote site={site} />
 
@@ -226,7 +226,9 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
           ) : (
             // Each section is its own chunk; the toolbar above stays put while it loads.
             <Suspense fallback={<RouteFallback kind="section" />}>
-              {view === 'seo' ? (
+              {view === 'plan' ? (
+                <Views.plan />
+              ) : view === 'seo' ? (
                 <Views.seo />
               ) : view === 'ai' ? (
                 <Views.ai />

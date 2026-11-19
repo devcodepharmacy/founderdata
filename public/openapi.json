@@ -39,6 +39,1388 @@
     }
   ],
   "paths": {
+    "/api/v1/plan": {
+      "get": {
+        "operationId": "getPlan",
+        "tags": [
+          "Read"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          },
+          {
+            "readKey": []
+          }
+        ],
+        "summary": "The site's growth plan (Pro)",
+        "description": "The plan an agent runs for the site: the document, goals with progress, pace and source, tasks with the verdict of each task's note and the numbers behind it, sessions, check-ins, the autopilot status with the schedule steps, what is due, a guide and plan_url. Lean by default (5 done tasks and sessions, the latest check-in, no versions); full=true answers all of it. A key for several sites without site gets {plans, guide}, one line per site as GET /api/v1/plans. Needs read; money goals need read:revenue. Not cached. exists is false without a plan.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/site"
+          },
+          {
+            "name": "sessions",
+            "in": "query",
+            "required": false,
+            "description": "Sessions to list, 1 to 50. Default 5, or 10 with full.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "description": "Answer that version of the document instead: version, created_at, reason, actor, title, summary, body, rules, goals.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "description": "true answers every list: 30 done tasks, 10 sessions, 3 check-ins, versions and autopilot.setup.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plan (docs/API.md \"Plan (Pro)\")",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "site_id": {
+                      "type": "string"
+                    },
+                    "exists": {
+                      "type": "boolean"
+                    },
+                    "plan": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "goals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "A goal with current, progress, pace, expected_today, reason and source. status reached when current is at or above target.",
+                        "additionalProperties": true
+                      }
+                    },
+                    "tasks": {
+                      "type": "object",
+                      "properties": {
+                        "waiting_on_you": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "why": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "owner": {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "human"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "todo",
+                                  "doing",
+                                  "done",
+                                  "dropped"
+                                ]
+                              },
+                              "goal_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "note_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "outcome": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "due": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "position": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              },
+                              "done_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "done_by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "actor": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "result": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "description": "The verdict of the task's note: verdict (better, worse, inconclusive, measuring or null), metric, metric_label, reason, change_pct, review_after, reviewed, day, window_days, and with a verdict the proof: before, after, unit (count, money, percent or rank), started (YYYY-MM-DD) and overlaps. Each may be null."
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        },
+                        "doing": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "why": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "owner": {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "human"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "todo",
+                                  "doing",
+                                  "done",
+                                  "dropped"
+                                ]
+                              },
+                              "goal_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "note_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "outcome": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "due": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "position": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              },
+                              "done_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "done_by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "actor": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "result": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "description": "The verdict of the task's note: verdict (better, worse, inconclusive, measuring or null), metric, metric_label, reason, change_pct, review_after, reviewed, day, window_days, and with a verdict the proof: before, after, unit (count, money, percent or rank), started (YYYY-MM-DD) and overlaps. Each may be null."
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        },
+                        "todo": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "why": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "owner": {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "human"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "todo",
+                                  "doing",
+                                  "done",
+                                  "dropped"
+                                ]
+                              },
+                              "goal_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "note_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "outcome": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "due": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "position": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              },
+                              "done_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "done_by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "actor": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "result": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "description": "The verdict of the task's note: verdict (better, worse, inconclusive, measuring or null), metric, metric_label, reason, change_pct, review_after, reviewed, day, window_days, and with a verdict the proof: before, after, unit (count, money, percent or rank), started (YYYY-MM-DD) and overlaps. Each may be null."
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        },
+                        "done": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "why": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "owner": {
+                                "type": "string",
+                                "enum": [
+                                  "agent",
+                                  "human"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "todo",
+                                  "doing",
+                                  "done",
+                                  "dropped"
+                                ]
+                              },
+                              "goal_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "note_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "outcome": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "due": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "position": {
+                                "type": "integer"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              },
+                              "done_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "done_by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "actor": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "result": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "description": "The verdict of the task's note: verdict (better, worse, inconclusive, measuring or null), metric, metric_label, reason, change_pct, review_after, reviewed, day, window_days, and with a verdict the proof: before, after, unit (count, money, percent or rank), started (YYYY-MM-DD) and overlaps. Each may be null."
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        },
+                        "done_total": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "reviews": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "stats": {
+                      "type": "object"
+                    },
+                    "autopilot": {
+                      "type": "object",
+                      "properties": {
+                        "cadence_hours": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_session_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "next_expected_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "never_ran",
+                            "on_time",
+                            "late",
+                            "away"
+                          ]
+                        },
+                        "setup": {
+                          "type": "object",
+                          "description": "The steps the Plan tab's Autopilot card shows. In a lean answer only while status is not on_time.",
+                          "properties": {
+                            "prompt": {
+                              "type": "string",
+                              "description": "The sentence a scheduled run starts with."
+                            },
+                            "needs": {
+                              "type": "string",
+                              "description": "What the agent needs to do the tasks."
+                            },
+                            "options": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "enum": [
+                                      "claude-code",
+                                      "claude-app",
+                                      "codex",
+                                      "github-actions",
+                                      "by-hand",
+                                      "several-sites",
+                                      "other"
+                                    ]
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "intro": {
+                                    "type": "string"
+                                  },
+                                  "steps": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "In order. A step's prompt, command or config line follows its text on a new line."
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "due": {
+                      "type": "object",
+                      "properties": {
+                        "older_reviews": {
+                          "type": "integer",
+                          "description": "Due notes from before the plan that no task links, up to 100. list_notes with due lists them; reviewing them is optional."
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "guide": {
+                      "type": "string"
+                    },
+                    "plan_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The site's Plan tab in the dashboard."
+                    },
+                    "plans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Only for a key for several sites without site: one line per site, as GET /api/v1/plans."
+                    }
+                  },
+                  "required": [
+                    "site_id",
+                    "exists"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putPlan",
+        "tags": [
+          "Write"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Create or change the plan (Pro)",
+        "description": "Needs research:write. Send only the fields that change; a new plan needs title. goals replaces the list; a goal with a known id keeps its baseline and start. A change to title, summary, body, rules or goals saves a new version. 409 when another save came first. The answer is what the agent checks after a write, not the whole plan: ok, site_id, version, goals with computed fields, warnings (sentences on goals to fix: reached at the start, not measured, due in the past, no due day), ignored (unknown fields, not saved), autopilot (without setup) and plan_url. Goal metrics: mrr, revenue_30d, customers_30d, visitors_30d, google_clicks_28d, app_downloads_30d, trials_30d, visitor_to_customer_30d.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "summary": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 20000
+                  },
+                  "rules": {
+                    "type": "string",
+                    "maxLength": 3000
+                  },
+                  "goals": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "text": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "metric": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "mrr",
+                            "revenue_30d",
+                            "customers_30d",
+                            "visitors_30d",
+                            "google_clicks_28d",
+                            "app_downloads_30d",
+                            "trials_30d",
+                            "visitor_to_customer_30d",
+                            null
+                          ]
+                        },
+                        "target": {
+                          "type": "number"
+                        },
+                        "baseline": {
+                          "type": "number"
+                        },
+                        "start": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "due": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "reached",
+                            "dropped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "cadence_hours": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1,
+                    "maximum": 720
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "actor": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The plan (docs/API.md \"Plan (Pro)\")",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "site_id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "goals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      "description": "Each goal with current, progress, pace, expected_today, reason and source."
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ignored": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "autopilot": {
+                      "type": "object",
+                      "properties": {
+                        "cadence_hours": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "last_session_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "next_expected_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "plan_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "The plan changed while you saved it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plan/tasks": {
+      "post": {
+        "operationId": "updatePlanTasks",
+        "tags": [
+          "Write"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Add or change plan tasks (Pro)",
+        "description": "Needs research:write. 1 to 20 tasks: an entry without id adds a task (needs title), one with id changes the fields sent. All or nothing. At most 60 open tasks a site. The answer has ignored: the unknown keys sent, not saved.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tasks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "detail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 4000
+                        },
+                        "why": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 500
+                        },
+                        "owner": {
+                          "type": "string",
+                          "enum": [
+                            "agent",
+                            "human"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "todo",
+                            "doing",
+                            "done",
+                            "dropped"
+                          ]
+                        },
+                        "goal_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 1000
+                        },
+                        "due": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date"
+                        },
+                        "position": {
+                          "type": "integer"
+                        },
+                        "actor": {
+                          "type": "string",
+                          "maxLength": 64
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "actor": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "Who made the change, for every task in the call that names none."
+                  }
+                },
+                "required": [
+                  "tasks"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "site_id": {
+                      "type": "string"
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "why": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "owner": {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "human"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "todo",
+                              "doing",
+                              "done",
+                              "dropped"
+                            ]
+                          },
+                          "goal_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "outcome": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "due": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "position": {
+                            "type": "integer"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "done_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "done_by": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actor": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "result": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "The verdict of the task's note: verdict (better, worse, inconclusive, measuring or null), metric, metric_label, reason, change_pct, review_after, reviewed, day, window_days, and with a verdict the proof: before, after, unit (count, money, percent or rank), started (YYYY-MM-DD) and overlaps. Each may be null."
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "The site has no plan yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plan/sessions": {
+      "post": {
+        "operationId": "logPlanSession",
+        "tags": [
+          "Write"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Log a plan session (Pro)",
+        "description": "Needs research:write. Stores the session and sets the plan's last session. A known idempotency_key stores nothing and answers the first session with created false. The answer has ignored: the unknown keys sent, not saved.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 6000
+                  },
+                  "next": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "enum": [
+                      "manual",
+                      "schedule",
+                      "alert"
+                    ]
+                  },
+                  "started_at": {
+                    "type": "string",
+                    "description": "ISO 8601, within the last 30 days. Default now."
+                  },
+                  "actor": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "summary"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "created": {
+                      "type": "boolean"
+                    },
+                    "session": {
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "The site has no plan yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plan/reviews": {
+      "post": {
+        "operationId": "addPlanReview",
+        "tags": [
+          "Write"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Store a plan check-in (Pro)",
+        "description": "Needs research:write. FounderData computes the numbers for the period (goals, tasks done and dropped, verdicts, sessions) and stores them with the text. A known idempotency_key answers the first review with created false. The answer has ignored: the unknown keys sent, not saved.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 8000
+                  },
+                  "from": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "to": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "actor": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "title",
+                  "body",
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "created": {
+                      "type": "boolean"
+                    },
+                    "review": {
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "The site has no plan yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "operationId": "listPlans",
+        "tags": [
+          "Read"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          },
+          {
+            "readKey": []
+          }
+        ],
+        "summary": "One plan line per site (Pro)",
+        "description": "Needs read. Every site the key covers (or ?site=): title, summary, the first active goal with its progress, tasks waiting on the owner (waiting_on_you counts them, waiting names the first 3 as {id, title}), tasks doing, newest_result ({title, verdict, change_pct, metric_label} of the newest done task with a kept verdict, or null), the autopilot status and the last session.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/api/v1/payments": {
       "post": {
         "operationId": "createPayment",

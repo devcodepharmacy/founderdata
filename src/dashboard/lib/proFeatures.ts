@@ -2,6 +2,10 @@ import type { View } from './sections';
 
 /** What each FounderData Pro section does, for the Pro page a core build shows in its place (components/ProPaywall.tsx). */
 export const PRO_SECTIONS: Partial<Record<View, { title: string; body: string; collected?: string }>> = {
+  plan: {
+    title: 'Plan',
+    body: 'Your AI agent runs a growth plan for the site. You see the goals and how far along they are, what the agent is doing, what waits on you, and what each change led to.',
+  },
   content: {
     title: 'Content',
     body: 'Every page with its visitors, Google clicks and position, the revenue it brought, and the pages losing traffic.',
@@ -85,8 +89,9 @@ export const PRO_CARDS: [group: string, name: string, line: string][][] = [
     ['SEO', 'Page audit', 'Flags pages that are thin, orphaned, noindex or missing a meta description.'],
     ['AI', 'AI visibility', 'Your prompts asked in ChatGPT, Claude, Gemini and Perplexity every day, on your own API keys.'],
     ['Social', 'Which post paid', 'Ties visits and revenue from X to the post that most likely sent them.'],
-    ['Agents', '31 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
+    ['Agents', '36 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
     ['Agents', 'Alert rules', 'A threshold on any number, with a webhook that can wake your agent.'],
+    ['Agents', 'Growth plan', 'Your agent keeps a plan per site: goals, tasks, and what each change led to.'],
     ['Home', 'Next actions', 'The top 6 actions across your sites, each with what it is worth in a month.'],
     ['Home', 'Change verdicts', 'Log a change and see whether it moved the number it was meant to move.'],
   ],
@@ -107,7 +112,8 @@ export const PRO_LIST = [
   'Search Console, Google rank tracking and a page audit',
   'AI visibility in ChatGPT, Claude, Gemini and Perplexity',
   'Home across all your sites with next actions, and a verdict on every change you log',
+  'A growth plan per site that your AI agent runs, with goals, tasks and the result of each change',
   'Mail on your own domains through Cloudflare, with an inbox, templates and an API that answers like Resend\'s',
-  'All 31 MCP tools, the query tool, alert rules and agent skills',
+  'All 36 MCP tools, the query tool, alert rules and agent skills',
   'Teammates with their own login',
 ];

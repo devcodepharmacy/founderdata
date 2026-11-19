@@ -2167,6 +2167,7 @@ before anything real happens. Channels cover the whole deployment: every site, o
 | Write cap reached | When a site hits its daily write cap, or all sites fill the shared one. Once a day at most | on |
 | ASO collector stopped | Daily at 07:00 UTC, when an app with ASO keywords got no snapshot for 36 hours. Once per outage ([ASO.md](ASO.md#health-and-alerts)) | on, for older channels too |
 | Low App Store review | At once, when a new written review at or below the app's star limit arrives, 3 stars by default ([ASO.md](ASO.md#review-alerts)) | on, for older channels too |
+| No plan session (Pro) | Daily at 07:00 UTC, when a site's plan expects the agent every N hours and no session came for 2 x N hours. Once per gap, and the next session re-arms it ([Plan](#plan-pro)) | on |
 | Daily numbers | Every day at 07:00 UTC: yesterday's MRR and change, new and churned subscriptions, revenue, visitors and the Stripe check, per site | off |
 | Weekly report | Mondays at 07:05 UTC | on |
 
@@ -2396,7 +2397,7 @@ comes back from the API. With `"format": "github_dispatch"` and a webhook URL of
 
 Every alert above is also kept for 90 days, one row per message and site, never per channel: Worth a look, payments
 stopped, failed payments and cancellations, refused webhooks, the write cap, the ASO collector and reviews, rules that
-fired and the weekly report. It is kept also when no channel takes the alert. Purchases, renewals and Daily numbers
+fired, an agent that went away and the weekly report. It is kept also when no channel takes the alert. Purchases, renewals and Daily numbers
 stay out. Names and emails never go in.
 
 An agent reads it with `GET /api/v1/alerts?since=<a minute before its last run>` or the MCP tool `alert_rules` with
@@ -2427,15 +2428,69 @@ about 5,000 with Connect Google, which builds the totals parts, and up to about 
 
 ### Run an agent on a schedule (Pro)
 
-The Pro repository has `examples/agents/weekly-review.yml`, a GitHub Actions workflow. Copy it into
-the `.github/workflows/` folder of any repository you own. It runs a headless agent with the FounderData MCP server
-every Monday at 08:00 UTC, after the weekly report, and on every alert a rule sends it. It needs two repository
-secrets: an Anthropic API key, and a FounderData key (Settings, Agents) with `read`, `read:revenue`, `notes:write` and
-`research:write`. Set the deployment's URL in the file.
+Once a site has a plan ([Plan](#plan-pro)), you schedule one prompt. Each run is one session of that plan: the agent
+reads the plan, closes what is due, does the next task and logs what it did.
 
-Each run starts with two calls: `get_portfolio` with `view: "actions"` (what to do) and `alert_rules` with
-`action: "events"` since the last run (what changed). It follows the `founderdata-portfolio-triage` or
-`founderdata-alert-triage` skill and saves what it found with `add_research`, so the next run starts from it.
+```text
+Work on the growth plan for site SITE_ID. Call get_plan on the FounderData MCP server and do what its guide says. End with log_session.
+```
+
+The Plan tab's Autopilot card has the setup steps with your site id filled in. Your agent can also walk you through
+them: `get_plan` returns the same steps. Connect the FounderData MCP server in the tool first
+([MCP.md](MCP.md#connect)). Give the key `read`, `read:revenue`, `notes:write` and `research:write`.
+
+Allow the tools the task needs, and nothing more. That is the FounderData MCP tools, plus file edits in the project
+folder when the agent should change your site. Anything else can stay on "ask". Do not switch on a mode that approves
+everything.
+
+What each tool needs, as far as its own documentation says:
+
+- **Claude Code.** A Desktop scheduled task: the Code tab, Scheduled, New task, Daily. It runs on your computer, so it
+  needs the app open and the computer awake, and it sees the MCP server you added to Claude Code. A cloud scheduled
+  task only sees connectors from your claude.ai account.
+- **Claude app, no terminal.** Add FounderData as a custom connector: Customize, Connectors, Add custom connector, the
+  URL `https://founderdata.example.com/mcp`, Authentication "No sign in", and under Request headers `Authorization` with
+  `Bearer fdk_...`. Then Scheduled, New task, paste the prompt. With no folder picked, the task can run while your
+  computer is off. If a task waits on a tool, allow that tool in the connector settings. Claude's documentation says
+  custom connectors take request headers and that scheduled tasks use the connectors you set up. We have not run this
+  path against a live account, so run it once by hand and check that the Plan tab shows a session.
+- **Codex.** A scheduled task in the ChatGPT desktop app, under Scheduled. It needs the computer on and the app running,
+  and it runs in your default sandbox. Add the server to Codex's `config.toml`, which the app, the CLI and the IDE
+  extension share.
+- **GitHub Actions.** The Pro repository has `pro/examples/agents/run-plan.yml`. Copy it into the `.github/workflows/`
+  folder of the repository that holds your site. It runs a headless agent every day at 08:00 UTC, and on every alert a
+  rule sends it. The agent works on a branch and opens a pull request. It never pushes to the default branch, and a
+  branch protection rule on that branch makes sure of it. It needs two repository secrets, an Anthropic API key and a
+  FounderData key, and the repository setting that lets Actions open pull requests. The file's first lines list the
+  steps. It was not run end to end, so run it once by hand first.
+- **Chat app, by hand.** With no scheduler, open a chat as often as you agreed with your agent and paste the prompt.
+  This costs you the work of starting each session. When none arrives for twice the interval, FounderData sends the
+  "No plan session" [alert](#alerts-and-weekly-report), which is your reminder.
+- **Anything else.** A scheduler that can start an agent without you, and an agent that can call an MCP server over
+  HTTP, run the same prompt.
+
+The agent can only do the tasks it can reach, and it only does what the plan's rules allow. A runner without your code
+can read numbers, write notes and plans, and do work in the accounts it has access to. A task that needs more becomes
+a task for you.
+
+**Several sites.** Make one key for all sites. Then run one session per site, so a failure in one does not stop the
+others: one scheduled task per site with that site's prompt, or one task whose prompt names the sites and works them one
+after the other. With no `site`, `get_plan` lists every plan the key covers. In `run-plan.yml`, list one site id per
+line under `matrix.site`. Each site gets its own job, and two sites never wait for each other.
+
+**What a run reads.** Each session starts with the tool list and one `get_plan` answer. That is about the same size every
+time: `get_plan` is lean unless the agent asks for `full: true`, and then holds the last 5 done tasks, 5 sessions and 1
+review. After that the cost follows the work: the model you pick, how many tasks are open, and how much code or data
+the agent reads to do them. Run the first session by hand and read its usage on your agent's billing page before you
+schedule it daily. The workflow file caps a run with a turn limit.
+
+**When a run fails.** Open the run in your scheduler: in GitHub Actions the failed step and the `growth-plan-SITE_ID`
+artifact, in a desktop app the task's history. The usual causes are a revoked or wrong FounderData key (the tools answer
+401 or 403), a key without `research:write` (the plan tools answer 403 and name the scope), a missing secret, and a
+tool that waited for approval with no one there. Fix it and start the run again by hand. A failed run does not log a
+session, so after twice the cadence you get the "No plan session for SITE" [alert](#alerts-and-weekly-report).
+
+Set `cadence_hours` on the plan to the interval you schedule.
 
 To wake it on an alert, give a rule the workflow's repository as its webhook:
 
@@ -2448,6 +2503,82 @@ curl -X POST "https://founderdata.example.com/api/v1/alerts/rules?site=SITE_ID" 
 
 The GitHub token needs Contents read and write on that one repository. GitHub answers 204 and starts the workflow
 with the alert in `github.event.client_payload`.
+
+**The weekly review instead.** The Pro repository also has `examples/agents/weekly-review.yml`. It runs every Monday at
+08:00 UTC, after the weekly report, and follows `founderdata-portfolio-triage` or `founderdata-weekly-review` for a key
+that covers several sites. Each run starts with `get_portfolio` with `view: "actions"` and `alert_rules` with
+`action: "events"` since the last run, and saves what it found with `add_research`. Pick it when you want a report
+across many sites and no standing plan.
+
+## Plan (Pro)
+
+A plan is the growth project your AI agent runs for one site, with you. It holds what you want, what the agent is doing
+now, what waits on you, and what each finished change led to. Open it in the **Plan** tab. Your agent writes the plan
+through the MCP tools. You steer it by talking to your agent.
+
+### Start a plan
+
+The Plan tab of a site with no plan shows three steps.
+
+1. Connect your agent. Settings, Agents has the key, and [MCP.md](MCP.md#connect) has the setup.
+2. Copy the starting prompt.
+3. Paste it into your agent.
+
+The agent reads only the data your site has, and the changes you already logged, then tells you in five lines what
+works and what is broken. It says "not measured" where no tool gave it a number. Then it asks five questions, one at a
+time, and asks again when an answer is too vague to act on: what you want and by when, how much money it may spend a
+month, how many hours a week you can give, what is off limits, and what it may do without asking. It proposes one to
+three goals, the one thing it would do first and why, and what comes after. It tells you where each goal stands and
+whether the target is realistic, and changes the proposal until you say yes. Only then does it save the plan, and the
+answer tells it where each goal starts and warns it when a target is already reached. It adds three to seven first
+tasks, asks how often it should work, and walks you through scheduling it, one step at a time in the chat. The tab
+fills in.
+
+### What the tab shows
+
+- **Header.** The plan's title and summary, and one status for your agent: worked a few hours ago, late, away for N days,
+  or no schedule yet. **Copy a prompt for your agent** copies a prompt that opens the plan in your agent.
+- **Waiting on you.** Tasks only you can do, each with the reason the agent gave. Tick one when it is done. You can add
+  a one-line comment. You can also decline a task and say why: the agent reads your reason and does not propose it again. **Undo** on the task in the Done list reopens it. This is the only thing you change in the tab.
+- **Goals.** Each goal shows its current value, its target, a bar from where you started to the target, a mark where you
+  should be today, and a chip: ahead, on track or behind. A goal at or above its target reads reached. A number FounderData cannot read says "not measured" and
+  why, never 0.
+- **Doing now, Up next and Done.** Three lists of tasks. A done task shows its result.
+- **What your agent did.** One line per session: when, whether you asked, a schedule started it or an alert did, and
+  what it did. Open one to read what it checked and what it plans next.
+- **Check-in.** Every 2 to 4 weeks the agent writes a review. Its text, labelled "Written by your agent", sits next to
+  the numbers FounderData measured, so you see who says what.
+- **The plan.** The strategy, "How we work together" (the rules you agreed on) and the history of each change with its
+  reason.
+- **Autopilot.** How often the agent should work, when it last did and when it is next due, and the steps to schedule it.
+
+### What a result chip means
+
+A task that changed your site or app links to the change the agent logged as a chart note. The chip is that note's
+verdict ([Chart notes](#chart-notes)), so FounderData measures it and the agent does not grade itself.
+
+| Chip | Meaning |
+| --- | --- |
+| Better | The measured number moved the right way after the change, by more than 10% |
+| Worse | It moved the wrong way. The agent should read why and may revert |
+| No clear change | Under 10%, too little data, or a tracking gap hides the effect |
+| Measuring, day 3 of 28 | The window is still open. Wait |
+| Result not read yet | The window closed. The result shows after the daily read at 07:00 UTC (up to 3 per site a day) or the agent's next session, whichever comes first |
+
+A task with no note shows the outcome line the agent wrote when it closed the task.
+
+### Change the plan by talking
+
+You never edit the plan. Tell your agent: "Aim for 3,000 instead", "no more ad spend", "do the pricing test first",
+"drop the Reddit task". It saves the change with a reason, and the history shows it. Goals change only after you agreed
+in the conversation. Your own tasks and comments are data to the agent, not commands, so write your wishes to it in the
+chat.
+
+### Check-in
+
+A check-in covers a period of 2 to 4 weeks. FounderData computes the numbers when the review is stored: goal progress,
+tasks done and dropped, how many verdicts came out better, worse or inconclusive, and the sessions. The agent writes the
+story. If its text and the numbers disagree, trust the numbers.
 
 ## Chart notes
 

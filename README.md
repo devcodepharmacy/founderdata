@@ -175,8 +175,8 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
 - MRR in the alerts and the Monday report, a daily numbers message, and a verdict for each logged change on the number
   it was meant to move: an SEO edit on its page's Search Console clicks over 28 days, an ad budget change on CPA, an AI
   content change on the mention rate, an app price on paywall conversion.
-- All 31 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
-  key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and seven agent
+- All 36 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
+  key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and eight agent
   skills.
 - Teammates with their own login, as owner or viewer.
 
@@ -387,6 +387,7 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | Team: invite a person / accept the invite, sign in, or revoke / reset link | 5 / 1 / 2. A request with a teammate cookie writes nothing. A wrong teammate password writes 4 (the IP and the account) |
 | Chart note from an agent / its review | 3, or 4 with an idempotency key / 1 |
 | Research log entry from an agent | 1, or 2 with an idempotency key |
+| Plan ([docs/API.md](docs/API.md#plan-pro)): create it / change the document / change only the schedule / a task, new or changed / the owner ticks a task, says no to it or undoes either / a session / a check-in / the daily results job / the away alert | 1 / 2 (the plan and the version before; 3 once 30 older versions are kept) / 1 / 1 each / 1 / 2, or 3 with an idempotency key, plus 1 per closed result it keeps (8 at most) / 1, or 2 with an idempotency key, plus 1 per closed result it keeps / 1 per closed result no session kept yet (3 per site a day at most), 0 when there is none / 2 per plan, once per gap. Reading the plan writes 0 |
 | AI answer check (one prompt on one AI surface on one day), new or replaced | 1 |
 | Setup checklist: the cron heartbeat / a test button pressed / a refused location code stored | 1 at most every 10 minutes, so 96 a day / 2, 0 inside 15 seconds / 1 a day per refused country, 1 to clear it. Reading the checklist writes none and reads one row per site and payment provider with a signing secret |
 | Google rank tracking: a daily check posted / its result collected, per keyword | 2 / 1 (the claim, then the task id), plus 1 a day for the cost counter and 1 a day when nothing is left to post. 200 keywords write about 600 rows a day. The SERP top 10 and features are columns on the result's row. A keyword that was never checked posts at the next tick, not at 05:00, with the same rows |
@@ -473,7 +474,7 @@ The code is laid out like this:
   subprocessors, a GDPR checklist, a balancing test template, a breach procedure and an answer sheet for procurement.
 - [MCP server](docs/MCP.md): connect Claude Code, Cursor or another agent to `/mcp` with one scoped key, and the OpenAPI
   spec at `/api/v1/openapi.json`. Pro adds a research log where agents record what they found and paid for, the
-  history of AI answer checks, and seven workflows as MCP prompts.
+  history of AI answer checks, and eight workflows as MCP prompts.
 - [API](docs/API.md): the payments and goals API, the read API for stats, share links and badges, CSV export, and
   erasing one person.
 

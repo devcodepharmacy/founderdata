@@ -54,6 +54,11 @@ const ALERT_LABELS: { key: AlertKind; label: string; hint: string }[] = [
     label: 'Daily numbers',
     hint: 'Every day at 07:00 UTC, even when nothing stands out: yesterday\'s MRR and change, new and churned subscriptions, revenue, visitors and the last Stripe check, per site. Off until you tick it',
   },
+  {
+    key: 'plan_away',
+    label: 'No plan session',
+    hint: 'Daily at 07:00 UTC, once per gap, when a site\'s plan has had no session for twice its schedule. Needs a plan with a schedule',
+  },
   { key: 'weekly', label: 'Weekly report', hint: 'Mondays at 07:05 UTC: revenue, MRR, visitors, ad spend, Google clicks, trials and next actions per site' },
 ];
 

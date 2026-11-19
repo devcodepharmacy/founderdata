@@ -1011,12 +1011,14 @@ export const GROUP_SPAN_MS = 30 * DAY;
  * The window is `days` when given, else each note's own (window_days, 7 for a note from before migration 0066), plus
  * the days its data comes late (verdicts.ts WAIT_DAYS). Outage notes need no review. A group (several notes with one
  * `group` key, such as locale copies) shows once, as its first note, and leaves once any of its notes is reviewed.
- * One query on the notes_site_time index; the rest is checked on those rows.
+ * One query on the notes_site_time index; the rest is checked on those rows. `f.since` keeps only the notes created at or
+ * after that time, plus the ones `f.ids` names (FounderData Pro's plan: the notes its tasks link, and the newer ones);
+ * with `f.invert` it keeps the other notes instead.
  */
 export async function dueNotes(
   db: D1Database,
   siteId: string,
-  f: { actor: string | null; kind: ChangeKind | null },
+  f: { actor: string | null; kind: ChangeKind | null; since?: number | null; ids?: string[] | null; invert?: boolean },
   days: number | null,
   limit: number,
   now = Date.now(),
@@ -1027,12 +1029,13 @@ export async function dueNotes(
          AND (n.change_kind IS NULL OR n.change_kind != 'outage')
          AND n.ts + (COALESCE(?7, n.window_days, ?8) + ${WAIT_SQL}) * ${DAY} <= ?9
          AND (?4 IS NULL OR n.actor = ?4) AND (?5 IS NULL OR n.change_kind = ?5)
+         AND (?11 IS NULL OR (CASE WHEN n.created_at >= ?11 OR n.id IN (SELECT value FROM json_each(?12)) THEN 1 ELSE 0 END) != ?13)
          AND (n.group_key IS NULL OR NOT EXISTS (
            SELECT 1 FROM notes g WHERE g.site_id = n.site_id AND g.ts >= n.ts - ?10 AND g.ts <= n.ts + ?10 AND g.group_key = n.group_key AND g.id != n.id
              AND (g.reviewed_at IS NOT NULL OR g.ts < n.ts OR (g.ts = n.ts AND g.id < n.id))))
        ORDER BY n.ts LIMIT ?6`,
     )
-    .bind(siteId, now - DUE_LOOKBACK_DAYS * DAY, now - DAY, f.actor, f.kind, limit, days, IMPACT_DEFAULT_DAYS, now, GROUP_SPAN_MS)
+    .bind(siteId, now - DUE_LOOKBACK_DAYS * DAY, now - DAY, f.actor, f.kind, limit, days, IMPACT_DEFAULT_DAYS, now, GROUP_SPAN_MS, f.since ?? null, JSON.stringify(f.ids ?? []), f.invert ? 1 : 0)
     .all<Note>();
   return results;
 }

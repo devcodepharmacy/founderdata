@@ -4,6 +4,7 @@ import { hasWebsite } from './siteKind';
 
 /** A site's pages, in the order the section row shows them. The section row and the command palette list them. */
 export const SECTION_LABELS = {
+  plan: 'Plan',
   overview: 'Overview',
   content: 'Content',
   dropoff: 'Drop-off',
@@ -27,7 +28,9 @@ export type View = keyof typeof SECTION_LABELS;
 export const SECTION_SHORT_LABELS: Record<View, string> = { ...SECTION_LABELS, paid: 'Overview', ads: 'Meta', asa: 'Apple' };
 
 /** The section row's groups, left to right. Every section sits in exactly one. */
-export const SECTION_GROUPS: { id: 'analytics' | 'organic' | 'paid' | 'revenue'; label: string; views: View[] }[] = [
+export const SECTION_GROUPS: { id: 'agent' | 'analytics' | 'organic' | 'paid' | 'revenue'; label: string; views: View[] }[] = [
+  // The growth plan the owner's AI agent runs for the site. First in the row; a site still opens on the Overview.
+  { id: 'agent', label: 'Agent', views: ['plan'] },
   { id: 'analytics', label: 'Analytics', views: ['overview', 'content', 'dropoff', 'app'] },
   { id: 'organic', label: 'Organic', views: ['seo', 'ai', 'aso'] },
   { id: 'paid', label: 'Paid', views: ['paid', 'ads', 'asa'] },
@@ -73,6 +76,8 @@ export function sectionState(site: Site, v: View): { muted: boolean; setup: Sect
   switch (v) {
     case 'overview':
     case 'dropoff':
+    // The plan needs no website or app: an agent can make one for any site.
+    case 'plan':
       return { muted: false, setup: null };
     case 'content':
     case 'seo':
