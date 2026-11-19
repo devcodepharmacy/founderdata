@@ -21,17 +21,22 @@ export const RELEASE_URL = 'https://raw.githubusercontent.com/founderdata/founde
 /** The Polar checkout for the lifetime license. When it is empty, the Pro card links to PRO_PAGE instead. */
 export const PRO_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtpjbcy7I63PRvbm';
 
-/** The regular price of the lifetime license, in minor units. The checkout takes euros and dollars at this number. */
+/**
+ * The price after launch, in minor units, VAT included. The checkout takes euros and dollars at this number. During
+ * launch a capped Polar discount on PRO_CHECKOUT_URL lowers it step by step, and Polar enforces each cap.
+ */
 export const PRO_REGULAR = 2999;
 
-/** The regular price of the lifetime license, in both currencies the checkout takes. */
+/** The price after launch, in both currencies the checkout takes. */
 export const PRO_PRICE = '€29.99 or $29.99';
 
 /**
- * The live launch offer, as JSON (src/shared/offer.ts): the regular price, the launch steps and how many licenses
- * sold. The Pro card reads it in the browser when it opens; without it, the card shows the regular price.
+ * The live launch offer, as JSON (src/shared/offer.ts): the price after launch, the launch steps and how many
+ * licenses sold. A Pro card reads it in the browser while it is on screen; without it, the card shows the price after
+ * launch. OFFER_PAGE is the same file on GitHub, for people who want to see how it is counted.
  */
 export const OFFER_URL = 'https://raw.githubusercontent.com/founderdata/founderdata/offer/offer.json';
+export const OFFER_PAGE = 'https://github.com/founderdata/founderdata/blob/offer/offer.json';
 
 /** What Pro adds and costs, in the core README. */
 export const PRO_PAGE = `${CORE_REPO}#founderdata-pro`;

@@ -12,7 +12,7 @@ type Check = { state: 'idle' } | { state: 'busy' } | { state: 'latest' } | { sta
 
 /**
  * Settings, Updates: this build's version and edition, and a check against the latest release. The browser fetches
- * RELEASE_URL on click only, so a deployment never calls out by itself. The prompt hands the update to the owner's agent.
+ * RELEASE_URL on click only. In core, the Pro card next to it reads OFFER_URL while it is on screen (lib/offer.ts). The prompt hands the update to the owner's agent.
  */
 export function UpdatesCard() {
   const edition = isPro ? 'pro' : 'core';
@@ -36,7 +36,7 @@ export function UpdatesCard() {
     <SettingsCard
       id="updates"
       title="Updates"
-      desc={`You run FounderData ${isPro ? 'Pro' : 'core'} ${VERSION}. The check reads the latest release from GitHub only when you click.`}
+      desc={`You run FounderData ${isPro ? 'Pro' : 'core'} ${VERSION}. The check reads the latest release from GitHub when you click it.${isPro ? '' : ' The Pro card below also loads the current Pro price from GitHub while it is on screen.'}`}
       actions={
         <button className="btn" onClick={run} disabled={check.state === 'busy'}>
           {check.state === 'busy' ? 'Checking' : 'Check for updates'}
@@ -72,7 +72,7 @@ export function ProCard() {
     <SettingsCard
       id="pro"
       title="FounderData Pro"
-      desc="One payment covers all your sites and apps, with every future update. Pro runs on your own Cloudflare account, and your data stays there."
+      desc="One payment covers all your sites and apps and every update, with no renewal. Pro runs on your own Cloudflare account and keeps working without us."
     >
       <ul className="list-disc space-y-1 pl-5 text-[13px] text-stone-600">
         {PRO_LIST.map((x) => (

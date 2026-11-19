@@ -7,9 +7,9 @@ Polar, Lemon Squeezy, Paddle, Gumroad, the App Store and RevenueCat, and ties ea
 buyer. It also has goals, funnels, page speed, alerts, the weekly report, CSV export, GDPR erasure, share links, the
 read API and an MCP server with 9 tools.
 
-**Pro** is core plus a `pro/` folder from a private repository. The regular price is €29.99 or $29.99, paid once, with
-every future update. One license covers all your sites and apps. The first 115 licenses cost less: the dashboard and
-the checkout show the current price. Pro adds:
+**Pro** is core plus a `pro/` folder from a private repository. After launch it costs €29.99 or $29.99
+including VAT, paid once, with every update. One license covers all your sites and apps. During launch the price
+starts lower and rises in steps ([Price](#price)). Pro adds:
 
 - MRR and its movement, trials, churn, LTV and a retention grid per source, plan and provider, with history imports
   from ChartMogul and RevenueCat
@@ -29,11 +29,16 @@ subscription your providers send. When you switch to Pro, the Pro reports cover 
 
 ## Price
 
-The launch price rises in steps as licenses sell, up to the regular €29.99. The dashboard shows one step: its price,
-the regular price, the licenses left at that price and the next price.
+The launch price rises in steps as licenses sell, up to €29.99. Each step is a capped discount on the one Polar
+checkout, and Polar enforces the cap, so the checkout charges the current step's price even when the dashboard is a few
+minutes behind. Polar shows the final price before you pay. Prices include VAT.
 
-It reads the numbers from `offer.json` on this repository's `offer` branch, in your browser, when you open a Pro section
-or the Pro card in Settings. Money is in cents, and `sold` counts every license sold at a launch price:
+The dashboard shows one step: its price, the price after launch, the licenses left at that price and the next price.
+It reads the numbers from `offer.json` on this repository's `offer` branch
+([view it](https://github.com/founderdata/founderdata/blob/offer/offer.json)), in your browser, while a Pro section,
+the Pro card in Settings or the support card is on screen. It reads the file again when you come back to the tab and
+every 10 minutes. Money is in cents, `regular` is the price after launch, and `sold` counts every license sold at a
+launch price:
 
 ```json
 {
@@ -46,12 +51,13 @@ or the Pro card in Settings. Money is in cents, and `sold` counts every license 
 ```
 
 The steps follow each other: with the file above, licenses 1 to 5 cost €4.99 and licenses 6 to 15 cost €9.99.
-`checkout` is optional and replaces the built-in checkout link. When the file can't be read, or a value is missing or
-out of range, the dashboard shows the regular price and no launch price. `src/shared/offer.ts` checks the file.
+`checkout` is optional and replaces the built-in checkout link; it must be an https link on `buy.polar.sh` or
+`polar.sh`. Each step must cost more than the one before. When the file can't be read, or a value is missing or out of
+range, the dashboard shows €29.99 and no launch price. `src/shared/offer.ts` checks the file.
 
 ## Buy
 
-The buy button on any Pro section of a core dashboard, or **Get the lifetime license** in Settings, opens the checkout. Polar handles the payment and the tax.
+The **Buy Pro** button on any Pro section of a core dashboard, or in Settings, opens the checkout. Polar handles the payment and the tax.
 Your license is read access to the private Pro repository on GitHub, and you claim it in three steps:
 
 1. After you pay, Polar opens your purchase page. Later, open it from the **Access purchase** button in Polar's order
@@ -101,7 +107,8 @@ Pro differs from core in the `pro/` folder and in two one-line files, `src/worke
 ## Updates
 
 Settings has an **Updates** card. **Check for updates** reads `release.json` from this repository's `main` branch in
-your browser and compares it with the version you deployed. The card gives you the prompt for your agent either way.
+your browser when you click it, and compares it with the version you deployed. The card gives you the prompt for your
+agent either way. In core, the Pro card under it also reads `offer.json` from GitHub while it is on screen ([Price](#price)).
 
 - Core: `git fetch upstream && git merge upstream/main`, with `upstream` pointing at this repository.
 - Pro: `git fetch pro && git merge pro/main`. Every Pro release contains the core release of the same version, so one

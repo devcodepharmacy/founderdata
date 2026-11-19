@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { amount, currentOffer, offerFromText, parseOffer, type OfferFile } from '../src/shared/offer';
+import { amount, currentOffer, isPolarCheckout, offerFromText, parseOffer, type OfferFile } from '../src/shared/offer';
+import { PRO_CHECKOUT_URL } from '../src/shared/product';
 
 const TIERS = [
   { price: 499, seats: 5 },
@@ -12,22 +13,34 @@ const file = (sold: number, extra: Partial<OfferFile> = {}): OfferFile => ({ reg
 
 describe('launch offer', () => {
   it.each([
-    // sold, price, seats in step, sold in step, left, next price
-    [0, 499, 5, 0, 5, 999],
-    [4, 499, 5, 4, 1, 999],
-    [5, 999, 10, 0, 10, 1499],
-    [14, 999, 10, 9, 1, 1499],
-    [15, 1499, 20, 0, 20, 1999],
-    [34, 1499, 20, 19, 1, 1999],
-    [35, 1999, 30, 0, 30, 2499],
-    [64, 1999, 30, 29, 1, 2499],
-    [65, 2499, 50, 0, 50, 2999],
-    [114, 2499, 50, 49, 1, 2999],
-  ])('sold %i: %i, %i seats, %i sold, %i left, then %i', (sold, price, seats, soldInStep, leftInStep, next) => {
-    expect(currentOffer(file(sold))).toEqual({ kind: 'launch', price, regular: 2999, saving: 2999 - price, seats, soldInStep, leftInStep, next, checkout: undefined });
+    // sold, price, seats in step, sold in step, left, next price, last license at this price
+    [0, 499, 5, 0, 5, 999, 5],
+    [4, 499, 5, 4, 1, 999, 5],
+    [5, 999, 10, 0, 10, 1499, 15],
+    [14, 999, 10, 9, 1, 1499, 15],
+    [15, 1499, 20, 0, 20, 1999, 35],
+    [34, 1499, 20, 19, 1, 1999, 35],
+    [35, 1999, 30, 0, 30, 2499, 65],
+    [64, 1999, 30, 29, 1, 2499, 65],
+    [65, 2499, 50, 0, 50, 2999, 115],
+    [114, 2499, 50, 49, 1, 2999, 115],
+  ])('sold %i: %i, %i seats, %i sold, %i left, then %i', (sold, price, seats, soldInStep, leftInStep, next, lastInStep) => {
+    expect(currentOffer(file(sold))).toEqual({
+      kind: 'launch',
+      price,
+      regular: 2999,
+      saving: 2999 - price,
+      seats,
+      soldInStep,
+      leftInStep,
+      next,
+      lastInStep,
+      firstAfterLaunch: 116,
+      checkout: undefined,
+    });
   });
 
-  it.each([115, 116, 500])('sold %i: the regular price', (sold) => {
+  it.each([115, 116, 500, 1_000_000_000_000])('sold %i: the regular price', (sold) => {
     expect(currentOffer(file(sold))).toEqual({ kind: 'regular', regular: 2999, checkout: undefined });
   });
 
@@ -67,7 +80,13 @@ describe('launch offer', () => {
     ['a step with 0 seats', JSON.stringify({ ...file(0), tiers: [{ price: 499, seats: 0 }] })],
     ['a step with negative seats', JSON.stringify({ ...file(0), tiers: [{ price: 499, seats: -5 }] })],
     ['steps that get cheaper', JSON.stringify({ ...file(0), tiers: [{ price: 999, seats: 5 }, { price: 499, seats: 5 }] })],
+    ['two steps at the same price', JSON.stringify({ ...file(0), tiers: [{ price: 499, seats: 5 }, { price: 499, seats: 5 }] })],
+    ['a sold count past the safe integers', `{"regular":2999,"tiers":${JSON.stringify(TIERS)},"sold":1e300}`],
     ['a checkout link over http', JSON.stringify({ ...file(0), checkout: 'http://buy.polar.sh/abc' })],
+    ['a checkout link on another host', JSON.stringify({ ...file(0), checkout: 'https://evil.example/buy' })],
+    ['a checkout link on a lookalike host', JSON.stringify({ ...file(0), checkout: 'https://buy.polar.sh.evil.example/abc' })],
+    ['a checkout link on a Polar subdomain', JSON.stringify({ ...file(0), checkout: 'https://sandbox.polar.sh/abc' })],
+    ['a checkout link with a login in it', JSON.stringify({ ...file(0), checkout: 'https://user@buy.polar.sh/abc' })],
     ['a checkout link that runs script', JSON.stringify({ ...file(0), checkout: 'javascript:alert(1)' })],
     ['a checkout link that is not text', JSON.stringify({ ...file(0), checkout: 5 })],
     ['an update time that is not text', JSON.stringify({ ...file(0), updated: 5 })],
@@ -75,8 +94,22 @@ describe('launch offer', () => {
     expect(offerFromText(text)).toBeNull();
   });
 
+  it('takes checkout links on buy.polar.sh and polar.sh only', () => {
+    expect(isPolarCheckout('https://buy.polar.sh/polar_cl_abc')).toBe(true);
+    expect(isPolarCheckout('https://polar.sh/founderdata/portal')).toBe(true);
+    expect(isPolarCheckout('https://buy.polar.sh.example/abc')).toBe(false);
+    expect(isPolarCheckout('https://polar.sh:8443/abc')).toBe(false);
+    expect(isPolarCheckout('http://polar.sh/abc')).toBe(false);
+    expect(isPolarCheckout('')).toBe(false);
+    expect(isPolarCheckout(undefined)).toBe(false);
+  });
+
   it('keeps only the fields it knows', () => {
     expect(parseOffer({ ...file(3), note: 'x' })).toEqual(file(3));
+  });
+
+  it('the built-in checkout link passes the same check', () => {
+    expect(isPolarCheckout(PRO_CHECKOUT_URL)).toBe(true);
   });
 
   it('prints minor units', () => {
