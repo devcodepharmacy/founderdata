@@ -2021,7 +2021,7 @@ visitor row with the same user id or email (up to 50 each), plus the web visitor
 
 The dashboard reads the same data with the login: `GET /api/sites/<id>/people` (also `q`, a search by name, email or
 user id), `GET /api/sites/<id>/people/recordings` (`show`: `all`, `known`, `customers` or `trouble`; each row has
-`rage`, `error`, `signed_up` and `paid`) and `GET /api/sites/<id>/people/<visitor id>`. These answer names and emails
+`rage`, `error`, `signed_up` and `paid`; the answer also has `bucket`, true when the replay bucket is bound) and `GET /api/sites/<id>/people/<visitor id>`. These answer names and emails
 to the owner. The viewer login without `VIEWER_PII` gets them as `null`, a story without the name, and `403` for a
 search.
 
