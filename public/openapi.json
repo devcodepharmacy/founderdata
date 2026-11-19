@@ -15842,6 +15842,18 @@
                               "type": "string"
                             }
                           },
+                          "widget_views": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "widget_widths": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "created_by": {
                             "type": "string"
                           },
@@ -15947,7 +15959,10 @@
                           "enum": [
                             "number",
                             "line",
+                            "column",
                             "bar",
+                            "map",
+                            "funnel",
                             "table"
                           ]
                         },
@@ -15956,6 +15971,7 @@
                           "enum": [
                             "third",
                             "half",
+                            "two_thirds",
                             "full"
                           ]
                         },
@@ -16044,7 +16060,10 @@
                             "enum": [
                               "number",
                               "line",
+                              "column",
                               "bar",
+                              "map",
+                              "funnel",
                               "table"
                             ]
                           },
@@ -16053,6 +16072,7 @@
                             "enum": [
                               "third",
                               "half",
+                              "two_thirds",
                               "full"
                             ]
                           },
@@ -16197,7 +16217,10 @@
                             "enum": [
                               "number",
                               "line",
+                              "column",
                               "bar",
+                              "map",
+                              "funnel",
                               "table"
                             ]
                           },
@@ -16206,6 +16229,7 @@
                             "enum": [
                               "third",
                               "half",
+                              "two_thirds",
                               "full"
                             ]
                           },
@@ -16318,7 +16342,10 @@
                           "enum": [
                             "number",
                             "line",
+                            "column",
                             "bar",
+                            "map",
+                            "funnel",
                             "table"
                           ]
                         },
@@ -16327,6 +16354,7 @@
                           "enum": [
                             "third",
                             "half",
+                            "two_thirds",
                             "full"
                           ]
                         },
@@ -16368,7 +16396,10 @@
                           "enum": [
                             "number",
                             "line",
+                            "column",
                             "bar",
+                            "map",
+                            "funnel",
                             "table"
                           ]
                         },
@@ -16377,6 +16408,7 @@
                           "enum": [
                             "third",
                             "half",
+                            "two_thirds",
                             "full"
                           ]
                         },
@@ -16484,7 +16516,10 @@
                             "enum": [
                               "number",
                               "line",
+                              "column",
                               "bar",
+                              "map",
+                              "funnel",
                               "table"
                             ]
                           },
@@ -16493,6 +16528,7 @@
                             "enum": [
                               "third",
                               "half",
+                              "two_thirds",
                               "full"
                             ]
                           },

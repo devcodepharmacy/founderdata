@@ -178,7 +178,7 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
 - All 32 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
   key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and seven agent
   skills.
-- Custom dashboards that your agent builds over MCP: numbers, lines, bars and tables from any `query`, run live when
+- Custom dashboards that your agent builds over MCP: numbers, lines, columns, bars, a country map, funnels and tables, run live when
   you open the page ([docs/MCP.md](docs/MCP.md#custom-dashboards-pro)).
 - Teammates with their own login, as owner or viewer.
 

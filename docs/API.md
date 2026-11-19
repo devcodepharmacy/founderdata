@@ -634,14 +634,16 @@ view, and the page runs it when it opens. The MCP tool `dashboards` calls these 
 
 | Route | Scope | Takes and answers |
 | --- | --- | --- |
-| `GET /api/v1/dashboards` | `read` or `dashboards:write` | `{ dashboards: [{ id, name, description, url, widget_count, widget_titles, created_by, updated_by, updated_at }] }` |
+| `GET /api/v1/dashboards` | `read` or `dashboards:write` | `{ dashboards: [{ id, name, description, url, widget_count, widget_titles, widget_views, widget_widths, created_by, updated_by, updated_at }] }` |
 | `GET /api/v1/dashboards/<id>` | `read` or `dashboards:write` | The dashboard: `id`, `name`, `description`, `url`, `created_by`, `updated_by`, `created_at`, `updated_at` and `widgets` |
 | `POST /api/v1/dashboards` | `dashboards:write` | `name` (80 characters), `description` (280), `widgets`. Writes 1 row |
 | `PATCH /api/v1/dashboards/<id>` | `dashboards:write` | Any of `name`, `description`, `widgets` (replaces the list), `add_widgets`, `update_widgets` (`[{ id, ...fields }]`), `remove_widgets` (ids). Writes 1 row |
 | `DELETE /api/v1/dashboards/<id>` | `dashboards:write` | `{ ok: true, id }`. Writes 1 row |
 
-A widget is `{ id, title, view, width, query, note }`: `view` is `number`, `line`, `bar` or `table`, `width` is
-`third`, `half` or `full`, and `query` takes the body of `POST /api/v1/query`. `created_by` and `updated_by` hold the
+A widget is `{ id, title, view, width, query, note }`: `view` is `number`, `line`, `column`, `bar`, `map`, `funnel` or
+`table`, `width` is `third`, `half`, `two_thirds` or `full`, and `query` takes the body of `POST /api/v1/query`. A
+funnel's `query` is `{ sites: [one site], steps, period }` instead, with 2 to 8 steps of
+`{ type: "page" | "goal", value, label }`. `created_by` and `updated_by` hold the
 key's name, or `owner` for the dashboard login. A `400` names the widget and the field, such as
 `widgets[1]: A line needs a time dimension in dimensions: day, week or month.` A key kept to some sites gets `404` for
 a dashboard with a widget on another site, and every widget it saves names its sites. Money metrics need

@@ -438,21 +438,39 @@ each widget in place.
   { "title": "Revenue", "view": "number", "query": { "metrics": ["revenue", "customers"], "period": "30d", "compare": "previous", "sites": ["SITE_ID"] } },
   { "title": "Visitors per day", "view": "line", "query": { "metrics": ["visitors"], "dimensions": ["day"], "period": "30d" } },
   { "title": "Revenue by channel", "view": "bar", "query": { "metrics": ["revenue"], "dimensions": ["channel"], "sites": ["SITE_ID"] } },
+  { "title": "Revenue per week", "view": "column", "query": { "metrics": ["revenue"], "dimensions": ["week"], "period": "90d", "sites": ["SITE_ID"] } },
+  { "title": "Visitors by country", "view": "map", "query": { "metrics": ["visitors"], "dimensions": ["country"], "sites": ["SITE_ID"] } },
+  { "title": "Visit to signup", "view": "funnel", "query": { "sites": ["SITE_ID"], "period": "30d", "steps": [
+    { "type": "page", "value": "*", "label": "Any page" },
+    { "type": "page", "value": "/pricing" },
+    { "type": "goal", "value": "signup", "label": "Signed up" }
+  ] } },
   { "title": "Entry pages", "view": "table", "query": { "metrics": ["visitors", "revenue", "rpv"], "dimensions": ["entry_page"], "sites": ["SITE_ID"], "limit": 10 } }
 ] }
 ```
 
 | `view` | Draws | The query it takes |
 | --- | --- | --- |
-| `number` | Big numbers, with the change against the period before when the query has `compare` | Up to 4 metrics, no dimensions. Several sites show as a table |
-| `line` | A line per site, or per value of one dimension, over time | One metric and one of `day`, `week` or `month`. A dimension next to it needs one site. More than 6 lines fold the smallest into Other |
-| `bar` | Rows with share bars | One metric. One dimension on one site, or none to compare sites |
+| `number` | The first metric large, the others under it, and a small line of the first metric over the range. With `compare`, the change and the value before | Up to 4 metrics, no dimensions. Several sites show as a table |
+| `line` | A line per site, or per value of one dimension, over time. One line on one site also shows the range's total, and with `compare` the period before as a dashed line | One metric and one of `day`, `week` or `month`. A dimension next to it needs one site. More than 6 lines fold the smallest into Other |
+| `column` | One column per day, week or month, with the range's total | One metric, one of `day`, `week` or `month`, no other dimension, one site |
+| `bar` | Ranked rows, each with a bar and its share of the total | One metric. One dimension on one site, or none to compare sites |
+| `map` | The world shaded by country in 5 steps, and the top 6 countries listed under it | One metric, `dimensions` is `["country"]`, one site |
+| `funnel` | The visitors who reached each step in order, with the share that continued | Not a `query` call. `sites` with one site, `steps`, and optionally `period` or `from` and `to`, and `filters` |
 | `table` | Every row | Anything `query` takes |
 
 One metric per line keeps every line on one scale: visitors and revenue never share an axis. Put each metric in its
-own widget. `width` is `third`, `half` or `full` of the row on a wide screen. Without it a number takes a third, a
-line the full row, and bars and tables half. Without `view`, a time bucket draws a line, a dimension a table, and
-totals a number. A dashboard holds 24 widgets, and a deployment 50 dashboards.
+own widget. `width` is `third`, `half`, `two_thirds` or `full` of the row on a wide screen. Without it a number takes
+a third, a line the full row, and every other view half. Without `view`, a time bucket draws a line, a dimension a
+table, totals a number, and a query with `steps` a funnel.
+
+A funnel has 2 to 8 steps. A step is `{ "type": "page", "value": "/pricing" }` or
+`{ "type": "goal", "value": "signup" }`, with an optional `label` of up to 100 characters. A page value takes `*` as a
+wildcard, so `/blog/*` matches every post and `*` any page. The funnel counts what the Goals tab counts: a visitor
+reaches a step after reaching the one before it, within the range. FounderData has no autocapture, so a click only
+counts when the site sends it as a goal.
+
+Every chart has a table view in its menu on the page. A dashboard holds 24 widgets, and a deployment 50 dashboards.
 
 A widget without `sites` covers every site. A key kept to some sites always saves the ids of its sites, and it sees
 and changes only the dashboards whose widgets all stay on its sites. Money metrics need `read:revenue`, as in `query`.
