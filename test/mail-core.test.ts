@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { denied } from '../src/worker/auth';
 import type { AppEnv } from '../src/worker/env';
-import { NO_MAIL_HANDLER } from '../src/worker/index';
+import { NO_MAIL_HANDLER } from '../src/worker/mail-reject';
 import { accountKeyOf, resetKeysForTests, SCOPES, SCOPE_TEXT, type AccountScope } from '../src/worker/keys';
 import { newWebhookSecret, signStandardWebhook, verifyStandardWebhook } from '../src/worker/lib/crypto';
 import { installPro, proHooks, type Pro } from '../src/worker/pro-hooks';

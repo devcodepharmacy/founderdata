@@ -53,6 +53,7 @@ import { keepErasures, registerPrivacyRoutes } from './privacy';
 import { dashboardLinks } from './dashboard-url';
 import { registerPrimaryGoal } from './primary-goal';
 import { registerProductType, typeOnCreate } from './product-type';
+import { NO_MAIL_HANDLER } from './mail-reject';
 import { settings } from './reporting';
 import { patchRecording, RECORDING_FIELDS } from './recording';
 
@@ -773,9 +774,6 @@ export async function runPlan(rawEnv: AppEnv['Bindings'], now: number, plan: Pla
     await proPhase('feed');
   }
 }
-
-/** Why an inbound message is refused when no mail handler is installed. The sender's server reports it back. */
-export const NO_MAIL_HANDLER = 'This address does not accept mail: the FounderData deployment it points to has no mail handler.';
 
 export default {
   fetch: app.fetch,
