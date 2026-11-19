@@ -279,7 +279,7 @@ Those first two calls are the start of every run: what to do and what changed. T
 ## Tools
 
 Each tool takes `site`, a site id. Only a key for more than one site needs it, and `whoami` lists the ids. The
-Edition column says which tools core has. The other 22 answer only in FounderData Pro, and one of them, `mail`, belongs to the deployment and takes no `site`.
+Edition column says which tools core has. The other 23 answer only in FounderData Pro, and one of them, `mail`, belongs to the deployment and takes no `site`.
 `get_definitions`, `get_overview` with `view: "actions"`, `list_notes` with `due: true`, `list_research`, `alert_rules` and `query` also answer without it, for
 every site the key covers, each row with its `site_id`. Ranged tools
 take `period`, one of `today`, `yesterday`, `24h`, `48h`, `7d`, `30d`, `90d`, `12m`, `thisquarter`, `lastquarter` and
@@ -296,7 +296,7 @@ object such as `{"country": "DE"}`; `get_definitions` lists its keys under `defi
 | `get_timeseries` | Core | `/api/v1/stats/timeseries` | The chart per hour, day, week or month. |
 | `get_content` | Pro | `/api/v1/content`, `/api/v1/content/page` | Entry pages by revenue, with `prefix` such as `/blog/`. With `path`, one page per week: visitors, revenue, Google clicks and position, the queries that showed it in the last 28 days with their position change, its page speed over 28 days, and the notes aimed at it with their verdicts. |
 | `get_customers` | Core | `/api/v1/customers` | Payments with their `kind`, `product`, `subscription_id`, source, entry page, `matched_by` and `visits`. `kind: "all"` adds refunds. 50 a page by default; `next_offset` gives the next one. |
-| `get_people` | Pro | `/api/v1/people` | The People tab: people you know, newest activity first, with the same filters (people you know, customers, has recordings, had trouble) and a text search. With a person, their story: traits, devices and every visit in plain steps, with clicks, rage clicks, errors, goals and payments, and whether a recording exists. It follows the rules for names, emails and user ids that `get_customers` follows. |
+| `get_people` | Pro | `/api/v1/people`, `/api/v1/people/<id>` | The People tab: people you know, newest activity first, with the same chips (people you know, customers, has recordings, had trouble). With `person`, their story: one sentence, traits, devices and the newest 50 visits in plain steps, with clicks, rage clicks, errors, goals and payments, and whether a recording exists. Names, emails and user ids are always `null`, as in `get_customers`, so it has no search by them. |
 | `get_subscriptions` | Pro | `/api/v1/subscriptions`, `/api/v1/cohorts`, `POST /api/v1/stripe-check` | `view` picks the answer. `summary` (default): MRR, trials, churn and LTV, per `split`. `cohorts`: the retention grid, customers and revenue still paying per month since the first payment, per `split` (`product`, `provider`, `channel`, `source`); with `cohort` (YYYY-MM) and `month`, the subscriptions of one cell. `stripe_check`: FounderData's Stripe MRR against Stripe's subscription list, with both totals, the difference, a match within 0.5% and the subscriptions that differ with the likely reason, and `history`, one stored result per day of the last 30 (`day`, `founderdata_mrr`, `stripe_mrr`, `gap_count`, `gap_amount`, `status`). It reads 50 subscriptions a call; while `complete` is `false`, call again with the `state` it returned. It needs a Stripe key set for the site ([guide](GUIDE.md#check-mrr-against-stripe-pro)). The `summary` and `cohorts` answers carry `importedHistory`, `null` or `{ sources, from, to }` with the months (YYYY-MM) that hold history imported from ChartMogul or RevenueCat, so an agent can tell imported months from live ones. Every view needs `read:revenue`. An argument that belongs to another view, such as `provider` with `view` `summary`, is refused with an error that names the view. |
 | `get_apple_search_ads` | Pro | `/api/v1/asa`, `/api/v1/asa/campaigns` | Spend, installs, CPA and ROAS per campaign and keyword. `changed_since` keeps the campaigns that spent money since that day. `view: "campaigns"`: each campaign for yesterday and the `days` days up to yesterday, with ROAS, net ROAS and cost per paid conversion, and `error`, `imported_at` and `warnings` when the import failed or is late. |
 | `get_app_funnel` | Pro | `/api/v1/app/<report>`, `/api/v1/dropoff`, `/api/v1/funnel`, `/api/v1/paths` | `report` picks one. App: `onboarding`, `paywall`, `onboarding_purchase`, `screens`, `properties`, `retention`, `sources`, `activation`, `versions` (`series: true` adds adoption) and `experiments`. Web and app: `dropoff` (with `platform`, `split` and `include_test`), `funnel` (a saved funnel by `funnel_id`, ad hoc `steps`, or the list of saved funnels) and `paths` (the pages before and after `path`, or the top pages). A split answers `limit` groups, 5 by default, and leaves out steps nobody reached. |
@@ -455,9 +455,10 @@ names and sizes. The tool sends no attachments. The route does.
 
 ### The tool budget
 
-A client loads `tools/list` into every turn, so the budget is its size: at most 52,000 characters without the output
+A client loads `tools/list` into every turn, so the budget is its size: at most 53,000 characters without the output
 schemas, about 13,000 tokens. A test in the Pro repository fails above it. The count is a guide, 32 at most: a new report
-becomes a view or an argument of a tool first. Mail is one tool with nine actions for that reason.
+becomes a view or an argument of a tool first. Mail is one tool with nine actions for that reason. `get_people` is one
+tool for the People list and one person's story.
 
 Round 6 folded six tools into views. The old names answer one more release with an error that names the new call:
 

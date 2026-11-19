@@ -1966,6 +1966,65 @@ portfolio per site. It needs a revenue key.
   site's first stored visit), `renewals` (they follow the first payment, which has no visit either), `with_email` (the
   payment has an email, but no visitor was identified with it) and `no_ids`.
 
+### People (Pro)
+
+`GET /api/v1/people` lists the people a site knows, newest activity first. MCP: `get_people`. A person is every
+visitor row with the same user id or email (up to 50 each), plus the web visitor an app install links to.
+
+| Parameter | Value |
+| --- | --- |
+| `show` | `known` (default): signed in, paid, an app install that keeps its id, or a visitor id seen on two days. `customers`: paid, newest payment first. `recorded`: has a recorded visit, newest recording first. `trouble`: a recorded visit with a rage click or an error. |
+| `limit` | People per page, 1 to 50. Default 25. |
+| `before` | The `next` of the page before. |
+
+```json
+{ "rows": [
+    { "id": "VISITOR_ID", "known_by": "user_id", "name": null, "email": null, "user_id": null,
+      "country": "DE", "city": "Berlin", "device": "Desktop", "os": "Mac OS", "app": false,
+      "first_source": "Google", "first_at": 1761955200000, "visits": 7, "last_seen": 1763560000000,
+      "paid": 4900, "payments": 1, "recordings": 2, "recording": { "session_id": "SESSION_ID", "started_at": 1763559000000 } } ],
+  "next": 1763300000000 }
+```
+
+- Each request reads one slice of an index, newest first: 3,000 visits, 2,000 payments or 2,000 recordings (400 for
+  `trouble`). A page can hold fewer people than `limit` while `next` is set. Call again with `before=next` until
+  `next` is `null`.
+- `known_by` is `user_id`, `email`, `payment`, `app` or `returning`.
+- `paid` is payments less refunds in minor units of the site currency, with every payment of the same provider
+  customer. A key without `read:revenue` gets no `paid` and no `payments`.
+- `name`, `email` and `user_id` are always `null`. There is no search by name or email; `q` answers `400`.
+
+`GET /api/v1/people/<id>` is one person's story, from any of their visitor ids.
+
+```json
+{ "id": "VISITOR_ID", "known_by": "user_id", "name": null, "email": null, "user_id": null,
+  "story": "This person found you through Google on March 3, came back 6 times and paid $49.",
+  "traits": { "plan": "pro", "phone": null }, "devices": "iPhone app and Mac",
+  "first_at": 1761955200000, "first_source": "Google", "last_seen": 1763560000000, "visits": 7,
+  "paid": 4900, "currency": "USD", "currency_decimals": 2,
+  "timeline": [
+    { "session_id": "SESSION_ID", "started_at": 1763559000000, "duration": 240000, "source": "Direct/None", "app": false,
+      "country": "DE", "device": "Desktop", "recorded": true,
+      "steps": [ { "at": 1763559000000, "text": "Looked at Pricing", "kind": "page", "detail": "/pricing" },
+                 { "at": 1763559009000, "text": "Clicked \"Buy\" 5 times fast", "kind": "rage" },
+                 { "at": 1763559010000, "text": "Saw an error", "kind": "error", "detail": "TypeError: x is undefined" },
+                 { "at": 1763559060000, "text": "Paid $49", "kind": "money" } ] } ],
+  "other_payments": [ { "at": 1763000000000, "amount": 4900, "currency": "USD", "kind": "payment", "renewal": true } ] }
+```
+
+- `timeline` holds the newest 50 visits; `visits` counts them all. `kind` is `page`, `screen`, `app`, `click`,
+  `rage`, `error`, `goal`, `money` or `leave`. Clicks and errors come from [page activity](#page-activity).
+- `other_payments` are payments of no listed visit: renewals, refunds and App Store notifications.
+- A trait that looks like an email or a phone number is `null`.
+- Without `read:revenue` the answer has no `paid`, no `other_payments`, no money steps, and the story leaves out what
+  the person paid.
+
+The dashboard reads the same data with the login: `GET /api/sites/<id>/people` (also `q`, a search by name, email or
+user id), `GET /api/sites/<id>/people/recordings` (`show`: `all`, `known`, `customers` or `trouble`; each row has
+`rage`, `error`, `signed_up` and `paid`) and `GET /api/sites/<id>/people/<visitor id>`. These answer names and emails
+to the owner. The viewer login without `VIEWER_PII` gets them as `null`, a story without the name, and `403` for a
+search.
+
 ## Research log (Pro)
 
 The research log is what agents leave for the next agent: keyword research, competitor notes, a decision and its
