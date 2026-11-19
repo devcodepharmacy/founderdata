@@ -97,6 +97,11 @@ export interface Env {
   /** Queue for Cloudflare's sending events, inbound parse jobs and webhook deliveries (FounderData Pro mail). */
   MAIL_QUEUE?: Queue;
   /**
+   * R2 bucket for recorded visits (FounderData Pro, `npm run setup -- --replay`), in the database's jurisdiction. Chunks
+   * are r/<site id>/<session id>/<n>; a lifecycle rule deletes them after 90 days. Without it no visit is recorded.
+   */
+  REPLAY_BUCKET?: R2Bucket;
+  /**
    * Cloudflare API token and account id for mail (FounderData Pro): domain status, DNS records, the suppression list and the
    * delivery analytics. Optional: sending and receiving work without them.
    */
@@ -212,6 +217,18 @@ export interface Site {
   keep_ua?: number;
   /** 1 = visits from hosting networks count like any other; 0 (the default) hides them (migration 0065, src/worker/datacenter.ts). */
   show_datacenter?: number;
+  /** Record visits (FounderData Pro, migration 0071): 1 = on. Off by default. */
+  record_visits?: number;
+  /** Percent of visits recorded, 1 to 100. */
+  record_sample?: number;
+  /** Days a recording is kept: 7, 30 or 90. */
+  record_keep_days?: number;
+  /** Most visits recorded a day. */
+  record_daily_max?: number;
+  /** 1 = after 24 hours keep only recorded visits with a goal or a payment. */
+  record_only_active?: number;
+  /** Remember visitors (migration 0071): 1 = the tracker keeps the visitor id in first-party cookies, as with consent. */
+  remember_visitors?: number;
 }
 
 /** Who is calling the dashboard API (src/worker/auth.ts): the owner, the viewer login or a phone. */

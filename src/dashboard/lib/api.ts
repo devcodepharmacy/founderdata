@@ -58,6 +58,20 @@ export interface Site {
   show_datacenter?: number;
   /** Sessions from hosting networks in the last 30 days, on GET /api/sites/:id. */
   datacenter_visits?: number;
+  /** Record visits (FounderData Pro, migration 0071): 1 = on. */
+  record_visits?: number;
+  /** Percent of visits recorded, 1 to 100. */
+  record_sample?: number;
+  /** Days a recording is kept: 7, 30 or 90. */
+  record_keep_days?: number;
+  /** Most visits recorded a day. */
+  record_daily_max?: number;
+  /** 1 = after 24 hours keep only recorded visits with a goal or a payment. */
+  record_only_active?: number;
+  /** Remember visitors: 1 = the tracker keeps the visitor id in first-party cookies. */
+  remember_visitors?: number;
+  /** GET and PATCH /api/sites/:id: the REPLAY_BUCKET binding exists (`npm run setup -- --replay`). */
+  replay_bucket?: boolean;
   /** GET /api/sites/:id only: today's rows against the cap. */
   usage?: {
     rows: number;
