@@ -5,6 +5,7 @@ import { hasWebsite } from './siteKind';
 /** A site's pages, in the order the section row shows them. The section row and the command palette list them. */
 export const SECTION_LABELS = {
   overview: 'Overview',
+  people: 'People',
   content: 'Content',
   dropoff: 'Drop-off',
   app: 'App',
@@ -28,7 +29,7 @@ export const SECTION_SHORT_LABELS: Record<View, string> = { ...SECTION_LABELS, p
 
 /** The section row's groups, left to right. Every section sits in exactly one. */
 export const SECTION_GROUPS: { id: 'analytics' | 'organic' | 'paid' | 'revenue'; label: string; views: View[] }[] = [
-  { id: 'analytics', label: 'Analytics', views: ['overview', 'content', 'dropoff', 'app'] },
+  { id: 'analytics', label: 'Analytics', views: ['overview', 'people', 'content', 'dropoff', 'app'] },
   { id: 'organic', label: 'Organic', views: ['seo', 'ai', 'aso'] },
   { id: 'paid', label: 'Paid', views: ['paid', 'ads', 'asa'] },
   { id: 'revenue', label: 'Revenue', views: ['subscriptions', 'appstore'] },
@@ -73,6 +74,8 @@ export function sectionState(site: Site, v: View): { muted: boolean; setup: Sect
   switch (v) {
     case 'overview':
     case 'dropoff':
+    // People and recordings: web visits and app sessions both make a person's story.
+    case 'people':
       return { muted: false, setup: null };
     case 'content':
     case 'seo':

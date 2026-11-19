@@ -246,6 +246,8 @@ export function Dashboard({ siteId, view }: { siteId: string; view: View }) {
                 <Views.ads />
               ) : view === 'asa' ? (
                 <Views.asa />
+              ) : view === 'people' ? (
+                <Views.people />
               ) : (
                 <Views.dropoff appOnly={appOnly} />
               )}

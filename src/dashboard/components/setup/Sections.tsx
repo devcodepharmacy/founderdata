@@ -325,6 +325,7 @@ const ERASE_KINDS: [string, string, string][] = [
   ['signals', 'subscription signal', 'subscription signals'],
   ['payments', 'payment unlinked', 'payments unlinked'],
   ['subscriptions', 'subscription unlinked', 'subscriptions unlinked'],
+  ['recordings', 'recording', 'recordings'],
 ];
 
 /** Each erase request, newest first, with what it removed. The log keeps no visitor id, email or user id. */

@@ -115,8 +115,8 @@ describe('section row', () => {
     expect(sectionState(appOnly, 'seo').setup).toMatchObject({ title: 'This section needs a website', settings: 'general' });
     expect(sectionState(webOnly, 'subscriptions').setup).toMatchObject({ settings: 'payments' });
     expect(sectionState(webOnly, 'overview')).toEqual({ muted: false, setup: null });
-    expect(viewsFor(webOnly)).toEqual(['overview', 'content', 'dropoff', 'seo', 'ai', 'paid', 'ads']);
-    expect(viewsFor(appOnly)).toEqual(['overview', 'dropoff', 'app', 'aso', 'paid', 'asa', 'subscriptions', 'appstore']);
+    expect(viewsFor(webOnly)).toEqual(['overview', 'people', 'content', 'dropoff', 'seo', 'ai', 'paid', 'ads']);
+    expect(viewsFor(appOnly)).toEqual(['overview', 'people', 'dropoff', 'app', 'aso', 'paid', 'asa', 'subscriptions', 'appstore']);
   });
 
   it('carries the period and filters to another section, not the section\'s own tab, view or visitor', () => {
@@ -143,7 +143,7 @@ describe('section row on the page', () => {
   };
   const nav = (html: string) => html.slice(html.indexOf('<nav aria-label="Sections"'), html.indexOf('</nav>', html.indexOf('<nav aria-label="Sections"')));
 
-  it('draws all 12 sections on every page of every kind of site, the open one marked and the unset ones muted', async () => {
+  it('draws all 13 sections on every page of every kind of site, the open one marked and the unset ones muted', async () => {
     for (const s of [webOnly, appOnly, both]) {
       for (const view of ALL_VIEWS) {
         const html = nav(await render(s, view));

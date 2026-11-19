@@ -24,6 +24,8 @@ export type Route =
 // Order matters: the first pattern that fits wins, as in the router this replaced.
 const DASHBOARD: [RegExp, View][] = [
   [/^\/site\/([\w-]+)\/dropoff\/?$/, 'dropoff'],
+  // /people, and anything under it (/people/recordings, one person's page): People reads the rest of the path.
+  [/^\/site\/([\w-]+)\/people(?:\/[^?#]*)?$/, 'people'],
   // /content/page/<path> is one page's detail (ContentSection reads the rest of the path).
   [/^\/site\/([\w-]+)\/content(?:\/page\/.*)?\/?$/, 'content'],
   // /seo/keywords, /seo/cannibalization, /seo/ranks, /seo/ai, /seo/plan and /seo/pages are the SEO tab's views

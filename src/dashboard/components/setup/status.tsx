@@ -32,7 +32,7 @@ const ALL_GROUPS: (Edition & { id: GroupId; label: string; icon: SetupIconName; 
   { id: 'alerts', label: 'Alerts', icon: 'alerts', pro: true, desc: 'Rules that post to a webhook or your phone when a number crosses a line.' },
   { id: 'imports', label: 'Imports', icon: 'imports', desc: 'Bring in history from before this site used FounderData.' },
   { id: 'sharing', label: 'Sharing and team', icon: 'sharing', desc: 'Read-only links for other people, and logins for your teammates.' },
-  { id: 'privacy', label: 'Data and privacy', icon: 'privacy', desc: 'Where the data lives, the daily write cap and the erase log.' },
+  { id: 'privacy', label: 'Data and privacy', icon: 'privacy', desc: isPro ? 'Where the data lives, the daily write cap, recorded visits and the erase log.' : 'Where the data lives, the daily write cap and the erase log.' },
   { id: 'product', label: isPro ? 'Updates' : 'Updates and Pro', icon: 'sparkle', desc: isPro ? 'The version you run and the latest release.' : 'The version you run, the latest release and what FounderData Pro adds.' },
   { id: 'danger', label: 'Danger zone', icon: 'danger', desc: 'Delete the site and everything it recorded.' },
 ];
@@ -87,6 +87,7 @@ const ALL_CARDS: CardDef[] = [
   { id: 'data-location', group: 'privacy', title: 'Data location' },
   { id: 'write-cap', group: 'privacy', title: 'Daily write cap' },
   { id: 'datacenter', group: 'privacy', title: 'Datacenter visits', applies: web },
+  { id: 'record-visits', group: 'privacy', title: 'Record visits', pro: true, applies: web },
   { id: 'erase-log', group: 'privacy', title: 'Erase log' },
   { id: 'updates', group: 'product', title: 'Updates' },
   { id: 'pro', group: 'product', title: 'FounderData Pro', core: true },

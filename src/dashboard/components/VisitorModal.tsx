@@ -7,6 +7,7 @@ import { AsaName } from './AsaNameSlot';
 import { Avatar, BrowserIcon, DeviceIcon, Flag, OSIcon, SourceIcon } from './Icons';
 import { PaymentAmount, PaymentSource } from './GoalsPanel';
 import { Modal } from './Modal';
+import { ProSlot } from './ProSlot';
 import { Skeleton } from './ui/Skeleton';
 import { Spinner } from './ui/Spinner';
 import { StatStrip, StatTile } from './ui/StatTile';
@@ -32,9 +33,11 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
       .reduce((a, x) => a + (x.currency === site.currency ? x.amount : (x.amount_conv ?? 0)), 0) ?? 0;
   const firstPayment = p?.payments.filter((x) => x.kind === 'payment').at(-1);
 
-  // Timeline: each visit with its events and payments, newest first.
+  // Timeline: each visit with its events and payments, newest first. A recorded page's clicks and errors (`activity`
+  // rows) belong to FounderData Pro's People view, not to this list.
   const bySession = new Map<string, Profile['events']>();
   for (const e of p?.events ?? []) {
+    if (e.type === 'activity') continue;
     if (!bySession.has(e.session_id)) bySession.set(e.session_id, []);
     bySession.get(e.session_id)!.push(e);
   }
@@ -145,6 +148,8 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                       )}
                       {s.ref && <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">ref: {s.ref}</span>}
                       <span className="text-xs tabular-nums text-stone-400">{fmtDuration(s.duration)}</span>
+                      {/* FounderData Pro: a Watch button when this visit was recorded. Nothing in core. */}
+                      <ProSlot name="watchVisit" siteId={site.id} visitorId={visitorId} sessionId={s.id} startedAt={s.started_at} />
                     </div>
                     {s.referrer && <div className="mt-0.5 max-w-full truncate text-xs text-stone-400">{s.referrer}</div>}
                     <ol className="mt-2 space-y-0.5 text-[13px]">

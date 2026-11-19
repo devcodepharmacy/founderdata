@@ -42,6 +42,7 @@ export const Views: Record<Exclude<View, 'overview'>, Preloadable<ComponentType<
   ads: proView('ads'),
   asa: proView('asa'),
   dropoff: proView('dropoff'),
+  people: proView('people'),
 };
 
 /** The command palette loads when it first opens (App.tsx); this is its chunk. */
