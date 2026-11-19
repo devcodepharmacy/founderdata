@@ -1,6 +1,8 @@
 import react from '@vitejs/plugin-react';
+import { existsSync, readdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { build as esbuild } from 'esbuild';
 import { defineConfig, transformWithEsbuild, type Plugin, type Rollup } from 'vite';
 
 const outDir = resolve(__dirname, 'dist');
@@ -18,6 +20,34 @@ function minifyTracker(): Plugin {
       const src = await readFile(file, 'utf8');
       const out = await transformWithEsbuild(src, file, { minify: true, legalComments: 'inline', target: 'es2017', format: undefined });
       await writeFile(file, out.code);
+    },
+  };
+}
+
+/**
+ * FounderData Pro's scripts for tracked pages (docs/PRO.md): each pro/js/<name>.ts is bundled on its own into
+ * dist/js/<name>.js, so it is a free static file next to script.js. The recorder pro/js/replay.ts becomes /js/replay.js,
+ * which the tracker loads only for visits the server picks to record. Core has no pro/ folder, so this does nothing there.
+ */
+function proScripts(): Plugin {
+  const dir = resolve(__dirname, 'pro/js');
+  return {
+    name: 'pro-scripts',
+    apply: 'build',
+    async closeBundle() {
+      if (!existsSync(dir)) return;
+      for (const f of readdirSync(dir).filter((n) => /^[\w-]+\.ts$/.test(n))) {
+        await esbuild({
+          entryPoints: [resolve(dir, f)],
+          outfile: resolve(outDir, 'js', f.replace(/\.ts$/, '.js')),
+          bundle: true,
+          minify: true,
+          format: 'iife',
+          target: 'es2017',
+          legalComments: 'inline',
+          logLevel: 'warning',
+        });
+      }
     },
   };
 }
@@ -81,7 +111,7 @@ function preloadLandingChunks(): Plugin {
 export default defineConfig({
   root: 'src/dashboard',
   publicDir: '../../public',
-  plugins: [react(), minifyTracker(), preloadLandingChunks()],
+  plugins: [react(), minifyTracker(), proScripts(), preloadLandingChunks()],
   build: {
     outDir: '../../dist',
     emptyOutDir: true,

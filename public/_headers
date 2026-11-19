@@ -2,6 +2,12 @@
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=3600
 
+# FounderData Pro's recorder, built from pro/js/replay.ts (vite.config.ts proScripts). The tracker loads it only for a
+# visit the server picks to record. A day in the cache; the tracker adds ?v= from the server to fetch a new release.
+/js/replay.js
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
 /share/*
   X-Robots-Tag: noindex, nofollow
 
