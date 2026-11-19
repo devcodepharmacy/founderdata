@@ -2676,7 +2676,7 @@ The **Record visits** switch is all most sites need. **Advanced** holds the rest
 | Most visits recorded a day | 1,000 |
 | Keep only visits where someone signed up, hit a goal or paid | Off. When on, other recordings go after 24 hours |
 
-A daily job deletes recordings older than the days you picked. The bucket's 90-day rule deletes anything left behind.
+A job that runs every hour deletes recordings older than the days you picked. The bucket's 90-day rule deletes anything left behind.
 Erasing a person ([Erase one person](#erase-one-person)) deletes their recordings too. [PRIVACY.md](PRIVACY.md#recordings-pro)
 lists what a recording stores.
 
