@@ -147,6 +147,7 @@
       cookies = true;
       writeCookie(CONSENT, '1', YEAR);
       ids(); // keeps the current visitor and session ids, so the visit continues
+      if (held) record(held); // a recording that waited for consent starts now
     } else {
       cookies = false;
       mem = null;
@@ -207,7 +208,8 @@
   // ---- tracker config from the server (docs/API.md, "Tracker config")
   // rm: Remember visitors. Keep the visitor in cookies as consent would (rt_consent=r), unless this page said no.
   // rec: record this visit. Load /js/replay.js once and hand it what it needs in window.founderdata._rec.
-  var rec = null, cfgSeen = false;
+  // rec.c: wait for consent. Hold the recording until data-cookies="on" or founderdata('consent', true).
+  var rec = null, cfgSeen = false, held = null;
   function config(cfg) {
     cfgSeen = true;
     if (cfg.rm && !cookies && !refused) {
@@ -215,9 +217,14 @@
       writeCookie(CONSENT, 'r', YEAR);
       ids();
     } else if (!cfg.rm && !dataCookies && readCookie(CONSENT) === 'r') consent(false);
+    record(cfg.rec);
+  }
+  function record(r) {
     var id = ids();
-    if (!cfg.rec || rec || !id) return;
-    rec = cfg.rec;
+    if (!r || rec || !id) return;
+    held = null;
+    if (r.c && !dataCookies && readCookie(CONSENT) !== '1') { held = r; return; }
+    rec = r;
     api._rec = { site: siteId, sid: id.sid, host: host, url: /\/api\/event$/.test(endpoint) ? endpoint.slice(0, -6) + '/rec' : host + '/api/rec', cfg: rec };
     var el = d.createElement('script');
     el.async = true;

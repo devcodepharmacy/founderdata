@@ -68,6 +68,8 @@ export interface Site {
   record_daily_max?: number;
   /** 1 = after 24 hours keep only recorded visits with a goal or a payment. */
   record_only_active?: number;
+  /** 1 = record a visit only after the visitor consented to cookies (migration 0075). */
+  record_consent?: number;
   /** Remember visitors: 1 = the tracker keeps the visitor id in first-party cookies. */
   remember_visitors?: number;
   /** GET and PATCH /api/sites/:id: the REPLAY_BUCKET binding exists (`npm run setup -- --replay`). */

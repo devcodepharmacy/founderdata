@@ -508,6 +508,31 @@ describe('tracker: config from the server', () => {
     expect(refused.jar.size).toBe(0);
   });
 
+  it('rec.c waits for consent: nothing loads or is sent until founderdata(\'consent\', true), then it records the same visit', async () => {
+    const t = load({ cfg: { rec: { ...REC, c: 1 }, rm: 1 } });
+    await tick();
+    t.press(el('button', 'Buy'));
+    // Remember visitors keeps an id, but that is not the visitor's consent.
+    expect(t.jar.get('rt_consent')).toBe('r');
+    expect(t.scripts).toEqual([]);
+    expect((t.ml as any)._rec).toBeUndefined();
+    t.ml('consent', true);
+    expect(t.scripts).toHaveLength(1);
+    expect((t.ml as any)._rec).toMatchObject({ sid: SERVER_IDS.sid, cfg: { c: 1 } });
+    t.hide();
+    // The click before consent is not sent.
+    expect((await Promise.all(t.beacons)).every((b) => b.a === undefined)).toBe(true);
+  });
+
+  it('rec.c records at once when the visitor consented before, with data-cookies="on" or the rt_consent cookie', async () => {
+    const t = load({ cfg: { rec: { ...REC, c: 1 } }, attrs: { 'data-cookies': 'on' } });
+    await tick();
+    expect(t.scripts).toHaveLength(1);
+    const back = load({ cfg: { rec: { ...REC, c: 1 } }, cookies: { rt_consent: '1', rt_vid: 'returning-visitor-1', rt_sid: 'session-0000001' } });
+    await tick();
+    expect(back.scripts).toHaveLength(1);
+  });
+
   it('the minified build loads the recorder and sends activity the same way', async () => {
     const t = load({ code: MINIFIED, cfg: { rec: REC } });
     await tick();

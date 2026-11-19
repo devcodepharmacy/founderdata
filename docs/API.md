@@ -3012,6 +3012,9 @@ stored as text and cut to 100 characters. The first 20 valid keys count, the res
 traits into the stored ones, and a key sent again replaces its value. When the merge would pass 20 keys, the call's
 own traits replace the stored ones. A call that changes nothing writes no row.
 
+Where to call it, and how a single-page app on a subdomain joins the marketing site:
+[GUIDE.md, "Identify people"](GUIDE.md#identify-people).
+
 ### Tracker config
 
 The answer to a pageview can carry `cfg`, the site's tracker settings. Without Record visits and Remember visitors it
@@ -3026,7 +3029,7 @@ In cookie mode the answer is `{ "cfg": { … } }`.
 | Key | Meaning |
 | --- | --- |
 | `rm` | Remember visitors is on. The script keeps the visitor in cookies as after `founderdata('consent', true)`, with `rt_consent=r`. When a later answer has no `rm`, the script removes cookies it kept this way. A page that called `founderdata('consent', false)` stays without cookies. |
-| `rec` | Record this visit (Pro). The server decides per visit, by the site's share and daily maximum. The object holds the recorder's settings: `mask` and `block` are CSS selectors, and Pro may add short keys of its own, such as `v` for the recorder's version. |
+| `rec` | Record this visit (Pro). The server decides per visit, by the site's share and daily maximum. The object holds the recorder's settings: `mask` and `block` are CSS selectors, and Pro may add short keys of its own, such as `v` for the recorder's version. `c: 1` means the site waits for consent (`record_consent`): the script records only once the visitor consented to cookies, with `data-cookies="on"`, an earlier `rt_consent=1` or `founderdata('consent', true)`. Until then it loads nothing and sends no clicks or errors. Remember visitors (`rt_consent=r`) is not consent. |
 
 With `rec`, the script loads `<script host>/js/replay.js` once per page (`?v=<rec.v>` when given), `async`, and sets
 `window.founderdata._rec` before it does:

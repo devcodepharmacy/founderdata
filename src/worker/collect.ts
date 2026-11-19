@@ -241,7 +241,8 @@ export async function trackerConfig(env: AppEnv['Bindings'], site: Site, sid: st
     const rec = await Promise.resolve()
       .then(() => decide(env, site, sid, now))
       .catch(() => null);
-    if (rec) cfg.rec = rec;
+    // Wait for consent: the tracker holds the recording until the visitor consents to cookies (migration 0075).
+    if (rec) cfg.rec = site.record_consent ? { ...rec, c: 1 } : rec;
   }
   return cfg.rm || cfg.rec ? cfg : null;
 }
