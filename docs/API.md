@@ -254,7 +254,7 @@ curl -X POST https://founderdata.example.com/api/v1/notes \
 | `before`, `after` | string | The old and the new value, such as `$19` and `$24`. 280 characters each. |
 | `idempotency_key` | string | Your id for this note, 128 characters at most. A site keeps one note per key. |
 | `metric` | string | What the verdict judges, when the default for the kind and target is not the one you want. See below. |
-| `window_days` | number | Days on each side of the note, 1 to 28. Default 28 for `search_clicks`, `google_rank` and the AI metrics, 7 for the rest. |
+| `window_days` | number | Days on each side of the note, 1 to 28. Default 28 for `search_clicks`, `google_rank` and the AI metrics, 14 for `trial_to_paid`, 7 for the rest. |
 | `group` | string | One key on every note of one change made on several pages, such as six locale copies. 64 characters at most. |
 | `ends_at` | string or number | Kind `outage` only, and required there: when the gap ended. At most 90 days after `timestamp`. |
 
@@ -271,8 +271,10 @@ is judged by the number it was meant to move:
 | `aso` with `keyword:<term>` or `keyword:<term>@<country>` | `keyword_rank`: the App Store rank | 7 days | `google_rank`, `visits` |
 | `ai` with `prompt:<id>`, or no target (every prompt) | `ai_mention_rate` | 28 days | `ai_citation_rate`, `visits` |
 | `ads` with `meta:campaign:<id>`, `meta:adset:<id>`, `meta:ad:<id>`, `meta`, `asa:campaign:<id>`, `asa`, or no target (all ad spend) | `cpa` | 7 days | `roas`, `visits` |
-| `pricing` or `release` on an app, without a page path | `paywall_conversion` | 7 days | `trial_rate`, `visits` |
-| anything else | `visits`: the visit rule, revenue per visitor first | 7 days | `search_clicks`, and on an app `paywall_conversion` and `trial_rate` |
+| `release` on an app that has trials (Pro), without a page path | `trial_to_paid` | 14 days | `paywall_conversion`, `trial_rate`, `app_downloads`, `visits` |
+| `aso` without a keyword, on an app with App Store sales (Pro) | `app_downloads` | 7 days | `visits`, `search_clicks`, `paywall_conversion`, `trial_rate`, `trial_to_paid` |
+| `pricing` or `release` on an app, without a page path | `paywall_conversion` | 7 days | `trial_rate`, `app_downloads`, `trial_to_paid`, `visits` |
+| anything else | `visits`: the visit rule, revenue per visitor first | 7 days | `search_clicks`, and on an app `paywall_conversion`, `trial_rate`, `app_downloads` and `trial_to_paid` |
 
 A `metric` the kind and target don't allow gets `400`. Notes stored before these metrics existed keep `metric` `null`
 and the visit rule over 7 days. [The verdict](#the-verdict) has each rule.
@@ -825,7 +827,7 @@ curl -H "Authorization: Bearer rtr_..." "https://founderdata.example.com/api/v1/
   before side shrinks to the same length, so the totals stay comparable. `review_after` is when the window closes.
 - `enough_data` is `false` when either side has fewer than 100 visitors, or both sides together have fewer than 10
   new customers. Below that, one buyer more or less swings the conversion rate by whole percentage points.
-- `overlapping` lists the other notes inside the after window. Their changes are in the same numbers, so the answer
+- `overlapping` lists the other notes inside the before and the after window. Their changes are in the same numbers, so the answer
   can't tell them apart. For a page, notes aimed at another page are left out; notes with no page target stay.
 - A key without revenue gets visitors only. `enough_data` then counts visitors alone, and the verdict judges visitors.
 - `outages` lists the outage notes that overlap either side. `data_gap` is `true` when one made the verdict
@@ -849,8 +851,13 @@ reads "Measuring, day 11 of 28. The window closes at 2026-11-28 20:00 UTC."
    it; it is `null` when step 1, 2 or 3 decided.
 5. The metric's change over its value before, rounded to 4 decimals: `+0.1` (10%) or more is `better`, `-0.1` or less
    is `worse`, anything between is `inconclusive`. From 0 before to more than 0 after is `better`.
+6. The noise rule. A count must also move by at least twice the square root of both sides added. 140 visitors against
+   100 counts; 47 against 41 does not, though it is up 15%. For the conversion rate the count is the new customers, with
+   the side before scaled to the visitors after. A change that passes step 5 and fails this one is `inconclusive`, and
+   `reason` ends "That is within normal ups and downs for numbers this small." Revenue per visitor has no count rule,
+   because a price change moves it with the same customers.
 
-A key without revenue skips step 3, and the metric in steps 4 and 5 is visitors.
+A key without revenue skips step 3, and the metric in steps 4 to 6 is visitors.
 
 An ASO note (`scope` `"keyword"`) has its own rule, because revenue per visitor says little about a keyword edit:
 
@@ -886,8 +893,7 @@ the impression-weighted `position`. `truncated` is `true` when the snapshot had 
 2. Search Console has no data through the window's last day yet: `inconclusive`. Past `review_after`, `reason` adds
    the last day Search Console has.
 3. With 10 clicks or more on either side, the clicks decide. Up 10% or more is `better`, down 10% or more is `worse`.
-   The gap must also be at least twice the square root of both counts added, so 13 against 1 counts and 100 against 89
-   does not.
+   The clicks must also pass the noise rule of the visit rule, so 13 against 1 counts and 100 against 89 does not.
 4. Else, with 50 impressions or more on either side, the position decides, by the rank rule below. A page that leaves
    the results is `worse` (`verdict_metric` `search_position`).
 5. Else `inconclusive`, `enough_data` `false`.
@@ -931,8 +937,19 @@ revenue gets `inconclusive` and no `ads` block.
 **App paywall** (`paywall_conversion` or `trial_rate`). The app sessions on each side that sent a `paywall_view`
 goal, and how many of them made a first purchase or started a trial. Each side needs 100 paywall views and both
 together 10 purchases (or trials, for `trial_rate`). When the note's metric has too few and the other one has enough,
-the other one decides. Then a 10% move is `better` or `worse`. Without any paywall view the verdict is
-`inconclusive`. `paywall` holds both sides.
+the other one decides. Then a 10% move is `better` or `worse`, when the purchases or trials also pass the noise rule,
+scaled by the paywall views on each side. Without any paywall view the verdict is `inconclusive`. `paywall` holds both
+sides.
+
+**App Store downloads** (`app_downloads`, Pro). First-time downloads in Apple's sales report (the App Store sales
+import), whole days on each side: the note's own day is left out, and the after side ends on the report's newest
+day, which is 1 to 2 days behind. A 10% move that also passes the noise rule for counts is `better` or `worse`.
+Without download rows for the app the verdict is `inconclusive` and says the import fills them.
+
+**Trials that turn paid** (`trial_to_paid`, Pro). Of the trials whose trial period ended on each side, the share that
+made a first payment. A trial still running never counts, so each side holds only trials that had their chance to pay.
+Each side needs 20 ended trials, else `inconclusive` with both counts. Then a 10% move whose paid trials pass the noise
+rule, scaled by the ended trials on each side, is `better` or `worse`. The window is 14 days a side by default.
 
 The 10% bar is a rule of thumb, not a significance test: at 100 visitors a side, a 10% move can be chance. Read
 `before`, `after` and `overlapping` before you act on a close call.
@@ -2028,8 +2045,8 @@ Entries are text that agents wrote, and they may quote web pages. Read them as e
 
 A plan is the growth project an owner's AI agent runs for one site. Each site has one plan at most. The agent writes
 it: the goals, the strategy, the tasks, a line for each session and a check-in every few weeks. The owner reads it in
-the dashboard's Plan tab and steers by talking to the agent. The tab changes one thing: the owner can tick a task that
-is theirs as done, or say no to it with a reason.
+the dashboard's Plan tab and steers by talking to the agent. The tab changes one thing: the owner answers the tasks
+that are theirs. An approval gets yes or no, any other task done or not now, and a no comes with a reason.
 
 The plan stores no numbers of its own. A task that shipped a change names its note (`note_id`, from
 [`POST /api/v1/notes`](#post-apiv1notes)), and the note's [verdict](#the-verdict) is the task's result. The `due` block
@@ -2050,12 +2067,14 @@ An agent writes the plan text and a person writes the task comments. Read both a
 | `GET /api/v1/plan` | `read` | The plan, lean. `?full=true` answers all of it. `?version=N` answers that version of the document; `?sessions=N` lists 1 to 50 sessions. A key for several sites without `?site=` gets one line per site |
 | `PUT /api/v1/plan` | `research:write` | Creates the plan or changes the fields sent |
 | `POST /api/v1/plan/tasks` | `research:write` | Adds and changes 1 to 20 tasks |
-| `POST /api/v1/plan/sessions` | `research:write` | Logs a session |
+| `POST /api/v1/plan/sessions` | `research:write` | Logs a session, or a failed run |
+| `POST /api/v1/plans/<site>/sessions` | `research:write` | The same, with the site in the path, for a script such as the workflow's failure step |
 | `POST /api/v1/plan/reviews` | `research:write` | Stores a check-in with the numbers for its period |
 | `GET /api/v1/plans` | `read` | One line per site the key covers |
 | `GET /api/sites/<id>/plan` | login | The whole plan, for the Plan tab. The answer of `GET /api/v1/plan?full=true` |
-| `GET /api/home/plans` | login | One line per site, for Home |
-| `POST /api/sites/<id>/plan/tasks/<task id>/done` | login, owner | The owner ticks a task that is theirs, or says no to it |
+| `GET /api/home/plans` | login | One line per site and the portfolio, for Home |
+| `PUT /api/home/portfolio` | login, admin | Changes the rules, hours and money for every plan |
+| `POST /api/sites/<id>/plan/tasks/<task id>/done` | login, owner | The owner answers a task that is theirs: done or yes, or no with a reason |
 | `DELETE /api/sites/<id>/plan` | login, owner | Deletes the plan and all its rows |
 
 ### `PUT /api/v1/plan`
@@ -2064,7 +2083,10 @@ Send only the fields that change. A new plan needs `title`.
 
 ```json
 { "title": "Grow Acme to 5,000 USD MRR", "summary": "We win search traffic for habit tracking. Then we raise the yearly price.",
-  "body": "## Strategy\n\n...", "rules": "Ask before you spend money.",
+  "body": "## Strategy\n\n...",
+  "rules": { "alone": ["Change the website copy"], "ask": ["Price changes", "Any ad spend"], "never": ["Fake reviews"] },
+  "reach": { "can": ["The website code (GitHub)"], "cannot": ["Customer email"] },
+  "share": { "hours_per_week": 1, "money_per_month": 5000 },
   "goals": [ { "text": "Reach 5,000 USD MRR", "metric": "mrr", "target": 500000, "due": "2027-03-31" } ],
   "cadence_hours": 24, "reason": "First plan", "actor": "growth-agent" }
 ```
@@ -2074,7 +2096,10 @@ Send only the fields that change. A new plan needs `title`.
 | `title` | 120 characters at most. Required for a new plan |
 | `summary` | 400 characters: two sentences the owner reads first |
 | `body` | Markdown, 20,000 characters: the strategy |
-| `rules` | Markdown, 3,000 characters: how the owner and the agent work together, such as what needs the owner's yes |
+| `rules` | The owner's rules as three lists, `alone` (what the agent may do without asking), `ask` (what needs the owner's yes first) and `never`. Each list 0 to 12 lines of 1 to 200 characters. A Markdown string answers `400` with the object's shape |
+| `reach` | What the agent can touch: `can` and `cannot`, the same limits. Work outside `can` becomes a task for the owner |
+| `share` | This plan's slice of the owner's time and money: `hours_per_week` (0 to 168, in steps of 0.5) and `money_per_month` (minor units of `portfolio.currency`, or the site currency without one), each a whole number or `null`. Saves no version |
+| `portfolio` | The rules, hours and money for every plan: `{ "rules", "hours_per_week", "money_per_month", "currency" }`, each optional, hours in steps of 0.5. Only a key that covers every site may send it (`403` otherwise), and sent alone it needs no `?site=`. `money_per_month` needs `currency` |
 | `goals` | Up to 5. The list replaces the stored one. Each goal is below |
 | `cadence_hours` | How often the agent is expected to work, 1 to 720 (24 is every day). `null` means no schedule |
 | `reason` | 300 characters: why the plan changed. The owner reads it in the history |
@@ -2102,6 +2127,7 @@ A goal:
 | `google_clicks_28d` | Google Search clicks over the 28 days that end on the last day Search Console has | Google Search Console, through Connect Google or `scripts/gsc-sync.mjs` |
 | `app_downloads_30d` | First-time App Store downloads over the 30 days of Apple's sales report that end on its newest day for the app | Apple's sales report (the App Store sales import) |
 | `trials_30d` | Free trials started over the last 30 days | trial starts on subscriptions from payment webhooks and imports |
+| `trial_to_paid_30d` | Free trials that ended in the last 30 days and turned into a paid subscription, over all trials that ended then, a fraction from 0 to 1 | trial ends and first payments on subscriptions from payment webhooks and imports |
 | `visitor_to_customer_30d` | New paying customers over unique visitors in the last 30 days, a fraction from 0 to 1 | first payments over visits |
 
 A site without the data a metric needs (no subscriptions, no Search Console, no App Store report) answers
@@ -2109,12 +2135,13 @@ A site without the data a metric needs (no subscriptions, no Search Console, no 
 sales import is off (no `ASC_*` secrets, `app_store` off in `whoami`), and nothing when the newest report day for the
 app is more than 7 days old. Rows left in the table from before do not count as live numbers.
 
-A change to `title`, `summary`, `body`, `rules` or `goals` saves a new `version` and keeps the one before. The newest 30
-older versions stay. `cadence_hours` alone saves no version. When two saves arrive at the same moment, the second
+A change to `title`, `summary`, `body`, `rules`, `reach` or `goals` saves a new `version` and keeps the one before. The
+newest 30 older versions stay. `cadence_hours` and `share` alone save no version. When two saves arrive at the same moment, the second
 answers `409` and the agent reads the plan again.
 
 The answer holds what the agent needs to check its write, about 1 to 3 KB: `ok`, `site_id`, the plan's `version`,
-`goals` with their computed fields (`baseline`, `current`, `progress`, `pace`, `reason`, `source`), `warnings`,
+`goals` with their computed fields (`baseline`, `current`, `progress`, `pace`, `reason`, `source`), `rules`, `reach`,
+`share`, `portfolio` when it was sent, `warnings`,
 `ignored`, `autopilot` (`cadence_hours`, `last_session_at`, `next_expected_at`, `status`, without `setup`) and
 `plan_url`. It leaves out the text, tasks, sessions and reviews: `GET /api/v1/plan` reads those. `warnings` lists, one
 plain sentence each, what the agent should fix before the owner reads the plan:
@@ -2122,7 +2149,8 @@ plain sentence each, what the agent should fix before the owner reads the plan:
 - a target at or below the baseline: the goal was reached before it started;
 - a metric that is not measured for this site, with the reason;
 - a `due` day in the past;
-- a goal with a metric and no `due`, which gets no pace.
+- a goal with a metric and no `due`, which gets no pace;
+- the plans' shares adding up to more hours or money than the portfolio has. The save goes through.
 
 ```json
 { "ok": true, "site_id": "SITE_ID", "version": 4,
@@ -2138,8 +2166,13 @@ plain sentence each, what the agent should fix before the owner reads the plan:
 
 ```json
 { "site_id": "SITE_ID", "exists": true, "plan_url": "https://founderdata.example.com/site/SITE_ID/plan",
-  "plan": { "title": "Grow Acme to 5,000 USD MRR", "summary": "...", "body": "...", "rules": "...", "version": 3,
+  "plan": { "title": "Grow Acme to 5,000 USD MRR", "summary": "...", "body": "...",
+            "rules": { "alone": ["..."], "ask": ["..."], "never": ["..."] }, "reach": { "can": ["..."], "cannot": ["..."] },
+            "share": { "hours_per_week": 1, "money_per_month": 5000 }, "version": 3,
             "cadence_hours": 24, "created_at": "2026-11-02T09:00:00.000Z", "updated_at": "...", "actor": "growth-agent" },
+  "portfolio": { "rules": { "alone": [], "ask": ["Any ad spend"], "never": ["Fake reviews"] }, "hours_per_week": 6,
+                 "money_per_month": 30000, "currency": "USD", "updated_at": "...", "actor": "growth-agent", "plans": 3,
+                 "shares_used": { "hours_per_week": 4, "money_per_month": 15000 } },
   "goals": [ { "id": "g7k2m9qa", "text": "Reach 5,000 USD MRR", "metric": "mrr", "target": 500000, "baseline": 310000,
                "start": "2026-11-02", "due": "2027-03-31", "status": "active", "current": 342000, "progress": 0.1684,
                "pace": "behind", "expected_today": 333504.85, "reason": null,
@@ -2147,31 +2180,39 @@ plain sentence each, what the agent should fix before the owner reads the plan:
   "tasks": { "waiting_on_you": [], "doing": [ { "id": "t1a2b3c4", "title": "Rewrite the pricing page", "...": "a task" } ],
              "todo": [], "done": [], "done_total": 12 },
   "sessions": [ { "id": "s9x8y7w6", "started_at": "...", "summary": "Shipped the pricing copy", "body": "...",
-                  "next": "Measure it", "trigger": "schedule", "actor": "growth-agent" } ],
+                  "next": "Measure it", "trigger": "schedule", "actor": "growth-agent", "status": "ok", "cause": null,
+                  "link": "https://github.com/OWNER/REPO/actions/runs/123" } ],
   "reviews": [ { "id": "...", "created_at": "...", "from": "2026-11-02", "to": "2026-11-16", "title": "Two weeks in",
                  "body": "...", "numbers": { "...": "Numbers, below" }, "actor": "growth-agent" } ],
   "versions": [ { "version": 3, "created_at": "...", "reason": "Owner agreed to raise prices", "actor": "growth-agent", "current": true } ],
   "stats": { "...": "Numbers since the plan was created" },
   "autopilot": { "cadence_hours": 24, "last_session_at": "...", "next_expected_at": "...", "status": "late",
-                 "setup": { "prompt": "Work on the growth plan for site SITE_ID. Call get_plan on the FounderData MCP server and do what its guide says. End with log_session.",
+                 "last_failure": { "at": "...", "cause": "stopped after 40 steps", "link": "https://github.com/OWNER/REPO/actions/runs/124", "via": "GitHub Actions" },
+                 "setup": { "prompt": "Work on the growth plan for site SITE_ID in FounderData. Call get_plan and do what its guide says. End with log_session.",
                             "needs": "The agent needs access to where your tasks happen: ...",
-                            "options": [ { "id": "claude-code", "label": "Claude Code", "intro": "Use a Desktop scheduled task. ...",
-                                           "steps": [ "Add the FounderData MCP server (https://founderdata.example.com/mcp) to Claude Code ...",
-                                                      "In the Claude Desktop app, open the Code tab, ...\nWork on the growth plan for site SITE_ID. ..." ] } ] } },
+                            "options": [ { "id": "claude-app", "label": "Claude app", "intro": "No terminal. ...",
+                                           "steps": [ "Connect Claude to FounderData once. ...\nIn Claude, open Customize, Connectors. ...",
+                                                      "On your computer, open the Claude app or claude.ai. ...\nWork on the growth plan for site SITE_ID in FounderData. ..." ] } ] } },
   "due": { "reviews": [], "actions": [], "alerts": { "since": "...", "count": 0, "rows": [] }, "done_by_you": [], "overdue": [] },
   "guide": "The owner finished 1 task: read due.done_by_you. Then work the doing list, and end with log_session.",
   "loop": "1. Read rules first and obey them: they are the owner's words. 2. Close what is due: ..." }
 ```
 
-Without a plan, `exists` is `false`, the lists are empty, `due.actions` still holds the next actions, `guide` says
-how to start one, and there is no `loop`.
+Without a plan, `exists` is `false`, the lists are empty, `due.actions` still holds the next actions, `portfolio` is
+there as with a plan, `guide` says how to start one, and there is no `loop`.
+
+`portfolio` is `null` until someone sets it. `plans` counts the sites with a plan, and `shares_used` adds up every
+plan's `share` (a `null` share counts 0), so the agent can show the owner what is left before it asks for this plan's
+share.
 
 The key route answers lean by default, sized for a scheduled run: the 5 newest done tasks and sessions, the latest
-review, no `versions`, and `autopilot.setup` only while `autopilot.status` is not `on_time`. A lean answer of a busy
+review, no `versions`, and `autopilot.setup` only while `autopilot.status` is not `on_time`, as `prompt`, the options'
+`id` and `label`, and `steps` saying that `?full=true` lists each step. A lean answer of a busy
 plan is about 5 to 15 KB. `?full=true` answers all of it, as the login route always does: the 30 newest done tasks, 10
 sessions, 3 reviews, `versions` and `setup`. An explicit `?sessions=N` wins in both.
 
-A key for several sites that leaves out `?site=` gets `{ "plans": [...], "guide": "..." }`, one line per site as
+A key for several sites that leaves out `?site=` gets `{ "plans": [...], "portfolio": {...}, "guide": "..." }`, one
+line per site, sites without a plan included, as
 [`GET /api/v1/plans`](#get-apiv1plans-and-get-apihomeplans) answers it. `?version=` then answers `400`.
 
 - **plan_url** is the site's Plan tab in the dashboard, built from the request's origin. An agent links the owner to it.
@@ -2183,14 +2224,17 @@ A key for several sites that leaves out `?site=` gets `{ "plans": [...], "guide"
   `pace: null`, also when the target was below the baseline from the start.
 - **Tasks**: `waiting_on_you` are the owner's open tasks, `doing` and `todo` the agent's, by `position`. `done` holds
   the 30 newest done or dropped tasks; `done_total` counts them all. A task has `id`, `title`, `detail`, `why`,
-  `owner`, `status`, `goal_id`, `note_id`, `outcome`, `due`, `position`, `created_at`, `updated_at`, `done_at`,
-  `done_by`, `actor` and `result`.
+  `owner`, `kind`, `status`, `goal_id`, `note_id`, `expect`, `allowed_by`, `action`, `outcome`, `due`, `position`,
+  `created_at`, `updated_at`, `done_at`, `done_by`, `claimed_by`, `claimed_at`, `actor` and `result`
+  ([`POST /api/v1/plan/tasks`](#post-apiv1plantasks) has what each new field means). `allowed_by` with
+  `kind: "approval"` also answers `at`, when the owner said yes, and the approval's `title`.
 - **result** is `null` without a note. With one it has these fields:
 
   | Field | |
   | --- | --- |
   | `verdict` | `better`, `worse`, `inconclusive`, `measuring` while the note's window is open, or `null` when the window closed and no verdict was read yet |
-  | `metric`, `metric_label` | What the verdict judges, as a name (`search_clicks`) and in words (`search clicks`) |
+  | `metric`, `metric_label` | What the verdict judges, as a name (`search_clicks`) and in words (`search clicks`). With `expect.metric` on the task, the note is judged on that metric when its judge can read it for the note's kind; otherwise on the note's own metric, and the tab says "judged on" the other one |
+  | `before_n`, `after_n`, `n_label` | For a rate (`unit` `percent`): how many it was measured on each side, and what they are (`visitors`, `paywall views`, `trials`, `AI answers`). `null` for a count. The paid trials before are `round(before * before_n)` |
   | `reason` | One line a person reads, such as "Measuring, day 3 of 7. The result comes on 2026-11-26." or "Result not read yet" |
   | `hint` | For the agent, only with `verdict: null`: what to call to get the verdict |
   | `change_pct` | The metric's change, as a fraction, when there is one |
@@ -2200,14 +2244,15 @@ A key for several sites that leaves out `?site=` gets `{ "plans": [...], "guide"
   | `before`, `after` | The verdict metric in the window before the change and in the one after. `null` when the impact has no number for it |
   | `unit` | How to read `before` and `after`: `count`, `money` (minor units of the site currency), `percent` (a fraction from 0 to 1) or `rank` (lower is better). `null` for ROAS and without a metric |
   | `started` | The day measuring began, the change's day in the site timezone, `YYYY-MM-DD` |
-  | `overlaps` | How many other changes were logged in the after window |
+  | `overlaps` | The other changes that went live in the before or the after window, oldest first: `{ "id", "task_id", "title", "at", "side" }` each, where `id` is the note, `task_id` the task that links it or `null`, `title` the task's title or else the note's text, `at` when it went live and `side` `before` or `after`. `[]` when there was none |
 
   `before`, `after`, `unit`, `started` and `overlaps` come with a verdict only, and are `null` for a verdict kept
   before 2026-11. FounderData never fills one in.
 
   ```json
   { "verdict": "better", "metric": "search_clicks", "metric_label": "search clicks", "reason": "Search clicks rose 30%, ...",
-    "change_pct": 0.3, "before": 40, "after": 52, "unit": "count", "started": "2026-10-30", "window_days": 28, "overlaps": 2 }
+    "change_pct": 0.3, "before": 40, "after": 52, "unit": "count", "started": "2026-10-30", "window_days": 28,
+    "overlaps": [ { "id": "n8k2", "task_id": "t4m1", "title": "Add an FAQ to the pricing page", "at": "2026-11-02T10:00:00.000Z", "side": "after" } ] }
   ```
 
   A closed window's verdict is kept on its task once something read it: [`POST /api/v1/plan/sessions`](#post-apiv1plansessions)
@@ -2216,22 +2261,25 @@ A key for several sites that leaves out `?site=` gets `{ "plans": [...], "guide"
   new `note_id` on the task needs a new read. A read writes nothing: it answers the kept verdicts and judges at most 2
   more live, the notes due for review first. The others answer `verdict: null`.
 - **versions** (full answer only): the current version and the 9 before it, without their text. `?version=N` answers one with
-  `version`, `created_at`, `reason`, `actor`, `title`, `summary`, `body`, `rules` and `goals`.
+  `version`, `created_at`, `reason`, `actor`, `title`, `summary`, `body`, `rules`, `reach` and `goals`.
 - **autopilot.status**: `none` (no `cadence_hours`), `never_ran`, `on_time`, `late` (past `next_expected_at`) or
-  `away` (more than twice the cadence since the last session, or since the plan was saved when none ran).
-- **autopilot.setup** holds the steps the Plan tab's Autopilot card shows, from the same source, so an agent can walk
+  `away` (more than twice the cadence since the last session, or since the plan was saved when none ran). A failed run
+  is no session here.
+- **autopilot.last_failure**: the newest failed run while no good session came after it, else `null`: `at`, `cause`,
+  `link` and `via`, where it ran, read from the link's host ("GitHub Actions" for github.com, else the host name).
+- **autopilot.setup** holds the steps the Plan tab's "Runs by itself" card shows, from the same source, so an agent can walk
   the owner through them in chat with the real button names. `prompt` is the one sentence a scheduled run starts
   with. `needs` says what the agent needs to do the tasks. `options` has one entry per way to schedule: `id`
-  (`claude-code`, `claude-app`, `codex`, `github-actions`, `by-hand`, `several-sites`, `other`), `label`, `intro` and
-  `steps`, a list of strings in order. A step with a prompt, a command or a config line has it on a new line after its
-  text.
+  (`claude-app`, `claude-code`, `github-actions`, `codex`, `several-sites`, `by-hand`, `other`), `label`, `intro` and
+  `steps`, a list of strings in order. A step with a prompt, a command, a URL or a config line has it on a new line
+  after its text.
 - **due**: `reviews` are notes whose window closed and nobody reviewed, 10 at most, each with its `task_id` or `null`.
   Only notes a task links, and notes created after the plan, count: older notes are not the plan's work.
   `older_reviews` counts the others, up to 100: due notes from before the plan that no task links. When it is above 0,
   `guide` says so, and `list_notes` with `due` (`GET /api/v1/notes?due=true`) lists them. Reviewing them is optional.
   `actions` are the site's top 5 next actions. `alerts` are the alert inbox rows since the last session (the last 7
   days without one), the newest 10, with `count`. `done_by_you` are the tasks the owner ticked (`status: "done"`) or
-  said no to (`status: "dropped"`, the reason in `outcome`) since the last session. `overdue` are open tasks past
+  said no to (`status: "dropped"`, the reason in `outcome`) since the last session, approvals included. `overdue` are open tasks past
   their `due` day.
 - **guide** is 2 to 5 sentences on what to do next, built from the state above.
 - **loop** is the session loop in 8 short steps (about 1,100 characters), for an agent that cannot read MCP prompts:
@@ -2247,21 +2295,30 @@ Numbers (`stats`, and each review's `numbers`):
 ```json
 { "goals": [ { "id": "g7k2m9qa", "text": "...", "metric": "mrr", "baseline": 310000, "current": 342000, "target": 500000,
                "progress": 0.1684, "pace": "behind", "status": "active" } ],
-  "tasks": { "done": 12, "dropped": 2, "open": 7 },
+  "tasks": { "done": 12, "dropped": 2, "open": 7, "measured": 5, "measuring": 2 },
   "verdicts": { "better": 3, "worse": 1, "inconclusive": 2, "measuring": 1, "not_judged": 0 },
   "sessions": 18 }
 ```
 
-`verdicts` counts the tasks with a note. `not_judged` counts closed windows whose verdict was not read yet. A review
-reads them all first, so its `numbers` have `not_judged: 0` for every closed window.
+In a review, `tasks.done` and `tasks.dropped` count the tasks closed in its period, and `open` the tasks in `todo` or
+`doing` now. `measured` counts the tasks done in the period whose note has a verdict (better, worse or inconclusive),
+and `measuring` those whose window is still open. `verdicts` counts the tasks done in the period with a note.
+`not_judged` counts closed windows whose verdict was not read yet. A review reads them all first, so its `numbers` have
+`not_judged: 0` for every closed window. One server function counts all of these, and the Plan tab shows what it
+counted. Reviews stored before 2026-11-19 have no `measured` and `measuring`.
 
 ### `POST /api/v1/plan/tasks`
 
 ```json
-{ "tasks": [
-  { "title": "Rewrite the pricing page headline", "why": "Should lift trial starts 10 %", "goal_id": "g7k2m9qa" },
-  { "title": "Approve 200 USD for Apple Search Ads", "owner": "human", "why": "Ads need your yes" },
-  { "id": "t1a2b3c4", "status": "done", "note_id": "n5d6e7f8", "outcome": "Shipped on /pricing" } ] }
+{ "run_id": "gh-123456789-1-SITE_ID",
+  "tasks": [
+  { "title": "Rewrite the pricing page headline", "why": "Visitors leave the pricing page", "goal_id": "g7k2m9qa",
+    "expect": { "text": "+10% visitors who become customers in 4 weeks", "metric": "conversion_rate", "change_pct": 10 } },
+  { "title": "Approve 200 USD for Apple Search Ads", "owner": "human", "kind": "approval", "why": "Ad spend is on your ask list" },
+  { "title": "Connect Search Console", "owner": "human", "why": "Clicks from Google are the second goal",
+    "action": { "label": "Connect", "url": "/site/SITE_ID/settings" } },
+  { "id": "t1a2b3c4", "status": "done", "note_id": "n5d6e7f8", "outcome": "Shipped on /pricing",
+    "allowed_by": { "kind": "rule", "rule": "Change the website copy" } } ] }
 ```
 
 An entry without `id` adds a task and needs `title`. An entry with `id` changes the fields it sends. The call is all or
@@ -2273,13 +2330,22 @@ nothing, and `409` means the site has no plan yet.
 | `detail` | Markdown, 4,000 characters |
 | `why` | 500 characters: what the task should move, and by how much |
 | `owner` | `agent` (the default) or `human`: what only the owner can do or decide |
-| `status` | `todo` (the default), `doing`, `done` or `dropped`. `done` and `dropped` set `done_at` and `done_by: "agent"`; `todo` or `doing` opens a closed task again |
-| `goal_id` | A goal `id` of the plan, or `null` |
+| `kind` | `task` (the default) or `approval`, only with `owner: "human"`: a decision the owner says yes or no to in the Plan tab. Yes closes it `done` and no closes it `dropped`, both with `done_by: "human"` |
+| `expect` | What the agent predicts the task will do: `text` (1 to 200 characters), `metric` and `change_pct`. `metric` is the verdict metric the change will be judged on, the name a result carries: `visitors`, `conversion_rate`, `revenue_per_visitor`, `trial_rate`, `paywall_conversion`, `search_clicks`, `search_position`, `keyword_rank`, `google_rank`, `ai_mention_rate`, `ai_citation_rate`, `cpa`, `roas`, `app_downloads` or `trial_to_paid`. `change_pct` is a percent from -100 to 1000 (`10` for +10%, `-5` for -5%). Required on a new agent task, and when the task's goal has a metric, `metric` and `change_pct` are required too; text alone is only for a goal with no metric. A `400` lists the names and shows an example. Human tasks and tasks created before it are exempt. The Plan tab shows it against the result: "Expected +10% conversion · got +3% conversion" |
+| `allowed_by` | Why the agent was allowed to ship a change from an `ask` list: `{ "kind": "approval", "task_id": "t12" }`, an approval the owner said yes to (it must exist, be an approval, be done and have `done_by: "human"`), or `{ "kind": "rule", "rule": "..." }`, a line that equals an `alone` item of the plan's or the portfolio's rules |
+| `status` | `todo` (the default), `doing`, `done` or `dropped`. `done` and `dropped` set `done_at` and `done_by: "agent"`; `todo` or `doing` opens a closed task again. A key cannot set `done` on an owner task (`owner: "human"`): `400`, because only the owner closes it, in the Plan tab. `dropped` withdraws an owner task that is no longer needed, and needs the reason in `outcome`; a withdrawn approval is `dropped` with `done_by: "agent"`, never a no from the owner. An owner task stays the owner's (`owner` and `kind` cannot change), and one the owner answered stays as they left it, words included: ask again with a new task. An open approval keeps its `title` and `detail`, so the owner's yes covers the words they read |
+| `goal_id` | A goal `id` of the plan, or `null`. Required on a new agent task when the plan has a goal |
+| `action` | Owner tasks only: the button the Plan tab shows first, `{ "label": "Connect", "url": "/site/SITE_ID/settings" }`. `label` 1 to 40 characters; `url` 300 at most, a dashboard path starting with `/` or an `https` URL. `null` removes it |
 | `note_id` | A note of this site, or `null`. Set it when the task shipped a change |
 | `outcome` | 1,000 characters: what happened |
 | `due` | A real day, `YYYY-MM-DD`, or `null` |
 | `position` | A whole number. Lower comes first within a status. New tasks go last |
 | `actor` | 64 characters: who made the change. An `actor` next to `tasks` applies to every task in the call that names none |
+
+`run_id` (top level, 1 to 64 characters) names the session. Moving a task to `doing` with it claims the task:
+`claimed_by` and `claimed_at` are set. For 6 hours another `run_id` that moves or changes that task gets `409` with an
+error that names the run and when the claim ends. The same `run_id`, or a call without one, may change it. `done` and
+`dropped` clear the claim.
 
 A site has 60 open tasks (`todo` or `doing`) at most. The answer is
 `{ "ok": true, "site_id": "SITE_ID", "tasks": [...], "ignored": [] }`, each task as stored, with `created` true for a new
@@ -2289,12 +2355,16 @@ one.
 
 ```json
 { "summary": "Shipped the pricing headline and logged it", "body": "Checked due reviews: none. ...",
-  "next": "Read the verdict on Nov 26", "trigger": "schedule", "actor": "growth-agent", "idempotency_key": "run-2026-11-19" }
+  "next": "Read the verdict on Nov 26", "trigger": "schedule", "actor": "growth-agent", "idempotency_key": "run-2026-11-19",
+  "link": "https://github.com/OWNER/REPO/actions/runs/123456789" }
 ```
 
 | Field | |
 | --- | --- |
-| `summary` | Required. 300 characters: one line the owner reads in the timeline |
+| `summary` | 300 characters: one line the owner reads in the timeline. Required unless `status` is `failed` |
+| `status` | `ok` (the default) or `failed`: the run could not finish |
+| `cause` | 300 characters: why it failed, in plain words, such as "stopped after 40 steps". The owner reads it |
+| `link` | An `https` URL, such as the scheduler's page for the run |
 | `body` | Markdown, 6,000 characters: what the agent checked, did and learned |
 | `next` | 1,000 characters: what it will do next time |
 | `trigger` | `manual` (the owner asked, the default), `schedule` or `alert` |
@@ -2302,7 +2372,19 @@ one.
 | `idempotency_key` | One per site. Sent again, it stores nothing and answers the first session with `"created": false` |
 
 It sets the plan's last session to the newest session's start. A session newer than the last one ends an away
-alert's gap; a backdated one does not. It then keeps the verdicts of up to 8 closed windows on their tasks. The answer
+alert's gap; a backdated one does not. A failed one is stored and listed the same way, but it is no session for the
+schedule: it sets `autopilot.last_failure` and the away alert still counts the gap. The Plan tab and Home show "Run
+failed" with the cause and the link.
+
+`POST /api/v1/plans/<site>/sessions` takes the same body with the site in the path, for a script that knows the site
+id but builds no query string. The key must cover that site. A workflow's failure step logs a failed run with it:
+
+```bash
+curl -X POST "https://founderdata.example.com/api/v1/plans/SITE_ID/sessions" \
+  -H "Authorization: Bearer fdk_..." -H "Content-Type: application/json" \
+  -d '{"status":"failed","cause":"stopped after 40 steps","link":"https://github.com/OWNER/REPO/actions/runs/123456789",
+       "trigger":"schedule","actor":"github-actions","idempotency_key":"gh-123456789-1-SITE_ID-failed"}'
+``` It then keeps the verdicts of up to 8 closed windows on their tasks. The answer
 is `{ "ok": true, "created": true, "session": { ... }, "verdicts_kept": 1, "ignored": [] }`. `409` means the site has no
 plan yet.
 
@@ -2328,22 +2410,27 @@ One line per site: every site the key covers, or every site for the login.
 { "plans": [ { "site_id": "SITE_ID", "site_name": "Acme", "exists": true, "title": "Grow Acme to 5,000 USD MRR",
                "summary": "...", "top_goal": { "...": "the first active goal, with current, progress and pace" },
                "waiting_on_you": 2, "waiting": [ { "id": "t5e6f7g8", "title": "Approve 200 USD for Apple Search Ads" } ],
-               "doing": 1,
-               "newest_result": { "title": "Rewrite the pricing page headline", "verdict": "better", "change_pct": 0.18,
-                                  "metric_label": "conversion rate" },
-               "autopilot": { "cadence_hours": 24, "last_session_at": "...", "next_expected_at": "...", "status": "on_time" },
-               "last_session": { "at": "...", "summary": "Shipped the pricing headline" } } ] }
+               "doing": 1, "share": { "hours_per_week": 1, "money_per_month": 5000 },
+               "newest_result": { "task_id": "t1a2b3c4", "title": "Rewrite the pricing page headline", "verdict": "better",
+                                  "change_pct": 0.18, "metric_label": "conversion rate", "at": "2026-11-14T07:00:00.000Z" },
+               "autopilot": { "cadence_hours": 24, "last_session_at": "...", "next_expected_at": "...", "status": "on_time",
+                              "last_failure": null },
+               "last_session": { "at": "...", "summary": "Shipped the pricing headline" } } ],
+  "portfolio": null }
 ```
 
 `waiting` holds the first 3 tasks waiting on the owner, in the plan's order; `waiting_on_you` counts them all.
-`newest_result` is the most recently done task whose verdict is kept, or `null`. Both read stored rows only, so the list
+`newest_result` is the most recently done task whose verdict is kept, with `at`, when its window closed, or `null`.
+`GET /api/home/plans` and `get_plan` without a site add `portfolio` next to `plans`. `PUT /api/home/portfolio`
+takes the dashboard's admin login and the body of `update_plan`'s `portfolio`, and answers
+`{ "ok": true, "portfolio": {...} }`. Both read stored rows only, so the list
 costs the same reads for 1 site or 50. A site without a plan has `exists: false`, `null` fields and empty lists.
 
 ### The owner's routes
 
 `POST /api/sites/<id>/plan/tasks/<task id>/done` takes the dashboard login. It ticks a task whose `owner` is `human`
 as done (`done_by: "human"`), with an optional `{ "comment": "..." }` of 300 characters stored as `outcome`.
-`{ "decline": true, "comment": "Too much this month. Try 100 USD." }` says no instead: `status: "dropped"`,
+On an approval (`kind: "approval"`), `{}` is yes and closes it `done`. `{ "decline": true, "comment": "Too much this month. Try 100 USD." }` says no instead: `status: "dropped"`,
 `done_by: "human"`, and the comment as `outcome`. The comment is required, 1 to 500 characters, so the agent reads why.
 The task shows in the agent's `due.done_by_you`, and `guide` tells it the owner said no.
 `{ "undo": true }` puts back the status (`todo` or `doing`) and the outcome the task had before the owner ticked or
@@ -2375,10 +2462,11 @@ subrequests last. A day with none costs one read.
 | --- | --- |
 | Create the plan | 1 |
 | Change the document | 2 (3 once 30 older versions are kept) |
-| Change only `cadence_hours` | 1 |
+| Change only `cadence_hours` or `share` | 1 |
+| Change the rules for every plan (`portfolio`) | 1 more |
 | A task, new or changed | 1 each |
 | The owner ticks a task, says no to it, or undoes either | 1 |
-| A session | 2, 3 with an `idempotency_key`, plus 1 per verdict it keeps (8 at most) |
+| A session, or a failed run | 2, 3 with an `idempotency_key`, plus 1 per verdict it keeps (8 at most) |
 | A review | 1, 2 with an `idempotency_key`, plus 1 per verdict it keeps |
 | The daily results job | 1 per verdict it keeps (3 per site a day at most), 0 when there is none |
 | The away alert | 2 per plan |

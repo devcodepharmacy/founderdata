@@ -104,7 +104,8 @@ describe('agent loop: page-scoped impact, verdict, due list and review', () => {
       expect(i.before.visitors).toBe(700);
       expect(i.after.visitors).toBe(2200);
       expect(i.reason).toMatch(/^Revenue per visitor fell 52%, from \$0\.14 to \$0\.07, on 700 visitors before and 2,200 after\.$/);
-      expect(i.overlapping.map((n: any) => n.id)).toEqual([ids.otherPage, ids.blog]);
+      // Overlaps cover the days before the change too: the pricing change a second earlier is in the before numbers.
+      expect(i.overlapping.map((n: any) => n.id)).toEqual([ids.pricing, ids.otherPage, ids.blog]);
     });
 
     it('has no verdict while the window runs, and says when it closes', async () => {
@@ -141,9 +142,14 @@ describe('agent loop: page-scoped impact, verdict, due list and review', () => {
     });
 
     it('falls back to conversion without revenue, and counts from zero as better', () => {
-      const conv = judge(side(1000, 5, 0), side(1000, 10, 0), closed);
+      const conv = judge(side(1000, 5, 0), side(1000, 15, 0), closed);
       expect(conv).toMatchObject({ verdict: 'better', verdict_metric: 'conversion_rate' });
-      expect(conv.reason).toBe('Conversion rose 100%, from 0.5% to 1.0%, on 1,000 visitors before and 1,000 after.');
+      expect(conv.reason).toBe('Conversion rose 200%, from 0.5% to 1.5%, on 1,000 visitors before and 1,000 after.');
+      // 5 to 10 customers doubles the rate, but 10 against 5 is within the noise of counts that small.
+      expect(judge(side(1000, 5, 0), side(1000, 10, 0), closed)).toMatchObject({
+        verdict: 'inconclusive',
+        reason: 'Conversion rose 100%, from 0.5% to 1.0%, on 1,000 visitors before and 1,000 after. That is within normal ups and downs for numbers this small.',
+      });
       const fromZero = judge(side(1000, 0, 0), side(1000, 12, 6000), closed);
       expect(fromZero).toMatchObject({ verdict: 'better', verdict_metric: 'revenue_per_visitor' });
       expect(fromZero.reason).toBe('Revenue per visitor rose from $0.00 to $0.06, on 1,000 visitors before and 1,000 after.');

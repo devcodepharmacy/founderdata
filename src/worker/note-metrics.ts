@@ -22,20 +22,41 @@ export const NOTE_METRICS = [
   'roas',
   'paywall_conversion',
   'trial_rate',
+  'app_downloads',
+  'trial_to_paid',
 ] as const;
 export type NoteMetric = (typeof NOTE_METRICS)[number];
 /** What a verdict names in `verdict_metric`: a stored metric, or the one a rule fell back to. */
 export type VerdictMetric = Exclude<NoteMetric, 'visits'> | 'revenue_per_visitor' | 'conversion_rate' | 'visitors' | 'search_position';
+/** Every name a verdict can carry in `verdict_metric`. */
+export const VERDICT_METRICS: readonly VerdictMetric[] = [
+  ...(NOTE_METRICS.filter((m) => m !== 'visits') as Exclude<NoteMetric, 'visits'>[]),
+  'revenue_per_visitor',
+  'conversion_rate',
+  'visitors',
+  'search_position',
+];
+/** The note metric whose judge can give a verdict on `verdict_metric`: the visit rule gives three, the clicks judge two. */
+export function noteMetricOf(v: string): NoteMetric | null {
+  if (v === 'revenue_per_visitor' || v === 'conversion_rate' || v === 'visitors' || v === 'visits') return 'visits';
+  if (v === 'search_position') return 'search_clicks';
+  return (NOTE_METRICS as readonly string[]).includes(v) ? (v as NoteMetric) : null;
+}
 
 /** Days on each side of a note, by metric: Search Console, Google rank and AI answers move slowly. */
 export const SLOW_WINDOW_DAYS = 28;
 export const DEFAULT_WINDOW_DAYS = 7;
 const SLOW = new Set<NoteMetric>(['search_clicks', 'google_rank', 'ai_mention_rate', 'ai_citation_rate']);
-export const windowFor = (m: NoteMetric | null | undefined) => (m && SLOW.has(m) ? SLOW_WINDOW_DAYS : DEFAULT_WINDOW_DAYS);
+/** Trial to paid counts trials that ended on each side: 14 days gather enough of them. */
+export const TRIAL_WINDOW_DAYS = 14;
+export const windowFor = (m: NoteMetric | null | undefined) => (m && SLOW.has(m) ? SLOW_WINDOW_DAYS : m === 'trial_to_paid' ? TRIAL_WINDOW_DAYS : DEFAULT_WINDOW_DAYS);
+/** Apple's sales report arrives a day or two late (pro/worker/ascsales.ts). */
+export const ASC_LAG_DAYS = 2;
 
 /**
  * Days a verdict waits after its window, by metric: metrics read by whole days skip the note's own day, and Search
- * Console is GSC_LAG_DAYS behind; Apple's ads report comes a day after Meta's.
+ * Console is GSC_LAG_DAYS behind; Apple's ads report comes a day after Meta's, and its sales report ASC_LAG_DAYS late.
+ * A trial's first payment can land a day after the trial ends.
  */
 export const WAIT_DAYS: Partial<Record<NoteMetric, number>> = {
   search_clicks: 1 + GSC_LAG_DAYS,
@@ -44,6 +65,8 @@ export const WAIT_DAYS: Partial<Record<NoteMetric, number>> = {
   ai_citation_rate: 1,
   cpa: 2,
   roas: 2,
+  app_downloads: 1 + ASC_LAG_DAYS,
+  trial_to_paid: 1,
 };
 export const waitDays = (m: string | null | undefined) => (m ? (WAIT_DAYS[m as NoteMetric] ?? 0) : 0);
 /** The same as SQL on the notes table: days a note waits beyond its window. */
@@ -83,7 +106,13 @@ export function parseTarget(target: string | null | undefined): Target {
   return { type: 'none' };
 }
 
-const isApp = (site: Pick<Site, 'product_type' | 'app_bundle_id'>) => !!site.app_bundle_id || productType(site) === 'app';
+export const isApp = (site: Pick<Site, 'product_type' | 'app_bundle_id'>) => !!site.app_bundle_id || productType(site) === 'app';
+
+/** What an app site has stored: Apple's download rows, and trials from subscriptions. Read by notes.ts appDataOf. */
+export interface AppData {
+  downloads: boolean;
+  trials: boolean;
+}
 
 /**
  * The metrics a note may judge, the default first. Empty for an outage, which marks a gap and has no verdict.
@@ -92,9 +121,11 @@ const isApp = (site: Pick<Site, 'product_type' | 'app_bundle_id'>) => !!site.app
  * - ai, or a prompt target: the mention rate, then the citation rate.
  * - ads, or an ads target: CPA, then ROAS.
  * - pricing or release on an app, without a page: paywall conversion, then trial starts per paywall view.
+ * - on an app with the data (`data`, Pro): a release is judged on trial to paid first, an App Store listing change
+ *   (aso without a keyword) on App Store downloads first. Without the data both stay allowed, after the defaults.
  * - everything else: `visits`, the visit rule (revenue per visitor, else conversion, else visitors).
  */
-export function metricsFor(kind: string | null, target: string | null, site: Pick<Site, 'product_type' | 'app_bundle_id'>): NoteMetric[] {
+export function metricsFor(kind: string | null, target: string | null, site: Pick<Site, 'product_type' | 'app_bundle_id'>, data: AppData | null = null): NoteMetric[] {
   if (kind === 'outage') return [];
   const t = parseTarget(target);
   const rpv: NoteMetric = 'visits';
@@ -106,9 +137,14 @@ export function metricsFor(kind: string | null, target: string | null, site: Pic
   if (t.type === 'prompt' || (kind === 'ai' && t.type !== 'page')) return ['ai_mention_rate', 'ai_citation_rate', rpv];
   if (t.type === 'meta' || t.type === 'asa' || (kind === 'ads' && t.type !== 'page')) return ['cpa', 'roas', rpv];
   if (kind === 'seo') return ['search_clicks', rpv];
-  const app: NoteMetric[] = isApp(site) && t.type !== 'page' ? ['paywall_conversion', 'trial_rate'] : [];
-  if ((kind === 'pricing' || kind === 'release') && app.length) return [...app, rpv];
-  return [rpv, 'search_clicks', ...app];
+  const onApp = isApp(site) && t.type !== 'page';
+  const app: NoteMetric[] = onApp ? ['paywall_conversion', 'trial_rate'] : [];
+  const stores: NoteMetric[] = onApp ? ['app_downloads', 'trial_to_paid'] : [];
+  const first = (m: NoteMetric, list: NoteMetric[]) => [m, ...list.filter((x) => x !== m)];
+  if (kind === 'release' && onApp && data?.trials) return first('trial_to_paid', [...app, ...stores, rpv]);
+  if (kind === 'aso' && onApp && data?.downloads) return first('app_downloads', [rpv, 'search_clicks', ...app, ...stores]);
+  if ((kind === 'pricing' || kind === 'release') && app.length) return [...app, ...stores, rpv];
+  return [rpv, 'search_clicks', ...app, ...stores];
 }
 
 
@@ -172,5 +208,24 @@ export const JUDGE_CALLS: Record<Exclude<NoteMetric, 'visits' | 'keyword_rank'>,
   roas: 10,
   paywall_conversion: 2,
   trial_rate: 2,
+  app_downloads: 2,
+  trial_to_paid: 1,
 };
 
+/**
+ * The noise rule for counts (docs/API.md, "The verdict"): two counts differ by more than normal ups and downs when the
+ * gap is at least twice the square root of their sum, about a 95% band for two Poisson counts. 13 against 1 passes;
+ * 47 against 41 and 100 against 89 do not.
+ */
+export const beyondNoise = (a: number, b: number) => Math.abs(a - b) >= 2 * Math.sqrt(a + b);
+/**
+ * The noise rule for a rate of counts, k events over n (customers over visitors, trials over paywall views): the after
+ * count against the before count scaled to the after side's n. With the same n on both sides it is beyondNoise.
+ */
+export function rateBeyondNoise(kAfter: number, nAfter: number, kBefore: number, nBefore: number): boolean {
+  if (nBefore <= 0 || nAfter <= 0) return true;
+  const r = nAfter / nBefore;
+  return Math.abs(kAfter - kBefore * r) >= 2 * Math.sqrt(kAfter + kBefore * r * r);
+}
+/** The sentence a verdict adds when the noise rule turned a 10% move inconclusive. */
+export const NOISE_TEXT = 'That is within normal ups and downs for numbers this small.';

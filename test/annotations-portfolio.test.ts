@@ -170,7 +170,8 @@ describe('annotations, impact and portfolio', () => {
         revenue_per_visitor: { absolute: 50, relative: 1 },
       });
       expect(i.thresholds).toEqual({ min_visitors: IMPACT_MIN_VISITORS, min_customers: IMPACT_MIN_CUSTOMERS, min_lift: IMPACT_MIN_LIFT });
-      expect(i.overlapping.map((n: any) => n.text)).toEqual(['New screenshots']);
+      // The deploy in the 7 days before is in the before numbers, so it overlaps too.
+      expect(i.overlapping.map((n: any) => n.text)).toEqual(['Deployed v2.3', 'New screenshots']);
       // The dashboard's route gives the same verdict; the read API adds the link to the Changes tab.
       const { dashboard_url, ...verdict } = i;
       expect(dashboard_url).toBe(`http://localhost/site/${site.id}?tab=changes`);

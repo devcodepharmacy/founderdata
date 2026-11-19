@@ -198,57 +198,85 @@ doesn't. [API.md](API.md#research-log-pro) has every field.
 ## The plan (Pro)
 
 A plan is the growth project the agent runs for one site, with the owner. It holds up to 5 goals, the strategy, the
-owner's rules, the tasks, one line per session and a check-in every few weeks. The owner follows it in the Plan tab.
-The server's instructions tell the agent to start each session with `get_plan` and end it with `log_session`, and
-`get_plan` answers the session loop in `loop`, so an agent that cannot read MCP prompts still has the steps.
+owner's rules, what the agent can reach, the tasks, one line per session and a check-in every few weeks. The owner
+follows it in the Plan tab. The server's instructions tell the agent to start each session with `get_plan` and end it
+with `log_session`, and `get_plan` answers the session loop in `loop`, so an agent that cannot read MCP prompts still
+has the steps.
+
+**Rules** are three lists, each up to 12 lines of 200 characters: `alone` (what the agent may do without asking),
+`ask` (what needs the owner's yes first) and `never`. A plan has its own, and `portfolio.rules` holds the owner's rules
+for every plan. The agent obeys both, and `never` in either wins. `reach` is two lists, `can` and `cannot`: what the
+agent can touch from where it runs. Work outside it becomes a task for the owner. `share` is this plan's slice of the
+owner's time and money (`hours_per_week`, `money_per_month`), and `portfolio` has the totals and `shares_used`, the sum
+of every plan's share.
 
 One session:
 
-1. `get_plan`. Read `rules` first: they are the owner's words. Then `guide` and `due`.
-2. Close what is due: `review_change` on `due.reviews`, use what the owner finished or said no to
+1. `get_plan`. Read `rules`, `portfolio.rules`, `reach` and `share` first: they are the owner's words. Then `guide` and
+   `due`.
+2. Close what is due: `review_change` on `due.reviews`, use what the owner finished, approved or said no to
    (`due.done_by_you`; a dropped task there carries the owner's reason in `outcome`), look at `due.alerts` and
    `due.overdue`.
-3. Work the tasks in `doing`, then the top of `todo`. Something only the owner can do or decide becomes a task with
-   `owner: "human"`.
+3. Work the tasks in `doing`, then the top of `todo`. Send one `run_id` on every `update_tasks` of the session: moving
+   a task to `doing` with it claims the task for 6 hours, and another `run_id` that touches it then gets an error that
+   names the claim. A new agent task carries `goal_id` (when the plan has goals) and `expect`, the change it should
+   cause. On a goal with a metric, `expect.metric` is the verdict metric the change will be judged on (the name a
+   result carries, such as `conversion_rate`, `search_clicks`, `app_downloads` or `trial_to_paid`) and
+   `expect.change_pct` a percent: `{ "text": "+10% visitors who become customers in 4 weeks", "metric":
+   "conversion_rate", "change_pct": 10 }`. Text alone only fits a goal with no metric. Something only the owner can do
+   is a task with `owner: "human"`, with `action: { "label", "url" }` when a page in the dashboard or elsewhere does it;
+   a decision the owner must make has `kind: "approval"` too. Only the owner closes an owner task, in the Plan tab. The
+   agent may edit its text or withdraw it with `status: "dropped"` and the reason in `outcome`. Its `kind` never changes, an open approval keeps its title and detail, and once the owner answered a task, the agent changes nothing on it.
 4. A task that changes the site gets a note with `add_note`, and the note's id goes on the task with `update_tasks`.
-   The note's verdict is then the task's result. An app change gets its note on the day the version is live in the
-   store. A task links one note, so it links the main change and names the others in `outcome`.
-5. `log_session` with one line on what happened. It also reads the results of changes whose window closed and keeps
+   The note's verdict is then the task's result, shown against `expect`, and judged on `expect.metric` when the
+   note's judge can read it. An app change gets its note on the day the
+   version is live in the store. A task links one note, so it links the main change and names the others in `outcome`.
+   A change that touched an `ask` item closes with `allowed_by`: `{ "kind": "approval", "task_id": "..." }`, an
+   approval the owner said yes to in the Plan tab (`done_by: "human"`), or `{ "kind": "rule", "rule": "..." }`, an `alone` item that allows it.
+5. `log_session` with one line on what happened, the run's `link` when a scheduler started it, and `status: "failed"`
+   with a `cause` when the session could not finish. It also reads the results of changes whose window closed and keeps
    them on their tasks, so the next `get_plan` and the Plan tab show them. A daily job at 07:00 UTC does the same for
    up to 3 results per site, so a result never waits on the next session.
 
 `get_plan` answers lean, about 5 to 15 KB for a busy plan: the open tasks, the 5 newest done tasks and sessions, the
-latest check-in, no version list, and `autopilot.setup` only while the runs are not on time. `full: true` answers all
-of it. Without `site`, a key for several sites gets one line per plan (`plans`): the top goal with its pace, the
-tasks waiting on the owner, what the agent is doing, the newest result, the autopilot status and the last session.
+latest check-in, no version list, and `autopilot.setup` only while the runs are not on time, with the options named
+but not their steps. `full: true` answers all
+of it. Without `site`, a key for several sites gets `{ plans, portfolio, guide }`: one line per site, including the
+sites with no plan (`exists: false`), each with the top goal and its pace, the tasks waiting on the owner, what the
+agent is doing, the newest result, the plan's `share`, the autopilot status with `last_failure`, and the last session.
 Each answer has `plan_url`, the Plan tab to link the owner to.
 
-When the owner asks how to run the agent on a schedule, the agent reads `autopilot.setup`. It holds the steps the
-Plan tab's Autopilot card shows, from the same source: `prompt`, the sentence a scheduled run starts with; `needs`,
-what the agent needs to do the tasks; and `options`, one per way (Claude Code, the Claude app, Codex, GitHub Actions,
-a chat app by hand, several sites, another scheduler), each with `label`, `intro` and `steps` in order. The agent
-reads the steps to the owner one at a time and names the buttons they name.
+When the owner asks how to run the agent on a schedule, the agent reads `autopilot.setup` with `full: true`. It holds the steps the
+Plan tab's card shows, from the same source: `prompt`, the sentence a scheduled run starts with; `needs`, what the
+agent needs to do the tasks; and `options`, one per way (the Claude app, Claude Code, GitHub Actions, Codex, several
+sites, by hand, another scheduler), each with `label`, `intro` and `steps` in order. The agent reads the steps to the
+owner one at a time and names the buttons they name. `autopilot.last_failure` holds the newest failed run (`at`,
+`cause`, `link`, `via`) while no good session came after it.
 
 `due.reviews` holds only changes linked to a task or logged since the plan began. `due.older_reviews` counts the
 older ones; `list_notes` with `due: true` lists them, and reviewing them is optional.
 
 `update_plan` answers what the agent needs to check its write, not the whole plan: `version`, each goal with its
-numbers and `source`, `ignored`, `autopilot` and `plan_url`, plus `warnings`: a target the site had reached before
-the goal began, a metric this site does not measure, a due day in the past, a goal without a due day. The agent fixes
-those with the owner before it moves on. Every write tool answers `ignored`, the fields it did not save. The goal
-metrics read:
+numbers and `source`, `rules`, `reach`, `share`, `ignored`, `autopilot` and `plan_url`, plus `warnings`: a target the
+site had reached before the goal began, a metric this site does not measure, a due day in the past, a goal without a
+due day. The agent fixes those with the owner before it moves on. `rules` as a Markdown string is refused with an error
+that shows the object. `portfolio` takes `rules`, `hours_per_week`, `money_per_month` and `currency`, and only a key
+that covers every site may write it. Every write tool answers `ignored`, the fields it did not save. The goal metrics
+read:
 
 | Metric | Source |
 | --- | --- |
 | `mrr`, `revenue_30d`, `customers_30d`, `trials_30d` | payment webhooks and subscription imports |
+| `trial_to_paid_30d` | trials that ended in the last 30 days and turned paid, over all trials that ended then, from payment webhooks and subscription imports. A fraction from 0 to 1 |
 | `visitors_30d` | the web tracker and the iOS SDK |
 | `visitor_to_customer_30d` | first payments over visits, a fraction from 0 to 1 |
 | `google_clicks_28d` | Search Console, through Connect Google or `scripts/gsc-sync.mjs` |
 | `app_downloads_30d` | Apple's sales report, only while the App Store sales import is on |
 
 Every 2 to 4 weeks the agent writes `add_plan_review` for the period. FounderData stores the goal progress, the tasks
-done and the verdicts beside the text, so the owner sees what the agent wrote and what FounderData measured. The
-`founderdata-run-plan` skill walks through the loop. [API.md](API.md#plan-pro) has every field.
+done, dropped, measured and still measuring, and the verdicts beside the text, so the owner sees what the agent wrote
+and what FounderData measured. The `founderdata-run-plan` skill walks through the loop. [API.md](API.md#plan-pro) has
+every field.
 
 ## Skills (Pro)
 

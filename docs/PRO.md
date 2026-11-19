@@ -18,7 +18,7 @@ starts lower and rises in steps ([Price](#price)). Pro adds:
 - Meta ads with the Conversions API, spend from every other channel, MER, CAC and payback
 - Search Console, Google rank tracking, the Content view and a page audit
 - AI visibility in ChatGPT, Claude, Gemini and Perplexity
-- Plan: a growth project your AI agent runs for one site, with goals, tasks, session notes and a measured result for each change
+- Plan: a growth project your AI agent runs for each site, with your rules for all of them, goals, tasks that say what they should move, session notes, and a measured result for each change against that
 - Home across all your sites with the Growth row, next actions, and a verdict on every change you log
 - Mail on your own domains through Cloudflare, with an API that answers like Resend's, an inbox and templates ([MAIL.md](MAIL.md))
 - All 36 MCP tools, the `query` tool, alert rules, the alert inbox, the research log and agent skills

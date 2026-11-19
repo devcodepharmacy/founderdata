@@ -692,7 +692,7 @@
           }
         ],
         "summary": "Create or change the plan (Pro)",
-        "description": "Needs research:write. Send only the fields that change; a new plan needs title. goals replaces the list; a goal with a known id keeps its baseline and start. A change to title, summary, body, rules or goals saves a new version. 409 when another save came first. The answer is what the agent checks after a write, not the whole plan: ok, site_id, version, goals with computed fields, warnings (sentences on goals to fix: reached at the start, not measured, due in the past, no due day), ignored (unknown fields, not saved), autopilot (without setup) and plan_url. Goal metrics: mrr, revenue_30d, customers_30d, visitors_30d, google_clicks_28d, app_downloads_30d, trials_30d, visitor_to_customer_30d.",
+        "description": "Needs research:write. Send only the fields that change; a new plan needs title. goals replaces the list; a goal with a known id keeps its baseline and start. A change to title, summary, body, rules or goals saves a new version. 409 when another save came first. The answer is what the agent checks after a write, not the whole plan: ok, site_id, version, goals with computed fields, warnings (sentences on goals to fix: reached at the start, not measured, due in the past, no due day), ignored (unknown fields, not saved), autopilot (without setup) and plan_url. Goal metrics: mrr, revenue_30d, customers_30d, visitors_30d, google_clicks_28d, app_downloads_30d, trials_30d, visitor_to_customer_30d. rules and reach are versioned with the document; share and cadence_hours are not. portfolio needs a key for every site (403 otherwise).",
         "parameters": [
           {
             "$ref": "#/components/parameters/site"
@@ -718,8 +718,154 @@
                     "maxLength": 20000
                   },
                   "rules": {
-                    "type": "string",
-                    "maxLength": 3000
+                    "type": "object",
+                    "properties": {
+                      "alone": {
+                        "type": "array",
+                        "maxItems": 12,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        }
+                      },
+                      "ask": {
+                        "type": "array",
+                        "maxItems": 12,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        }
+                      },
+                      "never": {
+                        "type": "array",
+                        "maxItems": 12,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        }
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "alone: what the agent does without asking. ask: what needs the owner's yes first. never: what it never does. A Markdown string is refused."
+                  },
+                  "reach": {
+                    "type": "object",
+                    "properties": {
+                      "can": {
+                        "type": "array",
+                        "maxItems": 12,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        }
+                      },
+                      "cannot": {
+                        "type": "array",
+                        "maxItems": 12,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        }
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "What the agent can reach (code, App Store Connect) and what it cannot."
+                  },
+                  "share": {
+                    "type": "object",
+                    "properties": {
+                      "hours_per_week": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 168,
+                        "multipleOf": 0.5,
+                        "description": "Whole or half hours, 0 to 168."
+                      },
+                      "money_per_month": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "description": "Minor units."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "This plan's part of the portfolio's weekly hours and monthly money. Fields left out keep their value; null clears the share."
+                  },
+                  "portfolio": {
+                    "type": "object",
+                    "properties": {
+                      "rules": {
+                        "type": "object",
+                        "properties": {
+                          "alone": {
+                            "type": "array",
+                            "maxItems": 12,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            }
+                          },
+                          "ask": {
+                            "type": "array",
+                            "maxItems": 12,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            }
+                          },
+                          "never": {
+                            "type": "array",
+                            "maxItems": 12,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            }
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "As rules, for every plan."
+                      },
+                      "hours_per_week": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 168,
+                        "multipleOf": 0.5,
+                        "description": "Whole or half hours, 0 to 168."
+                      },
+                      "money_per_month": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "description": "Minor units of currency."
+                      },
+                      "currency": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^[A-Za-z]{3}$"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "The rules, hours and money over every plan. Only a key for every site may send it; sent alone it needs no site."
                   },
                   "goals": {
                     "type": "array",
@@ -748,6 +894,7 @@
                             "google_clicks_28d",
                             "app_downloads_30d",
                             "trials_30d",
+                            "trial_to_paid_30d",
                             "visitor_to_customer_30d",
                             null
                           ]
@@ -887,6 +1034,16 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "The key lacks research:write, or sends portfolio without covering every site",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "The plan changed while you saved it",
             "content": {
@@ -912,7 +1069,7 @@
           }
         ],
         "summary": "Add or change plan tasks (Pro)",
-        "description": "Needs research:write. 1 to 20 tasks: an entry without id adds a task (needs title), one with id changes the fields sent. All or nothing. At most 60 open tasks a site. The answer has ignored: the unknown keys sent, not saved.",
+        "description": "Needs research:write. 1 to 20 tasks: an entry without id adds a task (needs title), one with id changes the fields sent. All or nothing. At most 60 open tasks a site. The answer has ignored: the unknown keys sent, not saved. A new agent task needs expect (and goal_id while the plan has an active goal). With run_id, doing claims a task for 6 hours.",
         "parameters": [
           {
             "$ref": "#/components/parameters/site"
@@ -960,6 +1117,14 @@
                             "human"
                           ]
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "task",
+                            "approval"
+                          ],
+                          "description": "approval: a yes or no only the owner gives (owner human). Yes closes it done, no dropped."
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -967,7 +1132,8 @@
                             "doing",
                             "done",
                             "dropped"
-                          ]
+                          ],
+                          "description": "done and dropped close the task. A key cannot set done on an owner task: only the owner closes it, in the Plan tab. dropped withdraws it, with the reason in outcome."
                         },
                         "goal_id": {
                           "type": [
@@ -998,13 +1164,135 @@
                         "position": {
                           "type": "integer"
                         },
+                        "expect": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "metric": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "keyword_rank",
+                                "search_clicks",
+                                "search_position",
+                                "google_rank",
+                                "ai_mention_rate",
+                                "ai_citation_rate",
+                                "cpa",
+                                "roas",
+                                "paywall_conversion",
+                                "trial_rate",
+                                "revenue_per_visitor",
+                                "conversion_rate",
+                                "visitors",
+                                "app_downloads",
+                                "trial_to_paid",
+                                null
+                              ],
+                              "description": "The verdict metric FounderData judges the change on, the name a result carries in metric. Required, with change_pct, when the task's goal has a metric."
+                            },
+                            "change_pct": {
+                              "type": [
+                                "number",
+                                "null"
+                              ],
+                              "minimum": -100,
+                              "maximum": 1000,
+                              "description": "A percent: 10 is +10%, -5 is -5%."
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false,
+                          "description": "What the task should move. Required on a new agent task, with goal_id while the plan has an active goal. When that goal has a metric, metric and change_pct are required too."
+                        },
+                        "allowed_by": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "approval"
+                                },
+                                "task_id": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "task_id"
+                              ],
+                              "description": "An approval task the owner said yes to."
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "rule"
+                                },
+                                "rule": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "rule"
+                              ],
+                              "description": "An item of alone in the plan or portfolio rules, word for word."
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Why a change an ask item covers was allowed: an approval the owner said yes to in the Plan tab, or an alone item."
+                        },
                         "actor": {
                           "type": "string",
                           "maxLength": 64
+                        },
+                        "action": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 300,
+                              "description": "A dashboard path starting with / (such as /site/SITE_ID/settings) or an https URL."
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Owner tasks only: the button the Plan tab shows first."
                         }
                       },
                       "additionalProperties": false
                     }
+                  },
+                  "run_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "One per session. Moving a task to doing with it claims the task; another run_id gets 409 on it for 6 hours."
                   },
                   "actor": {
                     "type": "string",
@@ -1148,7 +1436,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "409": {
-            "description": "The site has no plan yet",
+            "description": "The site has no plan yet, or another run claimed a task in the call",
             "content": {
               "application/json": {
                 "schema": {
@@ -1172,7 +1460,7 @@
           }
         ],
         "summary": "Log a plan session (Pro)",
-        "description": "Needs research:write. Stores the session and sets the plan's last session. A known idempotency_key stores nothing and answers the first session with created false. The answer has ignored: the unknown keys sent, not saved.",
+        "description": "Needs research:write. Stores the session and sets the plan's last session. A failed run (status failed) sets the plan's last failure instead, and summary may be left out. A known idempotency_key stores nothing and answers the first session with created false. The answer has ignored: the unknown keys sent, not saved.",
         "parameters": [
           {
             "$ref": "#/components/parameters/site"
@@ -1205,6 +1493,25 @@
                       "alert"
                     ]
                   },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "failed"
+                    ],
+                    "description": "failed: the run broke. It is stored, but it is no session for the schedule."
+                  },
+                  "cause": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "Why the run failed, such as \"max turns\"."
+                  },
+                  "link": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 500,
+                    "description": "An https URL, such as the GitHub Actions run."
+                  },
                   "started_at": {
                     "type": "string",
                     "description": "ISO 8601, within the last 30 days. Default now."
@@ -1218,9 +1525,6 @@
                     "maxLength": 128
                   }
                 },
-                "required": [
-                  "summary"
-                ],
                 "additionalProperties": false
               }
             }
@@ -1417,6 +1721,146 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{site}/sessions": {
+      "post": {
+        "operationId": "logPlanSessionForSite",
+        "tags": [
+          "Write"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Log a plan session for the site in the path (Pro)",
+        "description": "The same as POST /api/v1/plan/sessions, with the site in the path: what a workflow's failure step calls with status failed, cause and link. The key needs research:write and must cover the site.",
+        "parameters": [
+          {
+            "name": "site",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The site id."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 6000
+                  },
+                  "next": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "enum": [
+                      "manual",
+                      "schedule",
+                      "alert"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "failed"
+                    ],
+                    "description": "failed: the run broke. It is stored, but it is no session for the schedule."
+                  },
+                  "cause": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "Why the run failed, such as \"max turns\"."
+                  },
+                  "link": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 500,
+                    "description": "An https URL, such as the GitHub Actions run."
+                  },
+                  "started_at": {
+                    "type": "string",
+                    "description": "ISO 8601, within the last 30 days. Default now."
+                  },
+                  "actor": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "created": {
+                      "type": "boolean"
+                    },
+                    "session": {
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks research:write or does not cover the site",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The site has no plan yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -1959,14 +2403,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "429": {
             "$ref": "#/components/responses/TooMany"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -2648,14 +3092,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "429": {
             "$ref": "#/components/responses/TooMany"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -3455,11 +3899,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "403": {
             "$ref": "#/components/responses/NoRevenue"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -3632,11 +4076,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "403": {
             "$ref": "#/components/responses/NoRevenue"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -3892,11 +4336,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "403": {
             "$ref": "#/components/responses/NoRevenue"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -4015,17 +4459,17 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
           },
           "403": {
             "$ref": "#/components/responses/NoRevenue"
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -4162,17 +4606,17 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
           },
           "403": {
             "$ref": "#/components/responses/NoRevenue"
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -4913,14 +5357,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "429": {
             "$ref": "#/components/responses/TooMany"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -5234,17 +5678,17 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -5364,11 +5808,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -5626,17 +6070,17 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -6884,14 +7328,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "429": {
             "$ref": "#/components/responses/TooMany"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -6967,17 +7411,17 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -7182,11 +7626,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "403": {
             "$ref": "#/components/responses/NoRevenue"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -10966,14 +11410,14 @@
               }
             }
           },
-          "402": {
-            "description": "The monthly cap is reached, or the DataForSEO account has no funds."
-          },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "description": "The monthly cap is reached, or the DataForSEO account has no funds."
           }
         }
       }
@@ -12503,11 +12947,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooMany"
-          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
           }
         }
       }
@@ -15670,33 +16114,6 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "The key lacks the scope the route needs. The error names it.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
           "201": {
             "description": "Created",
             "content": {
@@ -15892,6 +16309,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
             "$ref": "#/components/responses/BadRequest"
