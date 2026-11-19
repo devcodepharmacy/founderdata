@@ -1009,17 +1009,45 @@ export async function revenueByProvider(ctx: Ctx): Promise<ProviderRevenue[]> {
 }
 
 /** Everything one visitor did: visits, pages, clicks, payments. */
+/** Visitor ids one user id or email joins at most in a profile, as in payments.ts, so a shared test address can't fan out. */
+const PROFILE_STITCH_MAX = 50;
+
+/**
+ * One person's profile from any of their visitor ids: the visitor, everyone the site identified with the same user id
+ * or email (identify(), the iOS sign-in), and the web visitor an app install links to (linked_web_vid). That is the
+ * stitch payments.ts creditedVisitSql uses, so a Mac and an iPhone that signed in as one person show one story and
+ * one total. Every read starts from the member ids (CROSS JOIN keeps them the outer loop), so it probes the visitor
+ * indexes. The timeline holds pageviews, goals and links out: a recorded page's clicks and errors are FounderData Pro's.
+ */
 export async function visitorProfile(db: D1Database, site: Site, vid: string) {
-  const [v, s, e, p] = await db.batch([
+  const members = `
+    me AS (SELECT id, user_id, email FROM visitors WHERE site_id = ?1 AND id = ?2),
+    ids AS (SELECT ?2 AS id
+            UNION SELECT * FROM (SELECT o.id FROM me CROSS JOIN visitors o ON o.site_id = ?1 AND o.user_id = me.user_id WHERE me.user_id IS NOT NULL LIMIT ${PROFILE_STITCH_MAX})
+            UNION SELECT * FROM (SELECT o.id FROM me CROSS JOIN visitors o ON o.site_id = ?1 AND o.email = me.email WHERE me.email IS NOT NULL LIMIT ${PROFILE_STITCH_MAX})),
+    mem AS (SELECT id FROM ids UNION SELECT v.linked_web_vid FROM visitors v WHERE v.site_id = ?1 AND v.id IN (SELECT id FROM ids) AND v.linked_web_vid IS NOT NULL)`;
+  const shown = `SELECT s.* FROM mem CROSS JOIN sessions s ON s.site_id = ?1 AND s.visitor_id = mem.id ORDER BY s.started_at DESC LIMIT 100`;
+  const [v, m, s, e, p] = await db.batch([
     db.prepare('SELECT * FROM visitors WHERE site_id = ? AND id = ?').bind(site.id, vid),
-    db.prepare('SELECT * FROM sessions WHERE site_id = ? AND visitor_id = ? ORDER BY started_at DESC LIMIT 100').bind(site.id, vid),
+    db.prepare(`WITH ${members} SELECT v.id, v.name, v.email, v.user_id FROM mem CROSS JOIN visitors v ON v.site_id = ?1 AND v.id = mem.id ORDER BY v.first_seen`).bind(site.id, vid),
+    db.prepare(`WITH ${members} ${shown}`).bind(site.id, vid),
     db
-      .prepare('SELECT session_id, ts, type, name, path, props FROM events WHERE site_id = ? AND visitor_id = ? ORDER BY ts DESC LIMIT 1000')
+      .prepare(
+        `WITH ${members}, shown AS (${shown})
+         SELECT e.session_id, e.ts, e.type, e.name, e.path, e.props FROM shown CROSS JOIN events e ON e.site_id = ?1 AND e.session_id = shown.id
+         WHERE e.type IN ('pageview', 'goal', 'outbound') ORDER BY e.ts DESC LIMIT 1000`,
+      )
       .bind(site.id, vid),
-    db.prepare('SELECT * FROM payments WHERE site_id = ? AND visitor_id = ? ORDER BY ts DESC').bind(site.id, vid),
+    db.prepare(`WITH ${members} SELECT p.* FROM mem CROSS JOIN payments p ON p.site_id = ?1 AND p.visitor_id = mem.id ORDER BY p.ts DESC`).bind(site.id, vid),
   ]);
+  const self = (v.results[0] as Record<string, unknown> | undefined) ?? null;
+  const people = m.results as { id: string; name: string | null; email: string | null; user_id: string | null }[];
+  // The name, email and user id of the person: this visitor's own, else another device's.
+  const pick = (k: 'name' | 'email' | 'user_id') => (self?.[k] as string | null) ?? people.find((x) => x[k])?.[k] ?? null;
   return {
-    visitor: v.results[0] ?? null,
+    visitor: self ? { ...self, name: pick('name'), email: pick('email'), user_id: pick('user_id') } : null,
+    /** Every visitor id in this profile, oldest first: more than one when identify() joined devices. */
+    visitors: people.map((x) => x.id),
     sessions: s.results,
     events: e.results,
     payments: p.results,

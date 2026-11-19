@@ -134,7 +134,7 @@ describe('people and recordings in the Worker', () => {
 
   it('stores the new site settings with their defaults, and says whether the bucket is bound', async () => {
     const got = (await w.admin(`/api/sites/${site.id}`)).body;
-    expect(got).toMatchObject({ record_visits: 0, record_sample: 100, record_keep_days: 30, record_daily_max: 1000, record_only_active: 0, remember_visitors: 0, replay_bucket: true });
+    expect(got).toMatchObject({ record_visits: 0, record_sample: 100, record_keep_days: 30, record_daily_max: 1000, record_only_active: 0, record_consent: 0, remember_visitors: 0, replay_bucket: true });
     expect((await w.admin(`/api/sites/${site.id}`, { method: 'PATCH', json: { record_keep_days: 3 } })).status).toBe(400);
     const patched = await setSite({ record_sample: 50, record_keep_days: 7 });
     expect(patched).toMatchObject({ record_sample: 50, record_keep_days: 7, replay_bucket: true });
@@ -176,6 +176,13 @@ describe('people and recordings in the Worker', () => {
     const views = await w.db.prepare("SELECT COUNT(*) AS n FROM events WHERE site_id = ? AND session_id = 'recsession0001' AND type = 'pageview'").bind(site.id).first<{ n: number }>();
     expect(views?.n).toBe(3);
     decide = async (_e, s, sid) => (decisions.push({ siteId: s.id, sid }), REC);
+  });
+
+  it('adds c: 1 to cfg.rec when the site waits for consent', async () => {
+    await setSite({ record_visits: 1, record_consent: 1 });
+    const res = JSON.parse((await answer(await event({ t: 'pageview', vid: 'recvisitor0002', sid: 'recsession0002' }))).text);
+    expect(res).toEqual({ cfg: { rec: { ...REC, c: 1 } } });
+    await setSite({ record_consent: 0 });
   });
 
   it('records nothing without the bucket binding or without Pro', async () => {
@@ -321,6 +328,29 @@ describe('people and recordings in the Worker', () => {
     expect(w.takeRowsWritten()).toBe(3);
     await insert();
     expect(w.takeRowsWritten()).toBe(0);
+  });
+
+  it('the visitor profile is the whole person: every device with the same user id, its visits and its payments', async () => {
+    const t = Date.now() - 3_600_000;
+    await w.db.batch([
+      w.db.prepare("INSERT INTO visitors (site_id, id, first_seen, user_id, name) VALUES (?, 'profilemac0001', ?, 'usr_profile', 'Pia')").bind(site.id, t - 86_400_000),
+      w.db.prepare("INSERT INTO visitors (site_id, id, first_seen, user_id) VALUES (?, 'profilephone01', ?, 'usr_profile')").bind(site.id, t),
+      w.db.prepare("INSERT INTO sessions (site_id, id, visitor_id, started_at, last_seen_at, os, device, source, channel) VALUES (?, 'profilesess001', 'profilemac0001', ?, ?, 'Mac OS', 'Desktop', 'Google', 'Organic Search')").bind(site.id, t - 86_400_000, t - 86_000_000),
+      w.db.prepare("INSERT INTO sessions (site_id, id, visitor_id, started_at, last_seen_at, os, device, source, channel) VALUES (?, 'profilesess002', 'profilephone01', ?, ?, 'iOS', 'Mobile', 'Direct/None', 'Direct')").bind(site.id, t, t + 60_000),
+      w.db.prepare("INSERT INTO events (site_id, session_id, visitor_id, ts, type, path) VALUES (?, 'profilesess002', 'profilephone01', ?, 'pageview', '/billing')").bind(site.id, t),
+      w.db.prepare("INSERT INTO events (site_id, session_id, visitor_id, ts, type, path, props) VALUES (?, 'profilesess002', 'profilephone01', ?, 'activity', '/billing', '{}')").bind(site.id, t + 1000),
+      w.db.prepare("INSERT INTO payments (id, site_id, provider, ts, amount, kind, currency, visitor_id, session_id) VALUES ('pay_profile_1', ?, 'stripe', ?, 4900, 'payment', 'USD', 'profilephone01', 'profilesess002')").bind(site.id, t + 30_000),
+    ]);
+    const p = (await w.admin(`/api/sites/${site.id}/visitors/profilemac0001`)).body;
+    expect(p.visitors.sort()).toEqual(['profilemac0001', 'profilephone01']);
+    expect(p.visitor).toMatchObject({ id: 'profilemac0001', name: 'Pia', user_id: 'usr_profile' });
+    expect(p.sessions.map((x: any) => x.id)).toEqual(['profilesess002', 'profilesess001']);
+    expect(p.payments.map((x: any) => x.amount)).toEqual([4900]);
+    // The timeline leaves page activity to Pro's People view.
+    expect(p.events.map((e: any) => e.type)).toEqual(['pageview']);
+    // A visitor without an identity is only itself.
+    const alone = (await w.admin(`/api/sites/${site.id}/visitors/othervisitor99`)).body;
+    expect(alone).toMatchObject({ visitor: null, visitors: [], sessions: [], payments: [] });
   });
 
   it('reads replays by site and day, and by visitor, through an index', async () => {

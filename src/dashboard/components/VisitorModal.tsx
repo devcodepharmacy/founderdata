@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, isViewer } from '../lib/api';
 import { useDash } from '../lib/context';
-import { countryName, fmtAgo, fmtDateTime, fmtDuration, fmtNumber, shortId } from '../lib/format';
+import { countryName, fmtAgo, fmtDateTime, fmtDuration, fmtNumber, shortId, sourceText } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { AsaName } from './AsaNameSlot';
 import { Avatar, BrowserIcon, DeviceIcon, Flag, OSIcon, SourceIcon } from './Icons';
@@ -14,6 +14,8 @@ import { StatStrip, StatTile } from './ui/StatTile';
 
 interface Profile {
   visitor: { id: string; first_seen: number; name: string | null; email: string | null; user_id: string | null } | null;
+  /** Every visitor id of this person: more than one when identify() joined devices (stats.ts visitorProfile). */
+  visitors?: string[];
   sessions: any[];
   events: { session_id: string; ts: number; type: string; name: string | null; path: string; props: string | null }[];
   payments: any[];
@@ -42,6 +44,7 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
     bySession.get(e.session_id)!.push(e);
   }
 
+  const devices = deviceNames(p?.sessions ?? []);
   const goals = (p?.events ?? []).filter((e) => e.type === 'goal');
   const pages = (p?.events ?? []).filter((e) => e.type === 'pageview').length;
   const time = (ts: number) => new Intl.DateTimeFormat('en', { timeZone: site.timezone, hour: 'numeric', minute: '2-digit' }).format(ts);
@@ -62,9 +65,11 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
         <div className="fd-reveal">
           <div className="flex items-center gap-4">
             <Avatar id={visitorId!} name={p.visitor?.name || p.visitor?.email} size={56} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="truncate text-title text-ink">{p.visitor?.name || p.visitor?.email || `Visitor ${shortId(visitorId!)}`}</div>
               {p.visitor?.email && p.visitor.name && <div className="text-[13px] text-stone-500">{p.visitor.email}</div>}
+              {/* identify() joined devices: say so, since the visits below come from all of them. */}
+              {devices.length > 1 && <div className="text-[13px] text-stone-500">Visits from {andList(devices)}, joined by their sign-in</div>}
               {last && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-stone-500">
                   <span className="flex items-center gap-1">
@@ -83,6 +88,8 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                 </div>
               )}
             </div>
+            {/* FounderData Pro: a link to this person's page in People. Nothing in core. */}
+            <ProSlot name="personLink" siteId={site.id} visitorId={visitorId} />
           </div>
 
           {/* The story at a glance: where they came from, how often they came back, what they did, and what they paid. */}
@@ -94,7 +101,7 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                 firstSession ? (
                   <span className="flex min-w-0 items-center gap-1.5 text-[17px] leading-7">
                     <SourceIcon source={firstSession.source} domain={firstSession.referrer_domain} size={16} />
-                    <span className="truncate">{firstSession.source}</span>
+                    <span className="truncate">{sourceText(firstSession.source)}</span>
                   </span>
                 ) : (
                   <span className="text-stone-300" title="No visit recorded">–</span>
@@ -134,7 +141,7 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
                       <span className="font-semibold text-ink">{fmtDateTime(s.started_at, site.timezone)}</span>
                       <span className="flex items-center gap-1.5 rounded-md bg-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-600">
-                        <SourceIcon source={s.source} domain={s.referrer_domain} size={13} /> {s.source}
+                        <SourceIcon source={s.source} domain={s.referrer_domain} size={13} /> {sourceText(s.source)}
                       </span>
                       {s.utm_campaign && (
                         <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">
@@ -149,7 +156,7 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                       {s.ref && <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">ref: {s.ref}</span>}
                       <span className="text-xs tabular-nums text-stone-400">{fmtDuration(s.duration)}</span>
                       {/* FounderData Pro: a Watch button when this visit was recorded. Nothing in core. */}
-                      <ProSlot name="watchVisit" siteId={site.id} visitorId={visitorId} sessionId={s.id} startedAt={s.started_at} />
+                      <ProSlot name="watchVisit" siteId={site.id} visitorId={s.visitor_id ?? visitorId} sessionId={s.id} startedAt={s.started_at} />
                     </div>
                     {s.referrer && <div className="mt-0.5 max-w-full truncate text-xs text-stone-400">{s.referrer}</div>}
                     <ol className="mt-2 space-y-0.5 text-[13px]">
@@ -225,6 +232,23 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
     </Modal>
   );
 }
+
+/** The device of a visit in a few words: "Mac", "iPhone", "iPhone app". */
+function deviceName(s: { os?: string | null; device?: string | null; hostname?: string | null }): string {
+  if (typeof s.hostname === 'string' && s.hostname.startsWith('ios:')) return s.device === 'Tablet' ? 'iPad app' : 'iPhone app';
+  const os = (s.os ?? '').replace(/\s[\d.]+$/, '');
+  const names: Record<string, string> = { 'Mac OS': 'Mac', iOS: 'iPhone', iPadOS: 'iPad', Windows: 'Windows PC', 'Chrome OS': 'Chromebook', Linux: 'Linux PC' };
+  if (names[os]) return names[os];
+  if (os === 'Android') return s.device === 'Tablet' ? 'Android tablet' : 'Android phone';
+  return s.device === 'Mobile' ? 'phone' : s.device === 'Tablet' ? 'tablet' : 'computer';
+}
+
+/** The devices of a profile's visits, newest first, each once. */
+function deviceNames(sessions: { os?: string | null; device?: string | null; hostname?: string | null }[]): string[] {
+  return [...new Set(sessions.map(deviceName))].slice(0, 4);
+}
+
+const andList = (items: string[]) => (items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
 
 /** The small mark before each event in the timeline. */
 function EventIcon({ kind }: { kind: 'page' | 'goal' | 'out' | 'pay' }) {

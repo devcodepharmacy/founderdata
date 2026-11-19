@@ -9,7 +9,6 @@ const ROOT = path.resolve(__dirname, '..');
 
 /** Reads that see every type on purpose, by file and a piece of the statement. */
 const ALL_TYPES: { file: string; has: string; why: string }[] = [
-  { file: 'src/worker/stats.ts', has: 'FROM events WHERE site_id = ? AND visitor_id = ? ORDER BY ts DESC LIMIT 1000', why: 'the visitor profile lists every row; the dashboard leaves activity out of the timeline' },
   { file: 'src/worker/stats.ts', has: 'SELECT e.visitor_id AS v, e.ts, e.type, e.name, e.path FROM events e ${join}', why: 'the funnel: every step it builds (conds) is a pageview or a goal' },
   { file: 'src/worker/export.ts', has: 'SELECT e.id, e.ts, e.type, e.name, e.path, e.props, e.session_id, e.visitor_id FROM events e', why: 'the events CSV holds every row, with its type' },
   { file: 'pro/worker/meta-capi.ts', has: 'SELECT COALESCE(MAX(id), 0) AS id FROM events', why: 'a cursor over row ids, not a count' },

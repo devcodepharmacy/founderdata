@@ -164,3 +164,12 @@ export function changeView(cur: number, prev: number, opts: { minBase?: number; 
  * table cell shows nothing, so "no data before" does not repeat down a column (ui/ChangeBadge: NoComparison).
  */
 export const NO_COMPARISON = 'No data in the period before';
+
+/**
+ * A visit's source as a person reads it: the source's name, or "Came directly" for Direct/None (typed the address, a
+ * bookmark, or a link that sends no referrer). The visitor profile and FounderData Pro's People section use it.
+ */
+export function sourceText(source: string | null | undefined): string {
+  if (!source || /^(direct(\/none)?|none|\(none\))$/i.test(source)) return 'Came directly';
+  return source;
+}

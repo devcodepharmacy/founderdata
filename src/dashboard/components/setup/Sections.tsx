@@ -354,7 +354,7 @@ export function ErasuresCard({ site }: { site: Site }) {
       {!data && !error && <SkeletonRows rows={2} />}
       {data && !data.length && (
         <SetupRow icon={EmptyIcons.inbox} title="No erase requests yet">
-          Erase a person from their profile, or with POST /api/sites/:id/erase.
+          To erase someone, open their profile and choose Erase this person.
         </SetupRow>
       )}
       {!!data?.length && (
