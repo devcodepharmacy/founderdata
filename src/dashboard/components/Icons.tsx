@@ -14,8 +14,9 @@ function iconHost(domain: string): string {
 export function Favicon({ domain, size = 18, fallback }: { domain?: string | null; size?: number; fallback?: ReactNode }) {
   const [broken, setBroken] = useState(false);
   const host = domain ? iconHost(domain) : '';
-  // An app-only site's placeholder domain (.invalid) has no icon to fetch.
-  if (!host || broken || host.endsWith('.invalid')) {
+  // An app-only site's placeholder domain (.invalid) and the reserved example domains (RFC 2606, the demo data) have no
+  // icon to fetch, so they ask nothing and leave no 404 in the console.
+  if (!host || broken || host.endsWith('.invalid') || /(^|\.)example\.(com|net|org)$/.test(host)) {
     return (
       <span className="inline-flex shrink-0 items-center justify-center rounded text-stone-400" style={{ width: size, height: size }}>
         {fallback ?? <LinkIcon size={Math.round(size * 0.85)} />}
