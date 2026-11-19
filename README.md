@@ -16,7 +16,7 @@ analytics, iOS app reports, ads, SEO, AI visibility and the full agent layer for
 Not for you if you need it on your own server: it runs on Cloudflare Workers and D1 only, with no Docker image or
 Postgres option. Nor if you need single sign-on or per-site permissions. Core has one admin password and one shared
 read-only viewer password, set as `VIEWER_PASSWORD`. Pro adds teammates with their own login, each an owner or a viewer
-for every site. It has no session replay and no heatmaps.
+for every site. It has no heatmaps.
 
 ![The FounderData dashboard with visitors, revenue, sources and paying customers](docs/dashboard.png)
 
@@ -55,7 +55,8 @@ Cloudflare's free plan covers about 3,100 web visits a day. [What it costs](#wha
   launch tweet, came back directly two weeks later and paid" counts for the tweet. Without cookies that needs the
   signup to call `identify()`, which joins one person's daily visitor ids. Renewals stay with the source that won the
   customer, and a payment keeps its source after old visits are deleted.
-- A journey for every customer, from the first visit through each page and click to the payment.
+- A journey for every customer, from the first visit through each page and click to the payment. Extra keys you pass
+  to `identify()`, such as a plan or a company, are kept as traits on the visitor ([docs/API.md](docs/API.md#identify-and-traits)).
 - A setup checklist in Settings, one row per integration with a live status and the next step: when the cron last ran,
   whether the old hourly cron is still listed, which optional secrets are set (by name), and when each site's payment
   webhook last delivered. Pro adds rows for Google, DataForSEO and X. See [the guide](docs/GUIDE.md#setup-checklist).
@@ -155,6 +156,11 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
   possible on a `PERPLEXITY_API_KEY`). A sentiment label per answer that names you shows positive, neutral and negative
   counts per engine, this week against last, and costs a fraction of a cent per answer. It is off until you turn it on, and capped per day. Your server can also forward AI
   crawler hits (GPTBot, ClaudeBot, PerplexityBot) for a count per bot and page ([guide](docs/AI-VISIBILITY.md)).
+- People and recordings. A People tab lists everyone you know: signed in, paid, remembered or using your app. Each person
+  gets one story, from the first visit to the payment, across their devices. Turn on Record visits and you can watch a
+  visit like a video, with its clicks, rage clicks and errors marked. Recording is off by default. Every input is
+  masked, and `data-fd-mask` and `data-fd-block` hide more. The recordings sit in an R2 bucket on your own account that
+  `npm run setup -- --replay` creates. See [People and recordings](docs/GUIDE.md#people-and-recordings-pro).
 - An iPhone app with widgets and a push notification for every payment.
 - An alert inbox keeps every alert for 90 days, one row per message and site, so an agent can read what fired since its
   last run ([guide](docs/GUIDE.md#alert-inbox-pro)). A threshold rule's webhook can send an auth header or a GitHub
@@ -174,7 +180,7 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
 - MRR in the alerts and the Monday report, a daily numbers message, and a verdict for each logged change on the number
   it was meant to move: an SEO edit on its page's Search Console clicks over 28 days, an ad budget change on CPA, an AI
   content change on the mention rate, an app price on paywall conversion.
-- All 31 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
+- All 32 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
   key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and seven agent
   skills.
 - Teammates with their own login, as owner or viewer.
@@ -374,7 +380,9 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | --- | --- |
 | Web: first pageview of a new visitor / each further pageview or goal. An ad click id, the language and the first touch add columns, not rows. A later page that brings any ad click id, Meta's included, into a direct visit writes 1 row more, or 2 on the visitor's first visit | 11 / 5 |
 | Web: page speed (Core Web Vitals) of one page load, in the ping it already sends | 1, at the default 100% sample |
-| Web: `identify()` | 0 when no field changes. Otherwise 1 for the visitor row, plus 1 for each of email and user id the visitor has after the call |
+| Web: `identify()` | 0 when no field changes. Otherwise 1 for the visitor row, plus 1 for each of email and user id the visitor has after the call. Traits ride on the same row |
+| Web: clicks, rage clicks and errors of one page in a recorded visit (Pro), in the ping it already sends | 0 when the page had none, else 1 |
+| Recorded visit (Pro): the index row with its first chunk / each later chunk | 1 / 0. Each chunk is 1 Worker request and 1 R2 write |
 | App: typical session of a known install | 36 |
 | App: a new install's first session / a relaunch the same day without consent. An install that Apple Search Ads attributes writes 2 rows more when Apple answers | 7 / 3 to 5 |
 | Payment from Stripe, the App Store or another provider | 5 to 9. A subscription event that cancels a paying subscription or fails its renewal adds 1 alert inbox row |

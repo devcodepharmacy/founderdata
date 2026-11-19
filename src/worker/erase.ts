@@ -76,6 +76,9 @@ export async function eraseVisitors(db: D1Database, site: Site, ids: string[], e
       db.prepare(`DELETE FROM visitors WHERE site_id = ? AND id IN (${inList})`).bind(site.id, ...chunk),
       // The app launches grouped under this visitor (app.ts, resolveLaunch).
       db.prepare(`DELETE FROM app_aliases WHERE site_id = ? AND visitor_id IN (${inList})`).bind(site.id, ...chunk),
+      // Recorded visits' index rows that FounderData Pro's eraseRecordings left, or that remain without Pro. Their R2
+      // chunks go with Pro's hook, or with the bucket's 90-day lifecycle rule.
+      db.prepare(`DELETE FROM replays WHERE site_id = ? AND visitor_id IN (${inList})`).bind(site.id, ...chunk),
     ]);
     // The erased visitor's own payments and subscriptions are cleared first, so the by-visit updates count only others'.
     out.events += res[0].meta.changes;
@@ -116,7 +119,8 @@ export async function eraseVisitor(c: Context<AppEnv>) {
     c.env.DB.prepare('SELECT 1 FROM payments WHERE site_id = ? AND visitor_id = ? LIMIT 1').bind(site.id, vid),
   ]);
   if (!known.some((r) => r.results.length)) return c.json({ error: 'visitor not found' }, 404);
-  const res = await eraseVisitors(c.env.DB, site, [vid]);
+  const recordings = await eraseRecordings(c, [vid]);
+  const res = { ...(await eraseVisitors(c.env.DB, site, [vid])), ...recordings };
   // The erase log keeps the counts, not the id (src/worker/privacy.ts).
   await logErasure(c.env.DB, site, 'visitor', res, { handler: handlerOf(c), note: cleanNote(c.req.query('note')) });
   return c.json({ ok: true, ...res });
@@ -166,13 +170,22 @@ export async function erasePerson(c: Context<AppEnv>) {
     for (const r of paid.results) if (!visitors.includes(r.id)) visitors.push(r.id);
   }
   const more = visitors.length > MAX_VISITORS;
-  const erased = await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email);
+  // FounderData Pro's recordings of these visitors, before their visits go (pro-hooks.ts eraseRecordings).
+  const recordings = await eraseRecordings(c, visitors.slice(0, MAX_VISITORS));
+  const erased = { ...(await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email)), ...recordings };
   // FounderData Pro's mail: the messages to and from this address, across the deployment (pro-hooks.ts erasePerson).
   const mail = eraseMail ? await pro!.erasePerson!({ env: c.env, email: email! }) : undefined;
   const res = { ...erased, ...mail };
   await logErasure(c.env.DB, site, email && userId ? 'email+user_id' : email ? 'email' : 'user_id', res, { handler: handlerOf(c), note: cleanNote(b.note) });
   // mail_skipped says the same for every address, so a key without mail:write learns nothing about who has mail.
   return c.json({ ok: true, ...res, ...(more ? { more: true } : {}), ...(hasMail && !eraseMail ? { mail_skipped: true } : {}) });
+}
+
+/** FounderData Pro deletes the recordings of these visitors (R2 chunks and index rows); counts by name, none without Pro. */
+async function eraseRecordings(c: Context<AppEnv>, visitorIds: string[]): Promise<Record<string, number>> {
+  const hook = proHooks()?.eraseRecordings;
+  if (!hook || !visitorIds.length) return {};
+  return hook({ env: c.env, site: c.get('site'), visitorIds });
 }
 
 /**

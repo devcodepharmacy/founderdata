@@ -9,6 +9,7 @@ import { isBot, parseUA } from './lib/ua';
 import { overCap, rowsWritten, spend } from './budget';
 import { creditedVisitSql } from './payments';
 import { insertVitals, parseVitals, vitalsPath } from './vitals';
+import { proHooks, type RecordConfig } from './pro-hooks';
 
 const TYPES = new Set(['pageview', 'goal', 'outbound', 'ping', 'identify']);
 const MAX_PING_MS = 10 * 60_000;
@@ -31,12 +32,78 @@ interface Payload {
   m?: number;
   /** The Meta browser id (_fbp cookie), sent only with marketing consent. */
   fbp?: string;
+  /** Page activity (clicks, rage clicks, errors) of the page that ended, on its ping. Only for recorded visits. */
+  a?: unknown;
 }
 
 const clip = (s: unknown, n = 255): string | null =>
   typeof s === 'string' && s.trim() ? s.trim().slice(0, n) : null;
 
 const isId = (s: unknown): s is string => typeof s === 'string' && /^[\w-]{8,64}$/.test(s);
+
+/** identify() keys that are columns of the visitor row, not traits. */
+const IDENTITY_KEYS = new Set(['user_id', 'id', 'email', 'name']);
+export const MAX_TRAITS = 20;
+
+/**
+ * The traits of an identify() call as JSON text, or null when it has none: the extra keys next to user_id, email and
+ * name. At most 20, keys lowercased and matching [a-z0-9_]{1,40}, values text clipped to 100 characters (numbers and
+ * true or false as text). Objects, arrays, null and empty text are left out.
+ */
+export function traitsOf(p: Record<string, unknown>): string | null {
+  const out: Record<string, string> = {};
+  let n = 0;
+  for (const [k, v] of Object.entries(p)) {
+    if (n >= MAX_TRAITS) break;
+    const key = k.toLowerCase();
+    if (IDENTITY_KEYS.has(key) || !/^[a-z0-9_]{1,40}$/.test(key) || key in out) continue;
+    const text = typeof v === 'string' ? v.trim() : (typeof v === 'number' && Number.isFinite(v)) || typeof v === 'boolean' ? String(v) : '';
+    if (!text) continue;
+    out[key] = text.slice(0, 100);
+    n++;
+  }
+  return n ? JSON.stringify(out) : null;
+}
+
+/** Most clicks and errors one page's activity row keeps (docs/API.md, "Page activity"). */
+export const MAX_CLICKS = 30;
+export const MAX_ERRORS = 5;
+const CLICK_KINDS = new Set(['button', 'link', 'submit', 'other']);
+const DAY_MS = 86_400_000;
+
+/**
+ * The activity a ping carries, checked and trimmed, as the props of an `activity` event row, or null when there is
+ * nothing to keep. Shape: { p: path, s: page start (ms), c: clicks [{ t, l, k, r?, n? }], e: errors [{ t, m, s }] },
+ * `t` in ms since `s`. Clicks keep the newest 30, errors the newest 5.
+ */
+export function parseActivity(a: unknown): { path: string | null; props: string } | null {
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return null;
+  const x = a as { p?: unknown; s?: unknown; c?: unknown; e?: unknown };
+  const ms = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= DAY_MS ? Math.round(v) : null);
+  const text = (v: unknown, n: number) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, n) : '');
+  const clicks: { t: number; l: string; k: string; r?: 1; n?: number }[] = [];
+  for (const c of Array.isArray(x.c) ? x.c.slice(-MAX_CLICKS) : []) {
+    const t = ms(c?.t);
+    const l = text(c?.l, 40);
+    if (t === null || !l) continue;
+    const click: (typeof clicks)[number] = { t, l, k: CLICK_KINDS.has(c.k) ? c.k : 'other' };
+    const n = Number(c.n);
+    if (Number.isInteger(n) && n >= 2) click.n = Math.min(n, 1000);
+    if (c.r === 1 && (click.n ?? 0) >= 3) click.r = 1;
+    clicks.push(click);
+  }
+  const errors: { t: number; m: string; s: string }[] = [];
+  for (const e of Array.isArray(x.e) ? x.e.slice(-MAX_ERRORS) : []) {
+    const t = ms(e?.t);
+    const m = text(e?.m, 200);
+    if (t === null || !m) continue;
+    errors.push({ t, m, s: text(e?.s, 200) });
+  }
+  if (!clicks.length && !errors.length) return null;
+  const s = typeof x.s === 'number' && Number.isInteger(x.s) && x.s > 0 ? x.s : null;
+  const path = typeof x.p === 'string' && x.p.startsWith('/') ? normalizePath(x.p.split(/[?#]/)[0]) : null;
+  return { path, props: JSON.stringify({ ...(s ? { s } : {}), ...(clicks.length ? { c: clicks } : {}), ...(errors.length ? { e: errors } : {}) }) };
+}
 
 /** The _fbp value a payload with marketing consent carries, or null (Meta's format: fb.1.<ms>.<random>). */
 export const fbpOf = (body: { m?: number; fbp?: unknown }): string | null =>
@@ -133,7 +200,8 @@ export async function handleEvent(c: Context<AppEnv>) {
 
   const now = Date.now();
   // Past the site's daily write cap: drop the event. 202 like a bot, so the visitor's console stays quiet.
-  if (await overCap(c.env.DB, site, now)) return c.body(null, 202);
+  // A remembered visitor keeps the cookies on a capped day: the answer still says Remember visitors is on.
+  if (await overCap(c.env.DB, site, now)) return body.t === 'pageview' && site.remember_visitors ? c.json({ cfg: { rm: 1 } }, 202) : c.body(null, 202);
   if (cookieless) {
     const ids = await cookielessIds(c.env.DB, visitorSecret(c.env), site.id, clientIp((n) => c.req.header(n), trustsForwardedFor(c.env.TRUST_FORWARDED_FOR)), ua, now);
     body.vid = ids.vid;
@@ -141,10 +209,41 @@ export async function handleEvent(c: Context<AppEnv>) {
   }
   const cf = (c.req.raw as { cf?: IncomingRequestCfProperties }).cf;
   const facts: RequestFacts = { language: languageOf(c.req.header('accept-language')), datacenter: datacenterOf(cf?.asn, (n) => c.req.header(n), trustsForwardedFor(c.env.TRUST_FORWARDED_FOR)) };
-  const written = await ingest(c.env.DB, site, body, url, ua, geoOf(c), now, facts);
+  // A pageview asks Pro whether to record this visit while it writes, so the answer costs no extra round trip.
+  const [written, cfg] = await Promise.all([
+    ingest(c.env.DB, site, body, url, ua, geoOf(c), now, facts),
+    body.t === 'pageview' ? trackerConfig(c.env, site, body.sid, now) : null,
+  ]);
   c.executionCtx.waitUntil(spend(c.env.DB, site, written, now));
-  // The tracker keeps these in memory (never in storage) so later events and attribution() use them.
-  return cookieless ? c.json({ vid: body.vid, sid: body.sid }, 202) : c.body(null, 202);
+  // The tracker keeps the ids in memory (never in storage) so later events and attribution() use them. `cfg` is there
+  // only when the site turned on Record visits or Remember visitors (docs/API.md, "Tracker config").
+  if (cookieless) return c.json({ vid: body.vid, sid: body.sid, ...(cfg ? { cfg } : {}) }, 202);
+  return cfg ? c.json({ cfg }, 202) : c.body(null, 202);
+}
+
+/** What the pageview answer tells the tracker (docs/API.md, "Tracker config"). Absent keys are off. */
+export interface TrackerConfig {
+  /** Record this visit: load /js/replay.js with these settings (FounderData Pro's recordDecision). */
+  rec?: RecordConfig;
+  /** Remember visitors: keep the visitor id in first-party cookies, as after founderdata('consent', true). */
+  rm?: 1;
+}
+
+/**
+ * The tracker config of one pageview, or null when every switch is off. A site with Record visits off asks nothing; one
+ * with it on asks Pro (a read), and records nothing without Pro or without the REPLAY_BUCKET binding.
+ */
+export async function trackerConfig(env: AppEnv['Bindings'], site: Site, sid: string, now: number): Promise<TrackerConfig | null> {
+  const cfg: TrackerConfig = {};
+  if (site.remember_visitors) cfg.rm = 1;
+  const decide = site.record_visits && env.REPLAY_BUCKET ? proHooks()?.recordDecision : undefined;
+  if (decide) {
+    const rec = await Promise.resolve()
+      .then(() => decide(env, site, sid, now))
+      .catch(() => null);
+    if (rec) cfg.rec = rec;
+  }
+  return cfg.rm || cfg.rec ? cfg : null;
 }
 
 export interface Geo {
@@ -229,6 +328,18 @@ export async function ingest(
     const vitals = parseVitals(body.v);
     const insert = vitals && insertVitals(db, site, vitals, vitalsPath(body.v, path), parseUA(ua, Number(body.sw) || undefined).device, now);
     if (insert) stmts.push(insert);
+    // The clicks and errors of the page that ended: 1 row more, only for a site that records visits.
+    const act = site.record_visits ? parseActivity(body.a) : null;
+    if (act) {
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO events (site_id, session_id, visitor_id, ts, type, name, path, props, datacenter)
+             SELECT ?1, ?2, visitor_id, ?3, 'activity', NULL, ?4, ?5, datacenter FROM sessions WHERE site_id = ?1 AND id = ?2`,
+          )
+          .bind(site.id, sid, now, act.path ?? path, act.props),
+      );
+    }
     return rowsWritten(await db.batch(stmts));
   }
 
@@ -236,15 +347,25 @@ export async function ingest(
     const p = body.p ?? {};
     // A site that calls identify() on every page writes nothing after the first: the update skips a row it would not
     // change. The first email and the first user id also write their entry in visitors_email / visitors_user (0064).
+    // Traits (?6) merge into the stored ones; past 20 keys the call's own traits replace them. They ride on the identity
+    // update when that runs. Alone they go in a second update that sets traits only, so the identity indexes are not
+    // rewritten: 1 row. After the first update has run, the second finds nothing to change.
+    const traits = `CASE WHEN ?6 IS NULL THEN traits
+                          WHEN (SELECT COUNT(*) FROM json_each(json_patch(COALESCE(traits, '{}'), ?6))) <= ${MAX_TRAITS} THEN json_patch(COALESCE(traits, '{}'), ?6)
+                          ELSE json(?6) END`;
+    const args = [clip(p.user_id, 128), clip(p.email, 200)?.toLowerCase() ?? null, clip(p.name, 128), site.id, vid, traitsOf(p)];
     const r = await db.batch([
       db.prepare('INSERT OR IGNORE INTO visitors (site_id, id, first_seen) VALUES (?, ?, ?)').bind(site.id, vid, now),
       db
         .prepare(
-          `UPDATE visitors SET user_id = COALESCE(?1, user_id), email = COALESCE(?2, email), name = COALESCE(?3, name)
+          `UPDATE visitors SET user_id = COALESCE(?1, user_id), email = COALESCE(?2, email), name = COALESCE(?3, name), traits = ${traits}
            WHERE site_id = ?4 AND id = ?5
              AND (COALESCE(?1, user_id) IS NOT user_id OR COALESCE(?2, email) IS NOT email OR COALESCE(?3, name) IS NOT name)`,
         )
-        .bind(clip(p.user_id, 128), clip(p.email, 200)?.toLowerCase() ?? null, clip(p.name, 128), site.id, vid),
+        .bind(...args),
+      ...(args[5]
+        ? [db.prepare(`UPDATE visitors SET traits = ${traits} WHERE site_id = ?4 AND id = ?5 AND (${traits}) IS NOT traits`).bind(...args)]
+        : []),
     ]);
     return rowsWritten(r);
   }

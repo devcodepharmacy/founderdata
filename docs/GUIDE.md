@@ -324,7 +324,9 @@ number changes:
 | Web: first pageview of a new visitor | 11 |
 | Web: each further pageview, goal or outbound click | 5 |
 | Web: engaged-time ping | 1 |
-| Web: `identify()` | 0 when no field changes, as on every page of a signed-in user. Otherwise 1 for the visitor row, plus 1 for each of email and user id the visitor has after the call (their indexes join one person's daily ids) |
+| Web: `identify()` | 0 when no field changes, as on every page of a signed-in user. Otherwise 1 for the visitor row, plus 1 for each of email and user id the visitor has after the call (their indexes join one person's daily ids). Traits are a column of the same row: a call that changes only traits writes 1 |
+| Web: the ping when a page of a recorded visit is hidden or left, with its clicks, rage clicks and errors ([People and recordings](#people-and-recordings-pro)) | 1 more (an `activity` event), 0 when the page had none |
+| Recorded visit (Pro): the first chunk / each later chunk | 1 (its row in `replays`) / 0. Each chunk is 1 Worker request, about one every 30 seconds of the visit, and 1 R2 write |
 | Web: the ping when a page is hidden, with that page load's Core Web Vitals ([Page speed](#page-speed)) | 2: the ping and 1 row in `vitals`. At a lower sample, 1 for the loads it skips |
 | App: new install's first `session_start` | 7 (6 with a kept install id: consent or `.vendor`) |
 | App: relaunch on the same day without consent, `session_start` only | 3 within 30 minutes of the last activity (the session continues), 5 later |
@@ -523,6 +525,13 @@ every visit of that visitor FounderData can tie together (with cookies, all of t
 Marketing consent does not keep a visitor id: call `founderdata('consent', true)` as well when the banner allows it, or a
 buyer who comes back the next day is a new visitor whose ad click FounderData cannot find. Without it nothing goes to Meta in the default setting.
 
+**Remember visitors (Pro setting).** A site can keep every visitor in cookies without the visitor's consent. Turn on
+**Remember visitors** in Settings, Data and privacy, Record visits. The server then tells the script on each page, and
+the script keeps `rt_vid` and `rt_sid` as above, with `rt_consent=r` in place of `rt_consent=1`. People stay the same
+person across days without `identify()`. In the EU that usually needs consent, so turn it on only where you have it or
+don't need it. A page that calls `founderdata('consent', false)` keeps that visitor without cookies. Turn the switch off
+and each visitor's cookies go on their next page.
+
 **Ids for checkouts.** `window.founderdata.attribution()` returns `{ rt_visitor_id, rt_session_id, rt_site_id }` in
 both modes. Without cookies the ids come back with the first request, a fraction of a second after the page loads;
 until then it returns `{}`. Send them from the browser with your checkout request and put them in the checkout's
@@ -542,7 +551,8 @@ reference.
 | --- | --- |
 | The visitor row: email, name and user id from `identify()` | Deleted |
 | Visits, with their source, pages, location and device | Deleted |
-| Pageviews, goals and outbound clicks | Deleted |
+| Pageviews, goals, outbound clicks, and the clicks and errors of recorded pages | Deleted |
+| Recordings (Pro): the files in the R2 bucket and their rows | Deleted |
 | Return-page claims and subscription signals (trial starts, cancellations) | Deleted |
 | Payments | Kept for your books, with the visitor, visit, the visit's source, email, name, customer id and match reason cleared. Revenue totals stay the same, and the payment no longer credits a source. |
 | Subscriptions | Kept, with the visitor, visit, customer id and the visit's source cleared. MRR stays the same, and the subscription moves to No source. |
@@ -2612,6 +2622,59 @@ What is counted: each number counts emails, not events. An email opened three ti
 Resend adds nothing. Every event of an email counts on the day the email was sent, in the site's timezone. Events for
 an email sent more than 30 days ago are ignored, because the row that remembers what was already counted is deleted
 after 30 days. FounderData stores no recipient address and no subject ([PRIVACY.md](PRIVACY.md)).
+
+## People and recordings (Pro)
+
+The People tab lists everyone FounderData knows by more than a daily id: people you `identify()`, buyers, people your
+site remembers ([Remember visitors](#cookies-and-consent)) and people who use your iOS app. Each person gets one page.
+It opens with one sentence, such as "Anna found you through Google on 3 March, came back 6 times and paid $49." Then
+come the traits you passed to `identify()`, the devices, and every visit, newest first, in plain steps: Looked at
+Pricing, Clicked "Start trial", Paid $49. Two devices are one person when they share a user id or an email.
+
+### Turn on recordings
+
+1. Run `npm run setup -- --replay`. It creates the R2 bucket `<database name>-replay` in the database's jurisdiction,
+   adds a rule that deletes each file 90 days after upload, and binds the bucket as `REPLAY_BUCKET`.
+2. Open the site's Settings, then Data and privacy, and turn on **Record visits**.
+
+The script tag stays the same. For a visit the server picks, the script loads `/js/replay.js` from your Worker. Other
+visits load nothing more. Your own visits with `?rt_ignore=true` and bots are never recorded.
+
+### What a recording hides
+
+- Every input. Typing shows as dots.
+- The text of any element with `data-fd-mask`. The layout stays, the letters don't.
+- Any element with `data-fd-block`. It shows as an empty box of the same size.
+- Canvas, web fonts and frames from other domains. They are not recorded.
+
+Put `data-fd-mask` on anything that shows personal data, such as the name and address on an account page.
+
+A recorded visit also notes clicks on links and buttons, form submits, rage clicks (3 or more clicks on one element,
+each within a second of the last) and JavaScript errors. They travel with the ping the script already sends when a page
+is hidden. A click's label is the button's visible text, cut to 40 characters. Inside `data-fd-mask` or
+`data-fd-block` it is the tag name instead, such as `button`.
+
+### What it costs
+
+Most sites stay on the free plan. A recorded visit writes 1 row in D1. It uploads a chunk about every 30 seconds, and
+each chunk is 1 Worker request and 1 R2 write. At the default limit of 1,000 recorded visits a day, 3 minutes each,
+that is about 7,000 requests a day and 210,000 R2 writes a month. R2's free tier includes 1 million writes and 10 GB
+a month. Cloudflare asks for a payment method once to turn on R2.
+
+### Settings
+
+The **Record visits** switch is all most sites need. **Advanced** holds the rest:
+
+| Setting | Default |
+| --- | --- |
+| Share of visits recorded | 100% |
+| Keep recordings for | 30 days (7, 30 or 90) |
+| Most visits recorded a day | 1,000 |
+| Keep only visits where someone signed up, hit a goal or paid | Off. When on, other recordings go after 24 hours |
+
+A daily job deletes recordings older than the days you picked. The bucket's 90-day rule deletes anything left behind.
+Erasing a person ([Erase one person](#erase-one-person)) deletes their recordings too. [PRIVACY.md](PRIVACY.md#recordings-pro)
+lists what a recording stores.
 
 ## Mail (Pro)
 

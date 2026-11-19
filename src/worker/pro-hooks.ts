@@ -251,6 +251,36 @@ export interface Pro {
    * erase with its status, so nothing is half done.
    */
   eraseRefusal?(a: { env: Bindings; email: string }): Promise<{ error: string; status: 400 | 503 } | null>;
+
+  // ---- people and recordings (pro/docs/replay-plan.md, migration 0071)
+  /**
+   * Whether to record this visit, asked for every pageview of a site with `record_visits` on and the REPLAY_BUCKET
+   * binding (collect.ts trackerConfig). Return the recorder's settings to record, which the pageview answer carries as
+   * `cfg.rec` and the tracker hands to /js/replay.js through `window.founderdata._rec.cfg`, or null not to. Keep the
+   * answer stable for one `sid` (sample by a hash of it), so every page of a recorded visit records. Reads only: the
+   * index row is written by the first chunk. Without the hook no visit is recorded. A rejection counts as null.
+   */
+  recordDecision?(env: Bindings, site: Site, sid: string, now: number): Promise<RecordConfig | null>;
+  /**
+   * Erasing visitors (erase.ts: one visitor, or a person by email or user id) also removes their recordings: the R2
+   * chunks under r/<site_id>/<session_id>/ and the `replays` rows. Called before core deletes the visits, with every
+   * visitor id the erase covers. Returns counts by name (`recordings`), which join the answer and the erase log. Core
+   * deletes any `replays` row left after it.
+   */
+  eraseRecordings?(a: { env: Bindings; site: Site; visitorIds: string[] }): Promise<Record<string, number>>;
+}
+
+/**
+ * The recorder settings of one visit (`cfg.rec` in the pageview answer, docs/API.md "Tracker config"). Pro's
+ * recordDecision fills it; the tracker only passes it on to /js/replay.js. Every text input is always masked.
+ */
+export interface RecordConfig {
+  /** CSS selector of elements whose text is masked: "[data-fd-mask]". */
+  mask: string;
+  /** CSS selector of elements left out of the recording: "[data-fd-block]". */
+  block: string;
+  /** More settings Pro's replay.js reads. Short keys: this rides on every pageview answer of a recorded visit. */
+  [key: string]: string | number | boolean;
 }
 
 // ---------- the installed edition
