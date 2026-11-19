@@ -13,7 +13,7 @@ import { requireAuth, sha256Hex } from './auth';
 import { getSite, type AppEnv, type Site } from './env';
 import { randomId } from './lib/crypto';
 
-export const SCOPES = ['read', 'read:revenue', 'read:rows', 'notes:write', 'alerts:write', 'payments:write', 'seo:write', 'aso:write', 'research:write', 'spend:write', 'spend:ai', 'spend:seo', 'mail:read', 'mail:write'] as const;
+export const SCOPES = ['read', 'read:revenue', 'read:rows', 'notes:write', 'alerts:write', 'payments:write', 'seo:write', 'aso:write', 'research:write', 'spend:write', 'spend:ai', 'spend:seo', 'mail:read', 'mail:write', 'mail:templates'] as const;
 export type Scope = (typeof SCOPES)[number];
 /**
  * Scopes that write. spend:ai and spend:seo also write, and each one lets a key start billed calls on the owner's provider
@@ -37,6 +37,7 @@ export const SCOPE_TEXT: Record<Scope, string> = {
   'spend:seo': "spend the owner's DataForSEO money on keyword research, up to the site's monthly cap",
   'mail:read': "read the deployment's mail: inbox threads, sent messages and their events, with addresses and message text",
   'mail:write': "send mail from the deployment's domains and change the inbox (reply, mark read, archive). It does not include mail:read",
+  'mail:templates': "create, change, publish and delete the mail templates of the deployment's domains. It sends nothing",
 };
 
 /** The scopes the old keys have. They can't change. */
@@ -254,13 +255,14 @@ export const requireWriteKey = (scope: WriteScope) => async (c: Context<AppEnv>,
 // ---------- routes of the whole deployment (mail)
 
 /** Scopes of routes that belong to the deployment, not to a site. */
-export type AccountScope = Extract<Scope, 'mail:read' | 'mail:write'>;
+export type AccountScope = Extract<Scope, 'mail:read' | 'mail:write' | 'mail:templates'>;
 
 export type AccountAuth = { key: ApiKey } | { error: string; status: 401 | 403 };
 
 const ACCOUNT_TEXT: Record<AccountScope, string> = {
   'mail:read': 'read mail',
   'mail:write': 'send mail',
+  'mail:templates': 'change mail templates',
 };
 
 /**

@@ -35,7 +35,7 @@ describe('mail in core', () => {
     const tables = (await w.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'mail_%' ORDER BY name").all<{ name: string }>()).results.map((r) => r.name);
     expect(tables).toEqual([
       'mail_addresses', 'mail_attachments', 'mail_domains', 'mail_events', 'mail_idempotency', 'mail_key_domains', 'mail_key_settings',
-      'mail_message_ids', 'mail_messages', 'mail_parties', 'mail_suppressions', 'mail_threads', 'mail_webhook_deliveries', 'mail_webhooks',
+      'mail_message_ids', 'mail_messages', 'mail_parties', 'mail_suppressions', 'mail_template_versions', 'mail_templates', 'mail_threads', 'mail_webhook_deliveries', 'mail_webhooks',
     ]);
     for (const t of tables) {
       const cols = (await w.db.prepare(`PRAGMA table_info(${t})`).all<{ name: string }>()).results.map((c) => c.name);
@@ -200,7 +200,9 @@ describe('mail in core', () => {
     it('lists the mail scopes with their texts', () => {
       expect(SCOPES).toContain('mail:read');
       expect(SCOPES).toContain('mail:write');
+      expect(SCOPES).toContain('mail:templates');
       expect(SCOPE_TEXT['mail:write']).toMatch(/does not include mail:read/);
+      expect(SCOPE_TEXT['mail:templates']).toMatch(/sends nothing/);
     });
 
     it('needs the exact mail scope: read, mail:read and mail:write do not stand in for each other', async () => {
@@ -221,6 +223,12 @@ describe('mail in core', () => {
       expect((await call('mail:write', mailRead)).status).toBe(403);
       expect((await call('mail:write', mailWrite)).status).toBe(200);
       expect((await call('mail:read', mailWrite)).status).toBe(403);
+      // mail:templates changes templates and neither sends nor reads, and the other mail scopes do not include it.
+      const templates = await make(['mail:templates']);
+      expect((await call('mail:templates', templates)).status).toBe(200);
+      expect((await call('mail:write', templates)).status).toBe(403);
+      expect((await call('mail:read', templates)).status).toBe(403);
+      expect((await call('mail:templates', mailWrite)).status).toBe(403);
       // Mail belongs to the deployment: a key for one site still reaches it with the scope.
       expect((await call('mail:write', oneSite)).status).toBe(200);
       // The site API key (rt_...) belongs to one site and never reaches mail.
