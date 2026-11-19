@@ -3,8 +3,8 @@ import { lazyNamed, type Preloadable } from './lazy';
 import { proUi } from './pro';
 import type { View } from './sections';
 
-/** The Pro card a core build shows in place of a FounderData Pro section (components/ProUpsell.tsx). */
-const Upsell = lazyNamed(() => import('../components/ProUpsell'), 'ProUpsellView');
+/** The Pro card a core build shows in place of a FounderData Pro section (components/ProPaywall.tsx). */
+const Upsell = lazyNamed(() => import('../components/ProPaywall'), 'ProUpsellView');
 
 /**
  * Every page and every Dashboard view is its own chunk, so the entry holds the shell only. Each import() sits here

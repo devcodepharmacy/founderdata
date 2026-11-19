@@ -96,13 +96,14 @@ Cloudflare's free plan covers about 3,100 web visits a day. [What it costs](#wha
 
 ## FounderData Pro
 
-Pro is a lifetime license for €19.99 or $19.99: you pay once and get every future update
+Pro is a lifetime license. The regular price is €29.99 or $29.99, paid once, with every future update and no fee per
+site. The first 115 licenses cost less: the dashboard and the checkout show the current price
 ([buy it on Polar](https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtpjbcy7I63PRvbm)). It adds the reports below to your
 own deployment, on your own Cloudflare account. Core already stores every page view, app event, payment and
 subscription, so the Pro reports cover your history from the first day.
 
-Open any Pro section in the dashboard to buy it or to get the install prompt for your AI agent. Installing is a
-`git merge`, so changes you made to your copy stay. [docs/PRO.md](docs/PRO.md) explains buying, installing and updates.
+Open any Pro section in the dashboard to buy it or to get the install prompt for your AI agent. The agent installs
+Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](docs/PRO.md) explains buying, installing and updates.
 
 - Subscription metrics per source, Stripe and App Store in one table: MRR and its movement, trials and trial to paid,
   churn, LTV, refunds and failed payments, split by channel, referrer, campaign and product.

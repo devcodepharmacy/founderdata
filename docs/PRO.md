@@ -7,8 +7,9 @@ Polar, Lemon Squeezy, Paddle, Gumroad, the App Store and RevenueCat, and ties ea
 buyer. It also has goals, funnels, page speed, alerts, the weekly report, CSV export, GDPR erasure, share links, the
 read API and an MCP server with 9 tools.
 
-**Pro** is core plus a `pro/` folder from a private repository. You pay €19.99 or $19.99 once and get every future
-update. Pro adds:
+**Pro** is core plus a `pro/` folder from a private repository. The regular price is €29.99 or $29.99, paid once, with
+every future update. One license covers all your sites and apps. The first 115 licenses cost less: the dashboard and
+the checkout show the current price. Pro adds:
 
 - MRR and its movement, trials, churn, LTV and a retention grid per source, plan and provider, with history imports
   from ChartMogul and RevenueCat
@@ -26,9 +27,31 @@ Both editions run on your own Cloudflare account, and your data stays in your ow
 Core stores everything that arrives from outside in both editions: page views, app events and every payment and
 subscription your providers send. When you switch to Pro, the Pro reports cover your history from the first day.
 
+## Price
+
+The launch price rises in steps as licenses sell, up to the regular €29.99. The dashboard shows one step: its price,
+the regular price, the licenses left at that price and the next price.
+
+It reads the numbers from `offer.json` on this repository's `offer` branch, in your browser, when you open a Pro section
+or the Pro card in Settings. Money is in cents, and `sold` counts every license sold at a launch price:
+
+```json
+{
+  "regular": 2999,
+  "tiers": [{ "price": 499, "seats": 5 }, { "price": 999, "seats": 10 }],
+  "sold": 7,
+  "checkout": "https://buy.polar.sh/...",
+  "updated": "2026-11-19T10:00:00Z"
+}
+```
+
+The steps follow each other: with the file above, licenses 1 to 5 cost €4.99 and licenses 6 to 15 cost €9.99.
+`checkout` is optional and replaces the built-in checkout link. When the file can't be read, or a value is missing or
+out of range, the dashboard shows the regular price and no launch price. `src/shared/offer.ts` checks the file.
+
 ## Buy
 
-The **Get the lifetime license** button in a core dashboard opens the checkout. Polar handles the payment and the tax.
+The buy button on any Pro section of a core dashboard, or **Get the lifetime license** in Settings, opens the checkout. Polar handles the payment and the tax.
 Your license is read access to the private Pro repository on GitHub, and you claim it in three steps:
 
 1. After you pay, Polar opens your purchase page. Later, open it from the **Access purchase** button in Polar's order

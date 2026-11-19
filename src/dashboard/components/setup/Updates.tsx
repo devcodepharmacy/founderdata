@@ -72,7 +72,7 @@ export function ProCard() {
     <SettingsCard
       id="pro"
       title="FounderData Pro"
-      desc="One payment, every future update included. Pro runs on your own Cloudflare account, and your data stays there."
+      desc="One payment covers all your sites and apps, with every future update. Pro runs on your own Cloudflare account, and your data stays there."
     >
       <ul className="list-disc space-y-1 pl-5 text-[13px] text-stone-600">
         {PRO_LIST.map((x) => (

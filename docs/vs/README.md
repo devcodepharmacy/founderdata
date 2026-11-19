@@ -15,7 +15,7 @@ lists what FounderData does not do, and links the import path if you move.
 ## What FounderData is
 
 Open-source analytics you host yourself on Cloudflare Workers and D1. Core is free under MIT. It joins web and iOS
-visits and payments in one database, and a 9-tool MCP server lets your AI agent read them with one key. FounderData Pro, €19.99 or $19.99 once,
+visits and payments in one database, and a 9-tool MCP server lets your AI agent read them with one key. FounderData Pro, €29.99 or $29.99 once,
 adds subscription metrics, Search Console, rank checks, App Store ranks, AI answers and 30 MCP tools
 ([PRO.md](../PRO.md)). The pages below say which features need Pro. See the [README](../../README.md).
 

@@ -1,6 +1,6 @@
 import type { View } from './sections';
 
-/** What each FounderData Pro section does, for the Pro card a core build shows in its place (components/ProUpsell.tsx). */
+/** What each FounderData Pro section does, for the Pro page a core build shows in its place (components/ProPaywall.tsx). */
 export const PRO_SECTIONS: Partial<Record<View, { title: string; body: string; collected?: string }>> = {
   content: {
     title: 'Content',
@@ -57,6 +57,40 @@ export const PRO_APPS_PAGE = {
   body: 'Every iOS app on one page: sessions, onboarding completion, paywall conversion, purchases and revenue, side by side.',
   collected: 'Core already stores the events FounderDataKit sends, so the page shows your history the day you switch.',
 };
+
+/**
+ * The feature cards around the price on the Pro page (components/ProPaywall.tsx): group, name and one line, each true
+ * to the README's Pro section. Two columns, one per side, each long enough that no card shows twice at once.
+ */
+export const PRO_CARDS: [group: string, name: string, line: string][][] = [
+  [
+    ['Revenue', 'Subscriptions', 'MRR and its movement, trials, churn and LTV, split by source, plan and provider.'],
+    ['Revenue', 'Retention grid', 'One row per signup month. Switch between customers kept and revenue kept.'],
+    ['Revenue', 'History import', 'Import from ChartMogul or RevenueCat, so MRR starts at your first customer.'],
+    ['Apps', 'App analytics', 'Sessions, screens, the onboarding funnel, paywall conversion, day-1 and day-7 retention.'],
+    ['Apps', 'App Store sales', 'Daily sales and proceeds per product and country, from App Store Connect.'],
+    ['Apps', 'Apple Search Ads', 'Spend, installs, trials, paid conversions and ROAS per campaign and keyword.'],
+    ['Apps', 'ASO', 'Your rank per keyword and country, and the 10 apps above you.'],
+    ['Phone', 'iPhone app', 'Widgets for your numbers and a push notification for every payment.'],
+    ['Funnel', 'Drop-off', 'Where sessions stop before they buy, on the website and in the app.'],
+    ['Email', 'Resend', 'Sent, delivered, bounced, opened and clicked emails per day and sender.'],
+    ['Team', 'Teammates', 'Each person gets their own login, as owner or viewer.'],
+  ],
+  [
+    ['Ads', 'Meta ads', 'Spend per campaign, ad set and ad, next to the customers and revenue it brought.'],
+    ['Ads', 'Conversions API', 'Sends Meta each web purchase, so a campaign can optimize for buyers.'],
+    ['Ads', 'Paid overview', 'All ad spend against new customers: MER, blended CAC, ROAS and days to payback.'],
+    ['SEO', 'Search Console', 'Queries and pages, with the revenue each page brought.'],
+    ['SEO', 'Rank tracking', 'Daily Google ranks for up to 200 keywords a site, on your own DataForSEO account.'],
+    ['SEO', 'Page audit', 'Flags pages that are thin, orphaned, noindex or missing a meta description.'],
+    ['AI', 'AI visibility', 'Your prompts asked in ChatGPT, Claude, Gemini and Perplexity every day, on your own API keys.'],
+    ['Social', 'Which post paid', 'Ties visits and revenue from X to the post that most likely sent them.'],
+    ['Agents', '30 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
+    ['Agents', 'Alert rules', 'A threshold on any number, with a webhook that can wake your agent.'],
+    ['Home', 'Next actions', 'The top 6 actions across your sites, each with what it is worth in a month.'],
+    ['Home', 'Change verdicts', 'Log a change and see whether it moved the number it was meant to move.'],
+  ],
+];
 
 /** Everything Pro adds, for the Pro card in Settings. */
 export const PRO_LIST = [

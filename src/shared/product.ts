@@ -21,8 +21,17 @@ export const RELEASE_URL = 'https://raw.githubusercontent.com/founderdata/founde
 /** The Polar checkout for the lifetime license. When it is empty, the Pro card links to PRO_PAGE instead. */
 export const PRO_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_VXmKrwlw4IIWM6GhohnTzJZN5nMhtpjbcy7I63PRvbm';
 
-/** The price of the lifetime license, in both currencies the checkout takes. */
-export const PRO_PRICE = '€19.99 or $19.99';
+/** The regular price of the lifetime license, in minor units. The checkout takes euros and dollars at this number. */
+export const PRO_REGULAR = 2999;
+
+/** The regular price of the lifetime license, in both currencies the checkout takes. */
+export const PRO_PRICE = '€29.99 or $29.99';
+
+/**
+ * The live launch offer, as JSON (src/shared/offer.ts): the regular price, the launch steps and how many licenses
+ * sold. The Pro card reads it in the browser when it opens; without it, the card shows the regular price.
+ */
+export const OFFER_URL = 'https://raw.githubusercontent.com/founderdata/founderdata/offer/offer.json';
 
 /** What Pro adds and costs, in the core README. */
 export const PRO_PAGE = `${CORE_REPO}#founderdata-pro`;

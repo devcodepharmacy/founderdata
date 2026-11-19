@@ -1,5 +1,4 @@
 import { useId, useState } from 'react';
-import { PRO_PRICE } from '../../shared/product';
 import { isPro } from '../lib/pro';
 import { TRAIL_PATH } from './Logo';
 import { Modal } from './Modal';
@@ -85,7 +84,7 @@ export function SupportDialog({ open, onClose }: { open: boolean; onClose: () =>
           <h2 className="text-xl font-semibold tracking-tight">Support FounderData</h2>
           <p className="mx-auto mt-2 max-w-xs text-[15px] leading-relaxed text-stone-600">
             Core stays free. FounderData Pro pays for the work on both, and adds subscription analytics, app reports, ads,
-            SEO and AI visibility for {PRO_PRICE}, paid once.
+            SEO and AI visibility. You pay once.
           </p>
           <div className="mt-6 flex justify-center">
             <ProActions compact />
