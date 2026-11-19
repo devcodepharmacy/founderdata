@@ -2451,7 +2451,7 @@ Needs `mail:write`. Sends one message and starts a thread, so an answer lands in
 | `to` | Required. One address or a list. `to`, `cc` and `bcc` take 50 addresses together |
 | `subject` | Required unless the template has one. 998 characters at most |
 | `text`, `html` | One of them is required, unless the send names a `template` |
-| `template` | `{ "id", "variables" }`: a published template by id or alias, in place of `text` and `html` ([Mail templates](#mail-templates)) |
+| `template` | `{ "id", "variables", "language" }`: a published template by id or alias, in place of `text` and `html`. `language` picks one of its languages, falling back to the base language, then the default ([Mail templates](#mail-templates)) |
 | `cc`, `bcc`, `reply_to` | An address or a list. Sending uses the first `reply_to` address |
 | `headers` | An object of header names and values. Cloudflare refuses the ones it writes itself, such as `Message-ID` |
 | `tags` | Up to 50 `{ "name", "value" }` pairs of ASCII letters, digits, `_` and `-` |
@@ -2503,9 +2503,9 @@ to one mail domain. A key kept to some domains reads and changes their templates
 | --- | --- | --- |
 | `GET /api/v1/mail/templates` | any mail scope | 50 a page by name, with `next_cursor`. Each has its sends over 30 days in `counts`. `?domain_id=`, `?days=` (1 to 90) |
 | `GET /api/v1/mail/templates/<id>` | any mail scope | `template`, the `draft`, the `published` version and the `versions` kept |
-| `POST /api/v1/mail/templates/<id>/preview` | any mail scope | `{ "version": "draft", "variables": {} }`. Answers `subject`, `html`, `text` and the variables without a value in `missing`, shown as `[KEY]`. Writes nothing |
-| `POST /api/v1/mail/templates` | `mail:templates` | `name`, `html`, and `alias`, `from`, `subject`, `reply_to`, `text`, `variables`, `domain`. A draft. `201`. Writes 3 rows |
-| `PATCH /api/v1/mail/templates/<id>` | `mail:templates` | Changes the draft. `variables` replaces the list, and `null` clears a field. Writes 1 row |
+| `POST /api/v1/mail/templates/<id>/preview` | any mail scope | `{ "version": "draft", "variables": {}, "language": "de" }`. Answers `subject`, `html`, `text`, the `language` used and the variables without a value in `missing`, shown as `[KEY]`. Writes nothing |
+| `POST /api/v1/mail/templates` | `mail:templates` | `name`, `html`, and `alias`, `from`, `subject`, `reply_to`, `text`, `variables`, `domain`, `language` (the default, `en`) and `languages` (the other languages, each `{ subject, html, text }`). A draft. `201`. Writes 3 rows |
+| `PATCH /api/v1/mail/templates/<id>` | `mail:templates` | Changes the draft. `variables` replaces the list, and `null` clears a field. `language` names which language subject, html and text change; `languages` sets or, with `null`, removes languages; `default_language` makes a language the default. Writes 1 row |
 | `POST /api/v1/mail/templates/<id>/publish` | `mail:templates` | The draft becomes the version sends use. Writes 3 rows |
 | `POST /api/v1/mail/templates/<id>/restore` | `mail:templates` | `{ "version": 2 }` puts that version back in the draft |
 | `DELETE /api/v1/mail/templates/<id>` | `mail:templates` | Deletes it and its versions. Sent mail keeps its id |

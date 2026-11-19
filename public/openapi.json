@@ -13094,6 +13094,10 @@
                             "number"
                           ]
                         }
+                      },
+                      "language": {
+                        "type": "string",
+                        "description": "A language tag such as de. The template's language of that tag, else its base language, else its default. \"welcome:de\" as id does the same."
                       }
                     },
                     "required": [
@@ -14037,6 +14041,45 @@
                   "domain": {
                     "type": "string",
                     "description": "The mail domain, by name or id, when from is not set."
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "Create: the default language, en when left out. Update: the language subject, html and text change."
+                  },
+                  "languages": {
+                    "type": "object",
+                    "description": "Other languages by tag, each { subject, html, text }. null removes one.",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "subject": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "html": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "html"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
                   }
                 },
                 "additionalProperties": false,
@@ -14830,6 +14873,49 @@
                   "domain": {
                     "type": "string",
                     "description": "The mail domain, by name or id, when from is not set."
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "Create: the default language, en when left out. Update: the language subject, html and text change."
+                  },
+                  "languages": {
+                    "type": "object",
+                    "description": "Other languages by tag, each { subject, html, text }. null removes one.",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "subject": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "html": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "html"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "default_language": {
+                    "type": "string",
+                    "description": "Make this language the default. The old default becomes one of the other languages."
                   }
                 },
                 "additionalProperties": false
@@ -15707,6 +15793,9 @@
                         "number"
                       ]
                     }
+                  },
+                  "language": {
+                    "type": "string"
                   }
                 },
                 "additionalProperties": false

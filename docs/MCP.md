@@ -426,14 +426,14 @@ body, like every other tool.
 | `get_message` | `message_id` | `GET /api/v1/mail/messages/<id>` |
 | `list_sent` | `q`, `status`, `limit`, `cursor` | `GET /api/v1/mail/sent` |
 | `domains` | none | `GET /api/v1/mail/domains` |
-| `send` | `from`, `to`, `subject`, `text` or `html`, `cc`, `bcc`, `reply_to`, `idempotency_key`. Or `template_id` and `variables` in place of `text` and `html` | `POST /api/v1/mail/send` |
+| `send` | `from`, `to`, `subject`, `text` or `html`, `cc`, `bcc`, `reply_to`, `idempotency_key`. Or `template_id`, `variables` and `language` in place of `text` and `html` | `POST /api/v1/mail/send` |
 | `reply` | `thread_id`, `text` or `html`, `from`, `reply_all` | `POST /api/v1/mail/threads/<id>/reply` |
 | `mark_read` | `thread_id`, `read` | `POST /api/v1/mail/threads/<id>/read` |
 | `archive` | `thread_id`, `archived` | `POST /api/v1/mail/threads/<id>/archive` |
 | `list_templates` | `limit`, `cursor` | `GET /api/v1/mail/templates` |
 | `get_template` | `template_id` | `GET /api/v1/mail/templates/<id>` |
-| `preview_template` | `template_id`, `version`, `variables` | `POST /api/v1/mail/templates/<id>/preview` |
-| `save_template` | `name`, `html`, `alias`, `from`, `subject`, `reply_to`, `text`, `variables`, `domain`. With `template_id` it changes that template's draft | `POST` or `PATCH /api/v1/mail/templates` |
+| `preview_template` | `template_id`, `version`, `variables`, `language` | `POST /api/v1/mail/templates/<id>/preview` |
+| `save_template` | `name`, `html`, `alias`, `from`, `subject`, `reply_to`, `text`, `variables`, `domain`, `language`. With `template_id` it changes that template's draft, in `language` when given | `POST` or `PATCH /api/v1/mail/templates` |
 | `publish_template` | `template_id` | `POST /api/v1/mail/templates/<id>/publish` |
 
 An argument that belongs to another action is refused, not dropped. The answers are the routes' answers

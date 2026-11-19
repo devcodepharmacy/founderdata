@@ -290,8 +290,36 @@ Each value fills its placeholders:
 - A value for a key the template does not declare answers 422. This catches a typo that would otherwise send the
   fallback.
 
-A sent message records the template and the version it was made from. The Sent tab filters by template, and the
-Templates tab counts each template's sends over 30 days.
+A sent message records the template, the version and the language it was made from. The Sent tab filters by template,
+and the Templates tab counts each template's sends over 30 days.
+
+### Languages
+
+A template has one default language and can have spin-offs: the same email in other languages. Each language has its
+own subject, HTML and text. The name, alias, from address, reply-to and variables are shared, so a send passes the same
+values whatever the language. Publishing puts out every language at once as one version.
+
+A send asks for a language in the template id, which works through the `resend` package:
+
+```js
+await resend.emails.send({ to: 'ann@example.net', template: { id: 'welcome:de', variables: { NAME: 'Ann' } } });
+```
+
+Over plain HTTP, `template: { id: 'welcome', language: 'de' }` works too. The package drops any field of `template`
+other than `id` and `variables`, which is why the id carries it. FounderData picks the first of these the template has:
+
+1. The language asked for, such as `de-at`.
+2. Its base language, `de`.
+3. The template's default language.
+
+The sent message records which language went out. A template without a language set is English.
+
+In the dashboard, the editor's **Languages** bar adds a language as a copy of the default to translate, removes one, and
+makes another one the default. Through the API, create takes `language` (the default, `en` when left out) and
+`languages`, an object of language tags and `{ subject, html, text }`. An update changes the default language's
+subject, html and text, or another language's when the body names it in `language`; a language the template lacks
+starts as a copy of the default. `languages` sets several at once, and `null` removes one. `default_language` makes a
+spin-off the default. A template holds 20 languages and 1.5 MB of html and text across them.
 
 ### Who can change them
 
@@ -329,8 +357,10 @@ change.
 - `duplicate` makes a draft named "<name> (copy)" without an alias.
 - An unknown template answers `404 not_found`. One never published answers 422.
 - A deployment holds 500 templates.
-- A template's answer carries one field Resend's does not: `domain`. Create takes `domain`, a name or id, for a
-  template without a from address. A key kept to one domain needs neither.
+- A template's answer carries fields Resend's does not: `domain`, `language` and `languages`. Create takes `domain`,
+  a name or id, for a template without a from address. A key kept to one domain needs neither. Resend's own fields
+  (`subject`, `html`, `text`) hold the default language. See [Languages](#languages).
+- A template id with a colon, `welcome:de`, sends that language. Resend has no languages.
 
 ## Agents
 
