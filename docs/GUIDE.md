@@ -2727,7 +2727,7 @@ is hidden. A click's label is the button's visible text, cut to 40 characters. I
 ### What it costs
 
 A site with 100 recorded visits a day stays far inside the free tiers: about 1,500 rows written and 700 requests a
-day, and 21,000 R2 writes and SIZE_MONTH of storage a month.
+day, and 21,000 R2 writes and about 450 MB of storage a month.
 
 The numbers behind it, per recorded visit of 3 minutes with clicks on 3 pages:
 
@@ -2736,7 +2736,7 @@ The numbers behind it, per recorded visit of 3 minutes with clicks on 3 pages:
 | D1 rows written | 3 for the index row, plus 4 for each page with clicks or errors: 15 | 100,000 a day |
 | Worker requests | 1 per chunk, a chunk about every 30 seconds: 7 | 100,000 a day |
 | R2 writes | 1 per chunk: 7 | 1 million a month |
-| R2 storage | About SIZE_VISIT, gzipped | 10 GB |
+| R2 storage | About 150 KB, gzipped. A minute on a busy dashboard page measured 30 to 60 KB | 10 GB |
 
 At the default limit of 1,000 recorded visits a day that is 15,000 rows and 7,000 requests a day, out of 100,000 of
 each, and 210,000 R2 writes a month. To record fewer, lower **Most visits recorded a day** or **Record every visit, or
