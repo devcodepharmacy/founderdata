@@ -52,6 +52,7 @@ only replaced. Revoking a key stops it within a minute and leaves the others alo
 | `mail:read` | FounderData Pro mail: read the inbox, the sent log and delivery events, with addresses and message text (`/api/v1/mail/*` reads and the MCP tool `mail`). `read` does not include it | `403` |
 | `mail:write` | FounderData Pro mail: send from the deployment's mail domains, reply, mark read and archive (`POST /api/mail/emails`, the `/api/v1/mail/*` writes and the MCP tool `mail`). It does not include `mail:read` | `403` |
 | `mail:templates` | FounderData Pro mail templates: create, change, publish and delete them (`/api/mail/templates`, the `/api/v1/mail/templates` writes and the MCP tool `mail`). It sends nothing, and `mail:write` does not include it | `403` |
+| `dashboards:write` | FounderData Pro custom dashboards: create, change and delete them (`POST`, `PATCH`, `DELETE /api/v1/dashboards` and the MCP tool `dashboards`). It writes no data, and reads dashboards too | `403` |
 
 A `403` names the missing scope and the key's scopes. A key for one site acts on that site. A key for several sites
 or all sites names the site with `?site=<id>` on every route, reads and writes alike; a site it doesn't cover gets
@@ -624,6 +625,27 @@ enough for the free plan's 10 ms of CPU.
 `truncated: true` says a statement was cut, and `rows_total` then counts the rows read. Ask for fewer sites, a shorter
 range or a coarser bucket to get every row.
 An unknown metric, dimension, filter or field gets `400` with the list it takes.
+
+### Dashboards (Pro)
+
+Custom dashboards that the dashboard shows at `/dashboards`. A widget is a [query](#post-apiv1query-pro) saved with a
+view, and the page runs it when it opens. The MCP tool `dashboards` calls these routes, and
+[MCP.md](MCP.md#custom-dashboards-pro) explains the views and their rules.
+
+| Route | Scope | Takes and answers |
+| --- | --- | --- |
+| `GET /api/v1/dashboards` | `read` or `dashboards:write` | `{ dashboards: [{ id, name, description, url, widget_count, widget_titles, created_by, updated_by, updated_at }] }` |
+| `GET /api/v1/dashboards/<id>` | `read` or `dashboards:write` | The dashboard: `id`, `name`, `description`, `url`, `created_by`, `updated_by`, `created_at`, `updated_at` and `widgets` |
+| `POST /api/v1/dashboards` | `dashboards:write` | `name` (80 characters), `description` (280), `widgets`. Writes 1 row |
+| `PATCH /api/v1/dashboards/<id>` | `dashboards:write` | Any of `name`, `description`, `widgets` (replaces the list), `add_widgets`, `update_widgets` (`[{ id, ...fields }]`), `remove_widgets` (ids). Writes 1 row |
+| `DELETE /api/v1/dashboards/<id>` | `dashboards:write` | `{ ok: true, id }`. Writes 1 row |
+
+A widget is `{ id, title, view, width, query, note }`: `view` is `number`, `line`, `bar` or `table`, `width` is
+`third`, `half` or `full`, and `query` takes the body of `POST /api/v1/query`. `created_by` and `updated_by` hold the
+key's name, or `owner` for the dashboard login. A `400` names the widget and the field, such as
+`widgets[1]: A line needs a time dimension in dimensions: day, week or month.` A key kept to some sites gets `404` for
+a dashboard with a widget on another site, and every widget it saves names its sites. Money metrics need
+`read:revenue`.
 
 ### Routes for agents and scripts
 

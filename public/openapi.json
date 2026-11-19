@@ -36,6 +36,9 @@
     },
     {
       "name": "Mail"
+    },
+    {
+      "name": "Dashboards"
     }
   ],
   "paths": {
@@ -15767,6 +15770,836 @@
           },
           "403": {
             "description": "The key lacks the scope the route needs. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/dashboards": {
+      "get": {
+        "operationId": "listDashboards",
+        "tags": [
+          "Dashboards"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "List custom dashboards (Pro)",
+        "description": "Every dashboard the key reaches. A key kept to some sites sees the dashboards whose widgets all stay on its sites. Needs read or dashboards:write.",
+        "responses": {
+          "200": {
+            "description": "Dashboards",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dashboards": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "widget_count": {
+                            "type": "integer"
+                          },
+                          "widget_titles": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "updated_by": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "url",
+                          "widget_count"
+                        ],
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "dashboards"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs, or a widget asks for money without read:revenue or for a site the key does not cover. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Create a custom dashboard (Pro)",
+        "description": "A dashboard of widgets, each a query saved with a view. The page runs each widget when it opens. A 400 names the widget and the field. Writes 1 D1 row. Needs dashboards:write; money metrics need read:revenue.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 280
+                  },
+                  "widgets": {
+                    "type": "array",
+                    "maxItems": 24,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "view": {
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "line",
+                            "bar",
+                            "table"
+                          ]
+                        },
+                        "width": {
+                          "type": "string",
+                          "enum": [
+                            "third",
+                            "half",
+                            "full"
+                          ]
+                        },
+                        "query": {
+                          "type": "object",
+                          "description": "The body of POST /api/v1/query: metrics, dimensions, filters, period or from and to, compare, sites, order_by, order, limit, model.",
+                          "additionalProperties": true
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 280
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "query"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The dashboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "description": "The dashboard's page."
+                    },
+                    "created_by": {
+                      "type": "string",
+                      "description": "The key's name, or owner for the dashboard login."
+                    },
+                    "updated_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "widgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          "view": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "line",
+                              "bar",
+                              "table"
+                            ]
+                          },
+                          "width": {
+                            "type": "string",
+                            "enum": [
+                              "third",
+                              "half",
+                              "full"
+                            ]
+                          },
+                          "query": {
+                            "type": "object",
+                            "description": "The body of POST /api/v1/query: metrics, dimensions, filters, period or from and to, compare, sites, order_by, order, limit, model.",
+                            "additionalProperties": true
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "maxLength": 280
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "query"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "widgets"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs, or a widget asks for money without read:revenue or for a site the key does not cover. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/dashboards/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Get a custom dashboard (Pro)",
+        "description": "The dashboard with its widgets. Needs read or dashboards:write.",
+        "responses": {
+          "200": {
+            "description": "The dashboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "description": "The dashboard's page."
+                    },
+                    "created_by": {
+                      "type": "string",
+                      "description": "The key's name, or owner for the dashboard login."
+                    },
+                    "updated_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "widgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          "view": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "line",
+                              "bar",
+                              "table"
+                            ]
+                          },
+                          "width": {
+                            "type": "string",
+                            "enum": [
+                              "third",
+                              "half",
+                              "full"
+                            ]
+                          },
+                          "query": {
+                            "type": "object",
+                            "description": "The body of POST /api/v1/query: metrics, dimensions, filters, period or from and to, compare, sites, order_by, order, limit, model.",
+                            "additionalProperties": true
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "maxLength": 280
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "query"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "widgets"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs, or a widget asks for money without read:revenue or for a site the key does not cover. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Change a custom dashboard (Pro)",
+        "description": "widgets replaces the list, then remove_widgets, update_widgets and add_widgets apply in that order. Writes 1 D1 row. Needs dashboards:write.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 280
+                  },
+                  "widgets": {
+                    "type": "array",
+                    "maxItems": 24,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "view": {
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "line",
+                            "bar",
+                            "table"
+                          ]
+                        },
+                        "width": {
+                          "type": "string",
+                          "enum": [
+                            "third",
+                            "half",
+                            "full"
+                          ]
+                        },
+                        "query": {
+                          "type": "object",
+                          "description": "The body of POST /api/v1/query: metrics, dimensions, filters, period or from and to, compare, sites, order_by, order, limit, model.",
+                          "additionalProperties": true
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 280
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "query"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Replaces the list. A widget sent with an id keeps it."
+                  },
+                  "add_widgets": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "view": {
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "line",
+                            "bar",
+                            "table"
+                          ]
+                        },
+                        "width": {
+                          "type": "string",
+                          "enum": [
+                            "third",
+                            "half",
+                            "full"
+                          ]
+                        },
+                        "query": {
+                          "type": "object",
+                          "description": "The body of POST /api/v1/query: metrics, dimensions, filters, period or from and to, compare, sites, order_by, order, limit, model.",
+                          "additionalProperties": true
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 280
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "query"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "update_widgets": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "description": "Each an id plus the fields to change."
+                  },
+                  "remove_widgets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The dashboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "description": "The dashboard's page."
+                    },
+                    "created_by": {
+                      "type": "string",
+                      "description": "The key's name, or owner for the dashboard login."
+                    },
+                    "updated_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "widgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          "view": {
+                            "type": "string",
+                            "enum": [
+                              "number",
+                              "line",
+                              "bar",
+                              "table"
+                            ]
+                          },
+                          "width": {
+                            "type": "string",
+                            "enum": [
+                              "third",
+                              "half",
+                              "full"
+                            ]
+                          },
+                          "query": {
+                            "type": "object",
+                            "description": "The body of POST /api/v1/query: metrics, dimensions, filters, period or from and to, compare, sites, order_by, order, limit, model.",
+                            "additionalProperties": true
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "maxLength": 280
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "query"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "url",
+                    "widgets"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs, or a widget asks for money without read:revenue or for a site the key does not cover. The error names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          }
+        ],
+        "summary": "Delete a custom dashboard (Pro)",
+        "description": "Writes 1 D1 row. Needs dashboards:write.",
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "The key lacks the scope the route needs, or a widget asks for money without read:revenue or for a site the key does not cover. The error names it.",
             "content": {
               "application/json": {
                 "schema": {

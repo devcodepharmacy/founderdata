@@ -25,6 +25,7 @@ Make a key for the agent in Settings, Agents. Pick the scopes it needs ([API.md]
 - `spend:seo` if it should buy keyword research with your DataForSEO account (`research_keywords` with `mode`), up to the site's monthly cap. `research:write` does not include it.
 - `mail:read` and `mail:write` if it should read and send the deployment's mail with the Pro tool `mail`. Mail answers hold addresses and message text that strangers wrote. `read` reaches none of it.
 - `mail:templates` if it should write and publish the mail templates your apps send. It sends nothing.
+- `dashboards:write` if it should build custom dashboards with `dashboards` ([Custom dashboards](#custom-dashboards-pro)). It writes no data. Add `read:revenue` if its widgets may show money.
 - One site, several, or all sites. A key for all sites unlocks `get_portfolio`.
 
 `spend:ai` adds one tool, `add_ai_prompts`, which saves prompts for the AI visibility runner ([AI-VISIBILITY.md](AI-VISIBILITY.md)). Each prompt is billed on the owner's engines every day, so give this scope only to an agent that should spend. `seo:write` and `aso:write` are for push scripts: no tool writes the SEO snapshot, the ASO data or AI
@@ -280,7 +281,7 @@ Those first two calls are the start of every run: what to do and what changed. T
 ## Tools
 
 Each tool takes `site`, a site id. Only a key for more than one site needs it, and `whoami` lists the ids. The
-Edition column says which tools core has. The other 22 answer only in FounderData Pro, and one of them, `mail`, belongs to the deployment and takes no `site`.
+Edition column says which tools core has. The other 23 answer only in FounderData Pro, and two of them, `mail` and `dashboards`, belong to the deployment and take no `site`.
 `get_definitions`, `get_overview` with `view: "actions"`, `list_notes` with `due: true`, `list_research`, `alert_rules` and `query` also answer without it, for
 every site the key covers, each row with its `site_id`. Ranged tools
 take `period`, one of `today`, `yesterday`, `24h`, `48h`, `7d`, `30d`, `90d`, `12m`, `thisquarter`, `lastquarter` and
@@ -291,6 +292,7 @@ object such as `{"country": "DE"}`; `get_definitions` lists its keys under `defi
 | --- | --- | --- | --- |
 | `whoami` | Core | `/api/v1/whoami` | The key: name, scopes and what each allows, the sites it covers with their names, the expiry, and the deployed version. With `read`, each site's `tracking_since` and `sources`: the status of each integration, and the failing or stale ones with `last_error`. Works for every key. The server tells agents to call it first. |
 | `query` | Pro | `POST /api/v1/query` | Metrics by up to 2 dimensions, a day, week or month bucket and the site, for one site or every site the key covers. See [The query tool](#the-query-tool-pro). |
+| `dashboards` | Pro | `/api/v1/dashboards` | Custom dashboards, with an `action`: list, get, create, update and delete. Each widget is a `query` call saved with a view, and the dashboard runs it when the page opens. Reads need `read`, changes `dashboards:write`. Takes no `site`. See [Custom dashboards](#custom-dashboards-pro). |
 | `get_definitions` | Core | `/api/v1/definitions` | How each number is computed (also ROAS, CPA, MER, blended CAC, payback, hook rate, Search Console position, mention rate, the verdict rule, attribution coverage), the currency and the timezone, plus the site's `tracking_since` and `sources` in full. Without `site`, every site in short form. |
 | `get_overview` | Core | `/api/v1/stats/overview`; `/api/v1/actions` with `view` `actions` | Visitors, revenue, new customers and conversion rate, against the period before. `previous` is `null`, or a money field in it is, when the data started after the period before began; `previous_reason` says why. `view: "actions"` (Pro): the site's next actions. |
 | `get_breakdown` | Core | `/api/v1/stats/breakdown` | One panel by `dim`: sources, campaigns, ad click networks (`click_network`), countries, devices, languages, pages, goals, and in Pro `x_post` (your X posts with visitors, customers, revenue and the exact or probable split of visits, customers and revenue; a probable match is a guess, not proof). `model: "first"` credits each visitor's first visit on channel, source, campaign, referrer_domain and entry_page; `last` is the default. |
@@ -412,6 +414,54 @@ most 3 times `limit`, so the Worker stays inside the free plan's 10 ms of CPU. `
 Ask for fewer sites, a shorter range or a coarser bucket. A query reads 25 sites at most. Answers are cached for 60 seconds per key and
 body, like every other tool.
 
+### Custom dashboards (Pro)
+
+`dashboards` builds pages of widgets that the owner opens at `/dashboards` in the dashboard. A widget is a `query`
+call saved with a view. Saving computes nothing. The page runs each widget when it opens, so the numbers match `query`
+and never go stale. The owner can rename a dashboard, reorder and remove widgets, and delete it.
+A viewer login reads dashboards and changes nothing.
+
+| `action` | Arguments | Route |
+| --- | --- | --- |
+| `list`, the default | none | `GET /api/v1/dashboards` |
+| `get` | `id` | `GET /api/v1/dashboards/<id>` |
+| `create` | `name`, `description`, `widgets` | `POST /api/v1/dashboards` |
+| `update` | `id`, and any of `name`, `description`, `widgets` (replaces the list), `add_widgets` (appended), `update_widgets` (each an `id` plus the fields to change) and `remove_widgets` (ids) | `PATCH /api/v1/dashboards/<id>` |
+| `delete` | `id` | `DELETE /api/v1/dashboards/<id>` |
+
+A widget is `{ "title", "view", "width", "query", "note" }`. `query` takes the arguments of the query tool. `note` is
+one line under the widget, such as what to look for. A widget sent with an `id` keeps it, which is how a reorder keeps
+each widget in place.
+
+```json
+{ "action": "create", "name": "Weekly growth", "widgets": [
+  { "title": "Revenue", "view": "number", "query": { "metrics": ["revenue", "customers"], "period": "30d", "compare": "previous", "sites": ["SITE_ID"] } },
+  { "title": "Visitors per day", "view": "line", "query": { "metrics": ["visitors"], "dimensions": ["day"], "period": "30d" } },
+  { "title": "Revenue by channel", "view": "bar", "query": { "metrics": ["revenue"], "dimensions": ["channel"], "sites": ["SITE_ID"] } },
+  { "title": "Entry pages", "view": "table", "query": { "metrics": ["visitors", "revenue", "rpv"], "dimensions": ["entry_page"], "sites": ["SITE_ID"], "limit": 10 } }
+] }
+```
+
+| `view` | Draws | The query it takes |
+| --- | --- | --- |
+| `number` | Big numbers, with the change against the period before when the query has `compare` | Up to 4 metrics, no dimensions. Several sites show as a table |
+| `line` | A line per site, or per value of one dimension, over time | One metric and one of `day`, `week` or `month`. A dimension next to it needs one site. More than 6 lines fold the smallest into Other |
+| `bar` | Rows with share bars | One metric. One dimension on one site, or none to compare sites |
+| `table` | Every row | Anything `query` takes |
+
+One metric per line keeps every line on one scale: visitors and revenue never share an axis. Put each metric in its
+own widget. `width` is `third`, `half` or `full` of the row on a wide screen. Without it a number takes a third, a
+line the full row, and bars and tables half. Without `view`, a time bucket draws a line, a dimension a table, and
+totals a number. A dashboard holds 24 widgets, and a deployment 50 dashboards.
+
+A widget without `sites` covers every site. A key kept to some sites always saves the ids of its sites, and it sees
+and changes only the dashboards whose widgets all stay on its sites. Money metrics need `read:revenue`, as in `query`.
+Each answer has `url`, the dashboard's page, to hand to the person. The page has a period control that runs every
+widget over one period instead of its own.
+
+A dashboard is one D1 row. Creating, changing and deleting one each write 1 row. Running a widget writes none and
+reads what the same `query` reads.
+
 ### The mail tool (Pro)
 
 `mail` reads and writes the deployment's mail ([MAIL.md](MAIL.md)). It takes no `site`. Reads need a key with
@@ -461,9 +511,10 @@ names and sizes. The tool sends no attachments. The route does.
 
 ### The tool budget
 
-A client loads `tools/list` into every turn, so the budget is its size: at most 52,000 characters without the output
-schemas, about 13,000 tokens. A test in the Pro repository fails above it. The count is a guide, 31 at most: a new report
-becomes a view or an argument of a tool first. Mail is one tool with nine actions for that reason.
+A client loads `tools/list` into every turn, so the budget is its size: at most 53,800 characters without the output
+schemas, about 13,500 tokens. A test in the Pro repository fails above it. The count is a guide, 32 at most: a new report
+becomes a view or an argument of a tool first. Mail is one tool with many actions for that reason, and so is
+`dashboards`.
 
 Round 6 folded six tools into views. The old names answer one more release with an error that names the new call:
 
