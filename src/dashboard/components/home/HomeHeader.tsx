@@ -109,6 +109,11 @@ function AccountMenu({ hasApps, viewer, onLogout }: { hasApps: boolean; viewer: 
               All apps
             </button>
           )}
+          {isPro && (
+            <button role="menuitem" className={`${item} md:hidden`} onClick={pick(() => navigate('/dashboards'))}>
+              Dashboards
+            </button>
+          )}
           {!viewer && isPro && (
             <button role="menuitem" className={`${item} md:hidden`} onClick={pick(() => navigate('/mail'))}>
               Mail
@@ -167,6 +172,11 @@ export function HomeHeader({
           {hasApps && (
             <button className={navLink} onClick={() => navigate('/apps')}>
               All apps
+            </button>
+          )}
+          {isPro && (
+            <button className={navLink} onClick={() => navigate('/dashboards')}>
+              Dashboards
             </button>
           )}
           {!viewer && isPro && (

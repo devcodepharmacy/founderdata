@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { amount, type Offer } from '../../shared/offer';
 import { OFFER_PAGE } from '../../shared/product';
 import { useOffer } from '../lib/offer';
-import { PRO_APPS_PAGE, PRO_CARDS, PRO_MAIL_PAGE, PRO_SECTIONS } from '../lib/proFeatures';
+import { PRO_APPS_PAGE, PRO_CARDS, PRO_DASHBOARDS_PAGE, PRO_MAIL_PAGE, PRO_SECTIONS } from '../lib/proFeatures';
 import { matchRoute } from '../lib/routes';
 import { PageBar } from './home/PageBar';
 import { AFTER_PAYING, BuyLink, eur, InstallPrompt, priceOf, stepText } from './ProUpsell';
@@ -174,7 +174,7 @@ function useReducedMotion() {
  */
 export function ProUpsellView() {
   const route = matchRoute(window.location.pathname);
-  const section = route.page === 'dashboard' ? PRO_SECTIONS[route.view] : route.page === 'apps' ? PRO_APPS_PAGE : route.page === 'mail' ? PRO_MAIL_PAGE : undefined;
+  const section = route.page === 'dashboard' ? PRO_SECTIONS[route.view] : route.page === 'apps' ? PRO_APPS_PAGE : route.page === 'mail' ? PRO_MAIL_PAGE : route.page === 'dashboards' ? PRO_DASHBOARDS_PAGE : undefined;
   const o = useOffer();
   const offer = o.state === 'ready' ? o.offer : null;
   const [install, setInstall] = useState(false);
@@ -252,11 +252,11 @@ export function ProUpsellView() {
       </div>
     </div>
   );
-  // Connected apps is a page of its own, not a section inside the site dashboard, so it brings the page bar.
-  if (route.page !== 'apps') return view;
+  // Connected apps and Dashboards are pages of their own, not sections inside the site dashboard, so they bring the page bar.
+  if (route.page !== 'apps' && route.page !== 'dashboards') return view;
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-3 sm:px-6 sm:pt-4">
-      <PageBar current="apps" />
+      <PageBar current={route.page} />
       <div className="mt-5 sm:mt-8">{view}</div>
     </div>
   );

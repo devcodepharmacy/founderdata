@@ -85,7 +85,8 @@ export const PRO_CARDS: [group: string, name: string, line: string][][] = [
     ['SEO', 'Page audit', 'Flags pages that are thin, orphaned, noindex or missing a meta description.'],
     ['AI', 'AI visibility', 'Your prompts asked in ChatGPT, Claude, Gemini and Perplexity every day, on your own API keys.'],
     ['Social', 'Which post paid', 'Ties visits and revenue from X to the post that most likely sent them.'],
-    ['Agents', '31 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
+    ['Agents', '32 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
+    ['Agents', 'Custom dashboards', 'Your agent builds a dashboard of live charts and tables over MCP.'],
     ['Agents', 'Alert rules', 'A threshold on any number, with a webhook that can wake your agent.'],
     ['Home', 'Next actions', 'The top 6 actions across your sites, each with what it is worth in a month.'],
     ['Home', 'Change verdicts', 'Log a change and see whether it moved the number it was meant to move.'],
@@ -99,6 +100,13 @@ export const PRO_MAIL_PAGE = {
   collected: "Sending needs Cloudflare's Workers Paid plan, which includes 3,000 messages a month and charges $0.35 per 1,000 after that.",
 };
 
+/** The custom dashboards page (/dashboards), the Pro card's text for it. */
+export const PRO_DASHBOARDS_PAGE = {
+  title: 'Dashboards',
+  body: 'Ask your agent for a dashboard and it builds one over MCP: numbers, line charts, bar charts and tables from any metric by any dimension, across your sites. Each widget runs when you open the page, so the numbers are always current.',
+  collected: 'The widgets read the visits, payments and goals FounderData already stores, so they cover your whole history.',
+};
+
 /** Everything Pro adds, for the Pro card in Settings. */
 export const PRO_LIST = [
   'MRR, churn, LTV and retention per source, for every subscription provider',
@@ -108,6 +116,6 @@ export const PRO_LIST = [
   'AI visibility in ChatGPT, Claude, Gemini and Perplexity',
   'Home across all your sites with next actions, and a verdict on every change you log',
   'Mail on your own domains through Cloudflare, with an inbox, templates and an API that answers like Resend\'s',
-  'All 31 MCP tools, the query tool, alert rules and agent skills',
+  'All 32 MCP tools, the query tool, custom dashboards, alert rules and agent skills',
   'Teammates with their own login',
 ];
