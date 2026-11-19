@@ -87,8 +87,21 @@ export interface Env {
   PERPLEXITY_API_KEY?: string;
   /** Checks one hourly AI visibility run starts across all sites, 1 to 50; 12 when unset. Lower it if runs hit the CPU limit of the free plan. */
   AI_CHECKS_PER_RUN?: string;
-  /** Cloudflare Email Routing `send_email` binding, set in wrangler.local.jsonc. Sends to verified destination addresses only. */
+  /**
+   * Cloudflare `send_email` binding, set in wrangler.local.jsonc (`npm run setup -- --mail` adds it). Without Email Sending
+   * on the domain it sends to verified destination addresses only. FounderData Pro's mail sends through it too.
+   */
   EMAIL?: SendEmail;
+  /** R2 bucket for mail bodies, raw inbound messages and attachments (FounderData Pro mail, `npm run setup -- --mail`). */
+  MAIL_BUCKET?: R2Bucket;
+  /** Queue for Cloudflare's sending events, inbound parse jobs and webhook deliveries (FounderData Pro mail). */
+  MAIL_QUEUE?: Queue;
+  /**
+   * Cloudflare API token and account id for mail (FounderData Pro): domain status, DNS records, the suppression list and the
+   * delivery analytics. Optional: sending and receiving work without them.
+   */
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
   /** Sender of alert emails, like `FounderData <alerts@example.com>`: on a domain verified in Resend, or with Email Routing on. */
   ALERT_EMAIL_FROM?: string;
   /** Rows a day the sites on the automatic write cap share; 80,000 when unset (src/worker/budget.ts). */

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { navigate } from '../../App';
 import { warmQuery } from '../../lib/prefetch';
+import { isPro } from '../../lib/pro';
 import { HomeLink } from '../Logo';
 import { HeartIcon, showSupport, SupportDialog } from '../Support';
 import { Check, ThemeToggle } from '../ThemeToggle';
@@ -83,7 +84,7 @@ function PersonIcon() {
   );
 }
 
-/** Support and Log out, plus All apps and Notifications on narrow screens where the header has no room for them. */
+/** Support and Log out, plus All apps, Mail and Notifications on narrow screens where the header has no room for them. */
 function AccountMenu({ hasApps, viewer, onLogout }: { hasApps: boolean; viewer: boolean; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
   const [support, setSupport] = useState(false);
@@ -106,6 +107,11 @@ function AccountMenu({ hasApps, viewer, onLogout }: { hasApps: boolean; viewer: 
           {hasApps && (
             <button role="menuitem" className={`${item} md:hidden`} onClick={pick(() => navigate('/apps'))}>
               All apps
+            </button>
+          )}
+          {!viewer && isPro && (
+            <button role="menuitem" className={`${item} md:hidden`} onClick={pick(() => navigate('/mail'))}>
+              Mail
             </button>
           )}
           {!viewer && (
@@ -161,6 +167,11 @@ export function HomeHeader({
           {hasApps && (
             <button className={navLink} onClick={() => navigate('/apps')}>
               All apps
+            </button>
+          )}
+          {!viewer && isPro && (
+            <button className={navLink} onClick={() => navigate('/mail')}>
+              Mail
             </button>
           )}
           {!viewer && (

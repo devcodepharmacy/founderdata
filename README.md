@@ -163,13 +163,18 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
 - Email from Resend per site: sent, delivered, bounced, complained, opened and clicked emails per day, sender and
   tag, with bounce and complaint rates. One webhook per Resend account covers every site, matched by the sender's
   domain, and no recipient address is stored ([docs/GUIDE.md](docs/GUIDE.md#email-resend-pro)).
+- Mail on your own domains through Cloudflare: your apps send through an API that answers like Resend's, so they keep
+  the `resend` package and change the base URL and the key. Mail to your addresses lands in an inbox in the dashboard,
+  threaded with your replies, and agents read and answer it with the MCP tool `mail`. Delivery status, a suppression
+  list and signed webhooks come with it. Sending needs Workers Paid, which includes 3,000 messages a month
+  ([docs/MAIL.md](docs/MAIL.md)).
 - Home across all your sites gets a Growth row (ad spend with MER and CAC, Google Search clicks, the AI mention rate),
   search drops in "worth a look" ([docs/SEO.md](docs/SEO.md#search-drop)), and the top 6 next actions across your
   sites, each with what it is worth in a month ([guide](docs/GUIDE.md#next-actions-pro)).
 - MRR in the alerts and the Monday report, a daily numbers message, and a verdict for each logged change on the number
   it was meant to move: an SEO edit on its page's Search Console clicks over 28 days, an ad budget change on CPA, an AI
   content change on the mention rate, an app price on paywall conversion.
-- All 30 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
+- All 31 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
   key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and seven agent
   skills.
 - Teammates with their own login, as owner or viewer.
@@ -409,6 +414,7 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | Weekly report on Monday 07:05 UTC, per channel / its inbox rows | 2 (the week's marker, then sent), plus 1 for each retry / 1 per site a week |
 | Next actions, computed once a day on the minute-50 tick | 2 per site a day (the claim, then the items) |
 | Resend email event: the first of its type for an email / a retry or a second open | 2 / 0 |
+| Mail ([docs/MAIL.md](docs/MAIL.md)): an app sends to one address / the dashboard or an agent sends / a status event / a received message that starts a thread | 18, or 21 with an idempotency key / 23 or 24 / 5 / 15 |
 | Meta ads import: a new ad and day / a new campaign, ad set or ad name / a run that finds nothing new | 2 (the row and its index entry) / 1 / 1. Today's rows change every hour as spend comes in, so 20 active ads write about 500 rows a day |
 | Meta Conversions API: an event sent or skipped / a tick with nothing pending | 1, plus 1 for the site's status when it changes / 0 |
 | Ad spend from Google Ads, TikTok or any channel without an import (`POST /api/v1/spend` or a CSV): a new or changed row of a day and campaign / a row sent again unchanged | 1 / 0. Meta and Apple Search Ads spend joins in from their imports and writes nothing more |
@@ -460,6 +466,8 @@ The code is laid out like this:
 - [SEO snapshots](docs/SEO.md), Pro: the format the SEO tab reads, how to push it, and Google rank tracking and keyword research on your DataForSEO account.
 - [ASO](docs/ASO.md), Pro: keyword ranks, ratings and reviews for iOS apps, the collector, its terms caveat and its
   snapshot format.
+- [Mail](docs/MAIL.md), Pro: send and receive email on your own domains through Cloudflare, move an app off Resend,
+  the inbox, webhooks, limits, and what is stored for how long.
 - [Privacy](docs/PRIVACY.md): what is stored and for how long, who can read it, what Cloudflare sees, EU storage, the
   subprocessors, a GDPR checklist, a balancing test template, a breach procedure and an answer sheet for procurement.
 - [MCP server](docs/MCP.md): connect Claude Code, Cursor or another agent to `/mcp` with one scoped key, and the OpenAPI

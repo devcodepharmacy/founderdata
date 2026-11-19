@@ -57,6 +57,21 @@ export async function verifyStandardWebhook(
     .some((sig) => safeEqual(sig, expected));
 }
 
+/**
+ * Sign a Standard Webhooks (Svix) delivery, the counterpart of verifyStandardWebhook. Returns the value of the
+ * `webhook-signature` (or `svix-signature`) header: `v1,<base64 HMAC-SHA256 of "${id}.${timestamp}.${body}">`, keyed
+ * with the base64 secret after `whsec_`. `timestamp` is in seconds.
+ */
+export async function signStandardWebhook(secret: string, id: string, timestamp: number, body: string): Promise<string> {
+  const key = b64ToBytes(secret.startsWith('whsec_') ? secret.slice(6) : secret);
+  return `v1,${bytesToB64(await hmac(key, `${id}.${timestamp}.${body}`))}`;
+}
+
+/** A new Standard Webhooks secret: `whsec_` and 24 random bytes in base64. */
+export function newWebhookSecret(): string {
+  return `whsec_${bytesToB64(crypto.getRandomValues(new Uint8Array(24)).buffer as ArrayBuffer)}`;
+}
+
 /** Sign a value for the dashboard login cookie. */
 export async function signToken(secret: string, value: string): Promise<string> {
   const sig = bytesToB64(await hmac(enc.encode(secret), value)).replace(/=+$/, '');

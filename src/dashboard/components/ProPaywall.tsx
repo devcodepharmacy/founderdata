@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { amount, type Offer } from '../../shared/offer';
 import { OFFER_PAGE } from '../../shared/product';
 import { useOffer } from '../lib/offer';
-import { PRO_APPS_PAGE, PRO_CARDS, PRO_SECTIONS } from '../lib/proFeatures';
+import { PRO_APPS_PAGE, PRO_CARDS, PRO_MAIL_PAGE, PRO_SECTIONS } from '../lib/proFeatures';
 import { matchRoute } from '../lib/routes';
 import { PageBar } from './home/PageBar';
 import { AFTER_PAYING, BuyLink, eur, InstallPrompt, priceOf, stepText } from './ProUpsell';
@@ -174,7 +174,7 @@ function useReducedMotion() {
  */
 export function ProUpsellView() {
   const route = matchRoute(window.location.pathname);
-  const section = route.page === 'dashboard' ? PRO_SECTIONS[route.view] : route.page === 'apps' ? PRO_APPS_PAGE : undefined;
+  const section = route.page === 'dashboard' ? PRO_SECTIONS[route.view] : route.page === 'apps' ? PRO_APPS_PAGE : route.page === 'mail' ? PRO_MAIL_PAGE : undefined;
   const o = useOffer();
   const offer = o.state === 'ready' ? o.offer : null;
   const [install, setInstall] = useState(false);

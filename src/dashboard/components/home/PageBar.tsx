@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { navigate } from '../../App';
 import { isViewer } from '../../lib/api';
+import { isPro } from '../../lib/pro';
 import { HomeLink } from '../Logo';
 import { SupportButton } from '../Support';
 import { ThemeToggle } from '../ThemeToggle';
@@ -9,13 +10,15 @@ import { StickyBar } from '../ui';
 const link = 'inline-flex h-9 items-center rounded-[10px] px-3 text-[13px] font-medium transition-colors duration-fast';
 
 /**
- * The bar on top of All apps and Notifications: the logo, the three deployment-wide pages with the current one marked,
+ * The bar on top of All apps, Mail and Notifications: the logo, the deployment-wide pages with the current one marked,
  * and `children` (a period control) before the theme and support buttons. It stays on top from sm up, like Home's.
  */
-export function PageBar({ current, children }: { current: 'apps' | 'notifications'; children?: ReactNode }) {
+export function PageBar({ current, children }: { current: 'apps' | 'notifications' | 'mail'; children?: ReactNode }) {
   const pages = [
     { key: 'home', label: 'All sites', to: '/' },
     { key: 'apps', label: 'All apps', to: '/apps' },
+    // Mail is the owner's, and a Pro page: a core build reaches its Pro card from the command palette.
+    ...(isViewer() || !isPro ? [] : [{ key: 'mail', label: 'Mail', to: '/mail' }]),
     ...(isViewer() ? [] : [{ key: 'notifications', label: 'Notifications', to: '/notifications' }]),
   ];
   return (

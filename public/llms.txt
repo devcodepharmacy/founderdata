@@ -3,7 +3,7 @@
 > Web and iOS analytics with revenue attribution, self-hosted on Cloudflare. This deployment answers a JSON API. Each key reaches what its scopes allow.
 
 Full reference: https://github.com/founderdata/founderdata/blob/main/docs/API.md
-OpenAPI 3.1: `/api/v1/openapi.json` on this deployment. MCP server: `POST /mcp` with the same key, 29 tools over these routes (https://github.com/founderdata/founderdata/blob/main/docs/MCP.md).
+OpenAPI 3.1: `/api/v1/openapi.json` on this deployment. MCP server: `POST /mcp` with the same key, 9 tools in core and 31 in FounderData Pro over these routes (https://github.com/founderdata/founderdata/blob/main/docs/MCP.md).
 
 ## Auth
 
@@ -20,6 +20,7 @@ Send one key on every call: `Authorization: Bearer fdk_...`. The owner makes one
 - `research:write`: add to the research log with `POST /api/v1/research`, track keywords with `POST /api/v1/ranks/keywords` (up to 200 a request), and stop tracking them with `POST /api/v1/ranks/keywords/remove`.
 - `spend:write`: send ad spend from channels without an import (Google Ads, TikTok, a newsletter) with `POST /api/v1/spend`, and delete it with `DELETE /api/v1/spend?channel=`. It bills nothing.
 - `spend:seo`: buy keyword research on the owner's DataForSEO account with `POST /api/v1/ranks/research` or `POST /api/v1/aso/app-keywords`, up to the site's monthly cap.
+- `mail:read` and `mail:write` (FounderData Pro): read the deployment's mail, and send it. `read` does not reach mail, and `mail:write` does not include `mail:read`.
 - `aso:write`: ASO keywords, countries and competitors, plus snapshots and reviews, on `/api/sites/<id>/aso/...` and `GET /api/aso/collect`.
 
 A missing scope answers 403 and names it. `GET /api/v1/whoami` lists the key's scopes and the sites it covers, for any key. A key for one site reads that site. A key for several or all sites names the site with `?site=<id>` on each route, writes included. A missing, expired or revoked key gets 401. Names, emails and user ids are always null.

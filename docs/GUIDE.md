@@ -24,6 +24,7 @@ Sections marked (Pro) need FounderData Pro ([PRO.md](PRO.md)).
 - The overview shows web and app together, or the website or the app alone
 - Click any row to filter the whole dashboard (for example "only visitors from the launch tweet"), or open the page, SEO, AI visibility or ads screen behind it
 - Multiple websites, one login
+- **Mail (Pro)**: send and receive email on your own domains through Cloudflare. Apps keep the `resend` package and change the base URL and the key, and replies land in an inbox on the Mail page. See [Mail](#mail-pro)
 - **Email from Resend (Pro)**: sent, delivered, bounced, complained, opened and clicked emails per day, sender and tag, with bounce and complaint rates. One Resend webhook covers every site. See [Email (Resend)](#email-resend-pro)
 - **A Content tab (Pro)** for every site with a website: one table of entry pages with visitors, customers, revenue, revenue per visitor and the change against the period before, plus Google clicks and position when the SEO snapshot has the page. Chips filter by folder, such as `/blog/`, and a click on a page opens its 12 weeks, notes, keywords and customers. Below it, AI assistants (ChatGPT, Claude, Perplexity, Gemini, Copilot) with their visitors, customers, revenue and top 5 landing pages. See [Content](#content-pro)
 - **An SEO tab (Pro)** for every site with a website: Search Console clicks, impressions, click-through rate and position for 7 days to 12 months, beside FounderData's own search visitors and revenue; target keywords with volume, Google position, the latest SERP check and whether the AI Overview cites the site; pages that lost over 30% of their clicks; queries close to page one and page-one pages with a low click-through rate; top queries and pages, each page with its search visitors and revenue; an SEO plan and ship log; AI assistant answers; who ranks instead and backlinks. You push the data; see [SEO](#seo-pro)
@@ -385,6 +386,12 @@ number changes:
 | Phone: a push switch or the renewal threshold (`PUT /api/mobile/notifications`) | 1 |
 | Resend email event (`POST /api/webhooks/resend`): the first of its type for an email / a retry, a second open or click, or a sender on no site's domain | 2 / 0 |
 | Resend email cleanup, daily: an email past 30 days | 1 |
+| Mail ([MAIL.md](MAIL.md)): an app sends to one address (`POST /api/mail/emails`) / with an `Idempotency-Key` / the same key and body again | 18 (10 when stored, 8 when Cloudflare took it), plus 2 for each further address and 1 for each attachment / 21 / 0 |
+| Mail: the dashboard or an agent sends / a reply in a thread | 23 from the dashboard and 24 from an agent (the send, and 6 for the thread it starts) / 21 from the dashboard and 22 from an agent |
+| Mail: a status event from Cloudflare, such as delivered / the same event again | 5 (the message, and 4 for its event row), plus 1 or 2 in the Email panel's counts when the domain is linked to a site / 0 |
+| Mail: a received message that starts a thread / one that joins a thread | 15 / 14, plus 1 for each attachment. The `email()` hook itself writes none |
+| Mail: a webhook delivery queued / each attempt | 4 / 1, or 2 when the endpoint's failure count changes |
+| Mail: a thread marked read / archived / reading the inbox, the sent log or a message | 1 for each unread message, plus 1 / 1 / 0 |
 | Phone: a Live Activity token, new or changed / the same again / switched off (`/api/mobile/live-activity`) | 1 / 0 / 1 |
 | Live Activity update on a payment or refund / the 08:00 start | 1 per phone with a running activity, at most once a minute / 0, it rides on the daily push's row |
 | Payment webhook refused for a bad signature or token (401) | 1 for the first, then at most 1 per site and provider every 10 minutes per Worker instance (`test/privacy-ops-r3.test.ts`) |
@@ -2605,6 +2612,25 @@ What is counted: each number counts emails, not events. An email opened three ti
 Resend adds nothing. Every event of an email counts on the day the email was sent, in the site's timezone. Events for
 an email sent more than 30 days ago are ignored, because the row that remembers what was already counted is deleted
 after 30 days. FounderData stores no recipient address and no subject ([PRIVACY.md](PRIVACY.md)).
+
+## Mail (Pro)
+
+The Mail page sends and receives email on your own domains through Cloudflare Email Service and Email Routing. It
+belongs to the deployment, not to one site, so it has its own page in the header. Only the owner sees it.
+
+- Your apps send through `https://founderdata.example.com/api/mail`, which answers like Resend's API. An app keeps
+  the `resend` package and changes its base URL and key.
+- Mail to an address you added lands in the inbox, threaded with your replies.
+- Each sent message shows its status: sent, delivered, delayed, bounced, complained or failed. A hard bounce or a
+  complaint puts the address on the suppression list.
+- Agents read and answer mail with a key that has `mail:read` or `mail:write`.
+
+It needs Workers Paid, an R2 bucket and a queue. `npm run setup -- --mail` creates the bucket and the queue.
+[MAIL.md](MAIL.md) has the setup, the DNS records, how to move an app off Resend, webhooks, limits and what is
+stored for how long.
+
+The [Email panel](#email-resend-pro) of a site also counts mail sent this way, once you link the sending domain to
+the site on the Domains tab.
 
 ## Share and download your data
 

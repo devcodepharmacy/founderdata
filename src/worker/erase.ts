@@ -4,7 +4,9 @@
 // without the visitor, visit, customer id and the visit's source.
 import type { Context } from 'hono';
 import type { AppEnv, Site } from './env';
+import { apiKeyOf } from './keys';
 import { cleanNote, handlerOf, logErasure } from './privacy';
+import { proHooks } from './pro-hooks';
 
 /** Visitor ids per batch: each statement binds them all, and D1 allows 100 bound parameters. */
 const IDS_PER_BATCH = 50;
@@ -131,6 +133,15 @@ export async function erasePerson(c: Context<AppEnv>) {
   const email = typeof b.email === 'string' && b.email.trim() ? b.email.trim().toLowerCase() : null;
   const userId = typeof b.user_id === 'string' && b.user_id.trim() ? b.user_id.trim() : null;
   if (!email && !userId) return c.json({ error: 'Send an email or a user_id' }, 400);
+  // FounderData Pro's mail belongs to the deployment, not to this site. Only a caller with authority over mail
+  // reaches it, and a refusal (one of the deployment's own addresses, say) comes before anything is erased.
+  const pro = proHooks();
+  const hasMail = !!email && !!pro?.erasePerson;
+  const eraseMail = hasMail && mayEraseMail(c);
+  if (eraseMail) {
+    const refusal = await pro?.eraseRefusal?.({ env: c.env, email: email! });
+    if (refusal) return c.json({ error: refusal.error }, refusal.status);
+  }
 
   const where: string[] = [];
   const params: string[] = [site.id];
@@ -155,7 +166,21 @@ export async function erasePerson(c: Context<AppEnv>) {
     for (const r of paid.results) if (!visitors.includes(r.id)) visitors.push(r.id);
   }
   const more = visitors.length > MAX_VISITORS;
-  const res = await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email);
+  const erased = await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email);
+  // FounderData Pro's mail: the messages to and from this address, across the deployment (pro-hooks.ts erasePerson).
+  const mail = eraseMail ? await pro!.erasePerson!({ env: c.env, email: email! }) : undefined;
+  const res = { ...erased, ...mail };
   await logErasure(c.env.DB, site, email && userId ? 'email+user_id' : email ? 'email' : 'user_id', res, { handler: handlerOf(c), note: cleanNote(b.note) });
-  return c.json({ ok: true, ...res, ...(more ? { more: true } : {}) });
+  // mail_skipped says the same for every address, so a key without mail:write learns nothing about who has mail.
+  return c.json({ ok: true, ...res, ...(more ? { more: true } : {}), ...(hasMail && !eraseMail ? { mail_skipped: true } : {}) });
+}
+
+/**
+ * Whether this caller may erase a person's mail too: the owner's login, or a scoped key that holds mail:write next to
+ * payments:write. A site's own key (rt_) and a key for one site's payments never reach mail, which covers every domain
+ * of the deployment.
+ */
+export function mayEraseMail(c: Context<AppEnv>): boolean {
+  if (c.get('role') === 'admin') return true;
+  return !!apiKeyOf(c)?.scopes.includes('mail:write');
 }

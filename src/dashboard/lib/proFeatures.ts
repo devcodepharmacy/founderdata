@@ -85,12 +85,19 @@ export const PRO_CARDS: [group: string, name: string, line: string][][] = [
     ['SEO', 'Page audit', 'Flags pages that are thin, orphaned, noindex or missing a meta description.'],
     ['AI', 'AI visibility', 'Your prompts asked in ChatGPT, Claude, Gemini and Perplexity every day, on your own API keys.'],
     ['Social', 'Which post paid', 'Ties visits and revenue from X to the post that most likely sent them.'],
-    ['Agents', '30 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
+    ['Agents', '31 MCP tools', 'Your AI agent reads the reports, and one query covers every site its key can see.'],
     ['Agents', 'Alert rules', 'A threshold on any number, with a webhook that can wake your agent.'],
     ['Home', 'Next actions', 'The top 6 actions across your sites, each with what it is worth in a month.'],
     ['Home', 'Change verdicts', 'Log a change and see whether it moved the number it was meant to move.'],
   ],
 ];
+
+/** The Mail page (/mail), the Pro card's text for it. */
+export const PRO_MAIL_PAGE = {
+  title: 'Mail',
+  body: 'Send and receive email on your own domains through Cloudflare. Apps keep the Resend SDK and change one base URL. Replies land in an inbox here, and agents can read and answer them over MCP.',
+  collected: "Sending needs Cloudflare's Workers Paid plan, which includes 3,000 messages a month and charges $0.35 per 1,000 after that.",
+};
 
 /** Everything Pro adds, for the Pro card in Settings. */
 export const PRO_LIST = [
@@ -100,6 +107,7 @@ export const PRO_LIST = [
   'Search Console, Google rank tracking and a page audit',
   'AI visibility in ChatGPT, Claude, Gemini and Perplexity',
   'Home across all your sites with next actions, and a verdict on every change you log',
-  'All 30 MCP tools, the query tool, alert rules and agent skills',
+  'Mail on your own domains through Cloudflare, with an inbox and an API that answers like Resend\'s',
+  'All 31 MCP tools, the query tool, alert rules and agent skills',
   'Teammates with their own login',
 ];

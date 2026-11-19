@@ -335,8 +335,14 @@ export function scrub(value: unknown, hidePerson: boolean): unknown {
   return out;
 }
 
-/** Why a viewer or a phone may not make this call, or null when it may. */
-function denied(role: Exclude<Role, 'admin'>, method: string, path: string, env: Env): string | null {
+/** The dashboard's mail routes (FounderData Pro): every message, address and attachment of the deployment. */
+export const MAIL_ADMIN_PATH = /^\/api\/mail-admin(\/|$)/;
+
+/** Why a viewer or a phone may not make this call, or null when it may. Exported for tests. */
+export function denied(role: Exclude<Role, 'admin'>, method: string, path: string, env: Env): string | null {
+  // Mail holds other people's addresses and message text, which scrub() would not hide: owners only, whatever the
+  // method, and a teammate with the viewer role counts as a viewer.
+  if (MAIL_ADMIN_PATH.test(path)) return role === 'device' ? 'Mail is not available on the phone. Open it in the dashboard.' : 'Mail is for owners. Ask an owner.';
   const read = method === 'GET' || method === 'HEAD';
   if (!read) {
     // A phone may sign itself out (DELETE /api/mobile/devices/<its id>, checked in mobile.ts), add or delete chart

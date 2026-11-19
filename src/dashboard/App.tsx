@@ -100,6 +100,8 @@ function Routes({ path }: { path: string }) {
   switch (route.page) {
     case 'apps':
       return <Pages.Apps />;
+    case 'mail':
+      return <Pages.Mail />;
     case 'notifications':
       return <Pages.Notifications />;
     case 'live':

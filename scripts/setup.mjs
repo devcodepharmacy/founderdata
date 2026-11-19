@@ -4,6 +4,7 @@
 //   npm install
 //   npm run setup                 # or: node scripts/setup.mjs --name my-analytics
 //   npm run setup -- --jurisdiction eu    # a new database that stays in the EU (docs/PRIVACY.md)
+//   npm run setup -- --mail       # FounderData Pro mail: also the R2 bucket, the queue and their bindings
 //
 // 1. Signs in to Cloudflare with Wrangler if needed.
 // 2. Creates the D1 database, or finds it when it already exists. wrangler.jsonc names it and holds no id: Wrangler
@@ -14,9 +15,14 @@
 //    Settings and /api/v1/definitions can say where the data is stored.
 // 3. Creates the admin password and session secret, saved in ~/.config/founderdata/ (mode 600). An existing file is
 //    reused, and ADMIN_PASSWORD in the environment wins over both.
-// 4. Builds the dashboard, applies the database migrations and deploys the Worker with both secrets.
+// 4. With --mail (FounderData Pro mail, Workers Paid): creates the R2 bucket <database name>-mail, in the EU when the
+//    database is, and the queue <database name>-mail, or finds them when they exist. Then it writes the send_email
+//    binding EMAIL, the R2 binding MAIL_BUCKET and the queue producer MAIL_QUEUE with its consumer into
+//    wrangler.local.jsonc, next to what the file already holds. wrangler.jsonc stays without them: a deploy with an R2
+//    or queue binding fails on an account that lacks the bucket or the queue. Once written, later runs keep them.
+// 5. Builds the dashboard, applies the database migrations and deploys the Worker with both secrets.
 //
-// Running it again is safe: it reuses the database and the secrets and deploys the current code.
+// Running it again is safe: it reuses the database, the secrets, the bucket and the queue, and deploys the current code.
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -101,6 +107,195 @@ export function readJurisdiction(args) {
   return value;
 }
 
+// ---------- mail bindings (--mail), written into JSONC text with comments and layout kept
+
+/**
+ * The top-level keys of a JSONC object and where each value sits: { key: { start, end } }, `end` exclusive. Strings,
+ * `//` and `/* *\/` comments are skipped, so a bracket inside them does not count.
+ */
+export function topLevelKeys(text) {
+  const keys = {};
+  let depth = 0;
+  let key = null;
+  let pendingKey = null;
+  let valueStart = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '/' && text[i + 1] === '/') {
+      i = text.indexOf('\n', i);
+      if (i < 0) break;
+      continue;
+    }
+    if (ch === '/' && text[i + 1] === '*') {
+      i = text.indexOf('*/', i + 2) + 1;
+      if (i <= 0) break;
+      continue;
+    }
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+      if (depth === 1 && key === null) pendingKey = text.slice(i + 1, j);
+      else if (depth === 1 && key !== null && valueStart < 0) valueStart = i;
+      if (depth === 1 && key !== null && valueStart === i) {
+        keys[key] = { start: i, end: j + 1 };
+        key = null;
+      }
+      i = j;
+      continue;
+    }
+    if (depth === 1 && ch === ':' && pendingKey !== null) {
+      key = pendingKey;
+      pendingKey = null;
+      valueStart = -1;
+      continue;
+    }
+    if (ch === '{' || ch === '[') {
+      if (depth === 1 && key !== null && valueStart < 0) valueStart = i;
+      depth++;
+      continue;
+    }
+    if (ch === '}' || ch === ']') {
+      depth--;
+      if (depth === 1 && key !== null && valueStart >= 0) {
+        keys[key] = { start: valueStart, end: i + 1 };
+        key = null;
+        valueStart = -1;
+      }
+      continue;
+    }
+    if (depth === 1 && key !== null && valueStart < 0 && /[^\s,]/.test(ch)) {
+      // A number, true, false or null.
+      const m = /^[^\s,}\]]+/.exec(text.slice(i));
+      keys[key] = { start: i, end: i + m[0].length };
+      key = null;
+      i += m[0].length - 1;
+    }
+  }
+  return keys;
+}
+
+/** `text` with `entry` (JSON text) added as the first item of the array that starts at `open` (its `[`). */
+function prependToArray(text, open, entry) {
+  const close = matchingClose(text, open);
+  const empty = !/\S/.test(stripComments(text.slice(open + 1, close)));
+  return `${text.slice(0, open + 1)} ${entry}${empty ? ' ' : ','}${text.slice(open + 1)}`;
+}
+
+/** The index of the bracket that closes the one at `open`, skipping strings and comments. */
+function matchingClose(text, open) {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '/' && text[i + 1] === '/') i = text.indexOf('\n', i);
+    else if (ch === '/' && text[i + 1] === '*') i = text.indexOf('*/', i + 2) + 1;
+    else if (ch === '"') {
+      i++;
+      while (i < text.length && text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+    } else if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') {
+      depth--;
+      if (depth === 0) return i;
+    }
+    if (i < 0) break;
+  }
+  throw new Error('The wrangler config has an unclosed bracket.');
+}
+
+const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+/** `text` with `"key": value` added as the last member of the top-level object. */
+function addTopLevel(text, comment, key, value) {
+  const end = text.lastIndexOf('}');
+  const before = text.slice(0, end).replace(/\s*$/, '');
+  const comma = before.endsWith(',') || before.endsWith('{') ? '' : ',';
+  return `${before}${comma}\n  // ${comment}\n  "${key}": ${value}\n${text.slice(end)}`;
+}
+
+/** The R2 bucket and queue name for a database: `<name>-mail`, in the characters R2 and Queues accept. */
+export function mailResourceName(dbName) {
+  return `${String(dbName).toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 58) || 'founderdata'}-mail`;
+}
+
+/**
+ * Settings of the mail queue's consumer. Batches come soon, so a delivery event moves a status within seconds, and
+ * hold 3 messages at most: one received message can be 25 MB, and a batch is parsed in one isolate. The consumer
+ * retries a failed message with a growing wait, up to 8 times over about 16 hours (pro/worker/mail/index.ts).
+ */
+export const MAIL_CONSUMER = { max_batch_size: 3, max_batch_timeout: 2, max_retries: 8 };
+
+/**
+ * Wrangler config text with the mail bindings added, comments and layout kept: `send_email` EMAIL, `r2_buckets`
+ * MAIL_BUCKET (with its jurisdiction) and `queues` with the MAIL_QUEUE producer and a consumer. A binding that is
+ * there already stays as it is, so running it again changes nothing. Returns the text and notes for the person.
+ */
+export function writeMailBindings(config, { bucket, queue, jurisdiction = null }) {
+  let text = config;
+  const notes = [];
+  const keys = () => topLevelKeys(text);
+  const section = (k) => {
+    const r = keys()[k];
+    return r ? text.slice(r.start, r.end) : null;
+  };
+
+  const email = section('send_email');
+  if (email === null) {
+    text = addTopLevel(text, 'Sending mail (FounderData Pro mail). Written by npm run setup -- --mail.', 'send_email', '[{ "name": "EMAIL" }]');
+  } else if (!/"name"\s*:\s*"EMAIL"/.test(email)) {
+    text = prependToArray(text, keys().send_email.start, '{ "name": "EMAIL" }');
+  } else if (/"(destination_address|allowed_destination_addresses)"/.test(email)) {
+    notes.push('the EMAIL binding in wrangler.local.jsonc only sends to fixed addresses. Remove destination_address and allowed_destination_addresses from it, or mail to other people fails.');
+  }
+
+  const r2 = `{ "binding": "MAIL_BUCKET", "bucket_name": "${bucket}"${jurisdiction ? `, "jurisdiction": "${jurisdiction}"` : ''} }`;
+  const buckets = section('r2_buckets');
+  if (buckets === null) {
+    text = addTopLevel(text, 'Mail bodies, raw inbound messages and attachments (FounderData Pro mail).', 'r2_buckets', `[${r2}]`);
+  } else if (!/"binding"\s*:\s*"MAIL_BUCKET"/.test(buckets)) {
+    text = prependToArray(text, keys().r2_buckets.start, r2);
+  }
+
+  const producer = `{ "binding": "MAIL_QUEUE", "queue": "${queue}" }`;
+  const consumer = `{ "queue": "${queue}", "max_batch_size": ${MAIL_CONSUMER.max_batch_size}, "max_batch_timeout": ${MAIL_CONSUMER.max_batch_timeout}, "max_retries": ${MAIL_CONSUMER.max_retries} }`;
+  const queues = section('queues');
+  if (queues === null) {
+    text = addTopLevel(
+      text,
+      "Cloudflare's sending events, inbound parse jobs and webhook deliveries (FounderData Pro mail).",
+      'queues',
+      `{\n    "producers": [${producer}],\n    "consumers": [${consumer}]\n  }`,
+    );
+  } else {
+    // Inside the queues object: add each array, or the entry to an array that lacks it.
+    for (const [name, entry, has] of [
+      ['producers', producer, /"binding"\s*:\s*"MAIL_QUEUE"/],
+      ['consumers', consumer, new RegExp(`"queue"\\s*:\\s*"${queue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`)],
+    ]) {
+      const q = keys().queues;
+      const inner = topLevelKeys(text.slice(q.start, q.end));
+      const arr = inner[name];
+      if (!arr) {
+        const close = q.end - 1;
+        const before = text.slice(0, close).replace(/\s*$/, '');
+        const comma = before.endsWith(',') || before.endsWith('{') ? '' : ',';
+        text = `${before}${comma}\n    "${name}": [${entry}]\n  ${text.slice(close)}`;
+      } else if (!has.test(text.slice(q.start + arr.start, q.start + arr.end))) {
+        text = prependToArray(text, q.start + arr.start, entry);
+      }
+    }
+  }
+  return { text, notes };
+}
+
+/** Whether `wrangler r2 bucket list` output names the bucket. */
+export function listsBucket(out, name) {
+  return new RegExp(`^name:\\s+${name}\\s*$`, 'm').test(out);
+}
+
+/** Whether `wrangler queues list` output names the queue (a table row or plain text). */
+export function listsQueue(out, name) {
+  return new RegExp(`(^|[\\s│|])${name}([\\s│|]|$)`, 'm').test(out);
+}
+
 const CONFIG = 'wrangler.jsonc';
 const LOCAL_CONFIG = 'wrangler.local.jsonc';
 const SECRETS_DIR = join(homedir(), '.config', 'founderdata');
@@ -160,6 +355,7 @@ async function main() {
   } catch (e) {
     fail(e.message);
   }
+  const mail = args.includes('--mail');
   if (!existsSync(CONFIG)) fail(`Run this from the repository root (no ${CONFIG} here).`);
   if (!existsSync('node_modules')) fail('Run `npm install` first.');
 
@@ -204,6 +400,35 @@ async function main() {
       writeFileSync(LOCAL_CONFIG, updated);
       console.log(`  DATA_JURISDICTION=${pinned} written to ${LOCAL_CONFIG} (gitignored)`);
     }
+  }
+
+  if (mail) {
+    step('Setting up mail: R2 bucket, queue and bindings');
+    const resource = mailResourceName(name);
+    // R2 takes the same jurisdictions as D1, so the mail stays where the database is.
+    const jur = pinned ? ['--jurisdiction', pinned] : [];
+    if (listsBucket(wrangler(['r2', 'bucket', 'list', ...jur], { capture: true }).out, resource)) {
+      console.log(`  using R2 bucket ${resource}`);
+    } else {
+      const made = wrangler(['r2', 'bucket', 'create', resource, ...jur], { capture: true, stdin: 'ignore' });
+      if (!made.ok && !/already exists/i.test(made.out)) fail(`Could not create the R2 bucket "${resource}". Mail needs R2 on the account:\n${made.out}`);
+      console.log(`  created R2 bucket ${resource}${pinned ? ` in jurisdiction ${pinned}` : ''}`);
+    }
+    if (listsQueue(wrangler(['queues', 'list'], { capture: true }).out, resource)) {
+      console.log(`  using queue ${resource}`);
+    } else {
+      const made = wrangler(['queues', 'create', resource], { capture: true, stdin: 'ignore' });
+      if (!made.ok && !/already (exists|taken)/i.test(made.out)) fail(`Could not create the queue "${resource}". Queues need Workers Paid:\n${made.out}`);
+      console.log(`  created queue ${resource}`);
+    }
+    const from = existsSync(LOCAL_CONFIG) ? LOCAL_CONFIG : CONFIG;
+    const before = readFileSync(from, 'utf8');
+    const { text, notes } = writeMailBindings(before, { bucket: resource, queue: resource, jurisdiction: pinned });
+    if (text !== before || from !== LOCAL_CONFIG) {
+      writeFileSync(LOCAL_CONFIG, text);
+      console.log(`  mail bindings written to ${LOCAL_CONFIG} (gitignored)`);
+    } else console.log(`  mail bindings already in ${LOCAL_CONFIG}`);
+    for (const n of notes) console.log(`  note: ${n}`);
   }
 
   step('Preparing the secrets');

@@ -5,8 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getPlatformProxy } from 'wrangler';
 import { forgetSite, type Env } from '../../src/worker/env';
-import { app } from '../../src/worker/index';
+import worker, { app } from '../../src/worker/index';
 import { dfsFetch } from './dataforseo';
+import { inboundMessage, type FakeInboundMessage } from './mail';
 
 const ROOT = path.resolve(__dirname, '../..');
 
@@ -17,6 +18,13 @@ export interface TestWorker {
   fetch: (path: string, init?: RequestInit & { json?: unknown }) => Promise<Response>;
   /** Cookie-authenticated dashboard API call; returns parsed JSON. */
   admin: <T = any>(path: string, init?: { method?: string; json?: unknown }) => Promise<{ status: number; body: T }>;
+  /**
+   * Hand a raw MIME message to the Worker's email() export, as Email Routing does for one recipient, and wait for its
+   * waitUntil work. The answer shows what the handler did: `rejected` (setReject's reason), `forwarded`, `replies`.
+   */
+  email: (raw: string, envelope: { from: string; to: string }) => Promise<FakeInboundMessage>;
+  /** Run the Worker's queue() export on a batch (test/helpers/mail.ts FakeQueue.drain builds them), then wait for waitUntil. */
+  queue: (batch: MessageBatch<unknown>) => Promise<void>;
   /** Wait for everything passed to ctx.waitUntil. */
   flush: () => Promise<void>;
   /** D1 rows written since the last call (or since start). */
@@ -149,14 +157,26 @@ export async function startWorker(extraEnv: Partial<Env> = {}): Promise<TestWork
     return { status: res.status, body };
   };
 
+  const flush = async () => {
+    while (pending.length) await Promise.all(pending.splice(0));
+  };
+
   return {
     db,
     env: env as unknown as Env,
     fetch: call,
     admin,
-    flush: async () => {
-      while (pending.length) await Promise.all(pending.splice(0));
+    email: async (raw, envelope) => {
+      const message = inboundMessage(raw, envelope);
+      await worker.email(message, env as any, ctx as any);
+      await flush();
+      return message;
     },
+    queue: async (batch) => {
+      await worker.queue(batch, env as any, ctx as any);
+      await flush();
+    },
+    flush,
     takeRowsWritten: () => {
       const n = written;
       written = 0;
