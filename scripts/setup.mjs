@@ -5,6 +5,7 @@
 //   npm run setup                 # or: node scripts/setup.mjs --name my-analytics
 //   npm run setup -- --jurisdiction eu    # a new database that stays in the EU (docs/PRIVACY.md)
 //   npm run setup -- --mail       # FounderData Pro mail: also the R2 bucket, the queue and their bindings
+//   npm run setup -- --replay     # FounderData Pro recordings: also the R2 bucket for recorded visits and its binding
 //
 // 1. Signs in to Cloudflare with Wrangler if needed.
 // 2. Creates the D1 database, or finds it when it already exists. wrangler.jsonc names it and holds no id: Wrangler
@@ -20,9 +21,14 @@
 //    binding EMAIL, the R2 binding MAIL_BUCKET and the queue producer MAIL_QUEUE with its consumer into
 //    wrangler.local.jsonc, next to what the file already holds. wrangler.jsonc stays without them: a deploy with an R2
 //    or queue binding fails on an account that lacks the bucket or the queue. Once written, later runs keep them.
-// 5. Builds the dashboard, applies the database migrations and deploys the Worker with both secrets.
+// 5. With --replay (FounderData Pro recordings): creates the R2 bucket <database name>-replay, in the EU when the
+//    database is, or finds it when it exists. It adds a lifecycle rule that deletes every object 90 days after upload,
+//    a backstop behind Pro's own retention job, and writes the R2 binding REPLAY_BUCKET into wrangler.local.jsonc. R2
+//    works on the free plan; Cloudflare asks for a payment method once to turn it on.
+// 6. Builds the dashboard, applies the database migrations and deploys the Worker with both secrets.
 //
-// Running it again is safe: it reuses the database, the secrets, the bucket and the queue, and deploys the current code.
+// Running it again is safe: it reuses the database, the secrets, the buckets, the rule and the queue, and deploys the
+// current code.
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -286,6 +292,40 @@ export function writeMailBindings(config, { bucket, queue, jurisdiction = null }
   return { text, notes };
 }
 
+// ---------- recordings bucket (--replay)
+
+/** The R2 bucket for recorded visits: `<name>-replay`, in the characters R2 accepts. */
+export function replayBucketName(dbName) {
+  return `${String(dbName).toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56) || 'founderdata'}-replay`;
+}
+
+/** Days after upload the bucket's lifecycle rule deletes a recording chunk. Pro's retention job deletes sooner. */
+export const REPLAY_EXPIRE_DAYS = 90;
+/** The id of that lifecycle rule. */
+export const REPLAY_RULE = 'founderdata-expire-90-days';
+
+/** Wrangler arguments that add the lifecycle rule to the bucket, without a prompt. */
+export function replayLifecycleArgs(bucket, jurisdiction = null) {
+  return ['r2', 'bucket', 'lifecycle', 'add', bucket, REPLAY_RULE, '--expire-days', String(REPLAY_EXPIRE_DAYS), '--force', ...(jurisdiction ? ['--jurisdiction', jurisdiction] : [])];
+}
+
+/** Whether `wrangler r2 bucket lifecycle list` output names the rule already. */
+export function listsLifecycleRule(out, rule = REPLAY_RULE) {
+  return new RegExp(`(^|[\\s│|:])${rule}([\\s│|]|$)`, 'm').test(out);
+}
+
+/**
+ * Wrangler config text with the R2 binding REPLAY_BUCKET added (with its jurisdiction), comments and layout kept. A
+ * REPLAY_BUCKET binding that is there already stays as it is, so running it again changes nothing.
+ */
+export function writeReplayBinding(config, { bucket, jurisdiction = null }) {
+  const r2 = `{ "binding": "REPLAY_BUCKET", "bucket_name": "${bucket}"${jurisdiction ? `, "jurisdiction": "${jurisdiction}"` : ''} }`;
+  const at = topLevelKeys(config).r2_buckets;
+  if (!at) return addTopLevel(config, 'Recorded visits (FounderData Pro recordings). Written by npm run setup -- --replay.', 'r2_buckets', `[${r2}]`);
+  if (/"binding"\s*:\s*"REPLAY_BUCKET"/.test(config.slice(at.start, at.end))) return config;
+  return prependToArray(config, at.start, r2);
+}
+
 /** Whether `wrangler r2 bucket list` output names the bucket. */
 export function listsBucket(out, name) {
   return new RegExp(`^name:\\s+${name}\\s*$`, 'm').test(out);
@@ -356,6 +396,7 @@ async function main() {
     fail(e.message);
   }
   const mail = args.includes('--mail');
+  const replay = args.includes('--replay');
   if (!existsSync(CONFIG)) fail(`Run this from the repository root (no ${CONFIG} here).`);
   if (!existsSync('node_modules')) fail('Run `npm install` first.');
 
@@ -429,6 +470,34 @@ async function main() {
       console.log(`  mail bindings written to ${LOCAL_CONFIG} (gitignored)`);
     } else console.log(`  mail bindings already in ${LOCAL_CONFIG}`);
     for (const n of notes) console.log(`  note: ${n}`);
+  }
+
+  if (replay) {
+    step('Setting up recordings: R2 bucket, lifecycle rule and binding');
+    const bucket = replayBucketName(name);
+    // R2 takes the same jurisdictions as D1, so recordings stay where the database is.
+    const jur = pinned ? ['--jurisdiction', pinned] : [];
+    if (listsBucket(wrangler(['r2', 'bucket', 'list', ...jur], { capture: true }).out, bucket)) {
+      console.log(`  using R2 bucket ${bucket}`);
+    } else {
+      const made = wrangler(['r2', 'bucket', 'create', bucket, ...jur], { capture: true, stdin: 'ignore' });
+      if (!made.ok && !/already exists/i.test(made.out)) fail(`Could not create the R2 bucket "${bucket}". Turn on R2 in the Cloudflare dashboard, then run this again:\n${made.out}`);
+      console.log(`  created R2 bucket ${bucket}${pinned ? ` in jurisdiction ${pinned}` : ''}`);
+    }
+    if (listsLifecycleRule(wrangler(['r2', 'bucket', 'lifecycle', 'list', bucket, ...jur], { capture: true }).out)) {
+      console.log(`  lifecycle rule ${REPLAY_RULE} already on the bucket`);
+    } else {
+      const rule = wrangler(replayLifecycleArgs(bucket, pinned), { capture: true, stdin: 'ignore' });
+      if (!rule.ok) fail(`Could not add the ${REPLAY_EXPIRE_DAYS}-day lifecycle rule to "${bucket}":\n${rule.out}`);
+      console.log(`  added lifecycle rule ${REPLAY_RULE}: objects go ${REPLAY_EXPIRE_DAYS} days after upload`);
+    }
+    const from = existsSync(LOCAL_CONFIG) ? LOCAL_CONFIG : CONFIG;
+    const before = readFileSync(from, 'utf8');
+    const text = writeReplayBinding(before, { bucket, jurisdiction: pinned });
+    if (text !== before || from !== LOCAL_CONFIG) {
+      writeFileSync(LOCAL_CONFIG, text);
+      console.log(`  REPLAY_BUCKET binding written to ${LOCAL_CONFIG} (gitignored)`);
+    } else console.log(`  REPLAY_BUCKET binding already in ${LOCAL_CONFIG}`);
   }
 
   step('Preparing the secrets');

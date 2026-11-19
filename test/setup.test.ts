@@ -131,6 +131,56 @@ describe('scripts/setup.mjs', () => {
   });
 });
 
+describe('scripts/setup.mjs --replay', () => {
+  const strip = (t: string) => JSON.parse(t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1'));
+  const shipped = () => readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+
+  it('names the bucket after the database', async () => {
+    const { replayBucketName } = await import(/* @vite-ignore */ SCRIPT);
+    expect(replayBucketName('founderdata')).toBe('founderdata-replay');
+    expect(replayBucketName('My_Analytics')).toBe('my-analytics-replay');
+    expect(replayBucketName('---')).toBe('founderdata-replay');
+    expect(replayBucketName('x'.repeat(80))).toHaveLength(63);
+  });
+
+  it('adds REPLAY_BUCKET to the shipped config, with the jurisdiction, keeps every comment, and changes nothing the second time', async () => {
+    const { writeReplayBinding } = await import(/* @vite-ignore */ SCRIPT);
+    const config = shipped();
+    const text = writeReplayBinding(config, { bucket: 'founderdata-replay', jurisdiction: 'eu' });
+    expect(strip(text).r2_buckets).toEqual([{ binding: 'REPLAY_BUCKET', bucket_name: 'founderdata-replay', jurisdiction: 'eu' }]);
+    expect(strip(text).d1_databases).toEqual(strip(config).d1_databases);
+    const comments = (t: string) => t.split('\n').filter((l) => l.trim().startsWith('//'));
+    expect(comments(text).slice(0, comments(config).length)).toEqual(comments(config));
+    expect(writeReplayBinding(text, { bucket: 'founderdata-replay', jurisdiction: 'eu' })).toBe(text);
+    expect(strip(writeReplayBinding(config, { bucket: 'founderdata-replay' })).r2_buckets).toEqual([{ binding: 'REPLAY_BUCKET', bucket_name: 'founderdata-replay' }]);
+  });
+
+  it('sits next to the mail bucket in a local config, in either order', async () => {
+    const { writeReplayBinding, writeMailBindings } = await import(/* @vite-ignore */ SCRIPT);
+    const mail = writeMailBindings(shipped(), { bucket: 'founderdata-mail', queue: 'founderdata-mail' }).text;
+    const both = writeReplayBinding(mail, { bucket: 'founderdata-replay' });
+    expect(strip(both).r2_buckets).toEqual([
+      { binding: 'REPLAY_BUCKET', bucket_name: 'founderdata-replay' },
+      { binding: 'MAIL_BUCKET', bucket_name: 'founderdata-mail' },
+    ]);
+    const other = writeMailBindings(writeReplayBinding(shipped(), { bucket: 'founderdata-replay' }), { bucket: 'founderdata-mail', queue: 'founderdata-mail' }).text;
+    expect(strip(other).r2_buckets.map((b: any) => b.binding).sort()).toEqual(['MAIL_BUCKET', 'REPLAY_BUCKET']);
+    // A REPLAY_BUCKET someone set by hand stays as it is.
+    const own = '{ "name": "x", "r2_buckets": [{ "binding": "REPLAY_BUCKET", "bucket_name": "my-own" }] }';
+    expect(writeReplayBinding(own, { bucket: 'founderdata-replay' })).toBe(own);
+  });
+
+  it('adds a 90-day lifecycle rule without a prompt, in the jurisdiction, once', async () => {
+    const { replayLifecycleArgs, listsLifecycleRule, REPLAY_RULE } = await import(/* @vite-ignore */ SCRIPT);
+    expect(replayLifecycleArgs('founderdata-replay', 'eu')).toEqual(['r2', 'bucket', 'lifecycle', 'add', 'founderdata-replay', REPLAY_RULE, '--expire-days', '90', '--force', '--jurisdiction', 'eu']);
+    expect(replayLifecycleArgs('founderdata-replay')).not.toContain('--jurisdiction');
+    const table = `Listing lifecycle rules for bucket 'founderdata-replay'...\nname:        ${REPLAY_RULE}\nenabled:     Yes\nprefix:      (all prefixes)\naction:      Expire objects after 90 days\n`;
+    expect(listsLifecycleRule(table)).toBe(true);
+    expect(listsLifecycleRule("There are no lifecycle rules for bucket 'founderdata-replay'.")).toBe(false);
+    expect(listsLifecycleRule(`name: ${REPLAY_RULE}-old`)).toBe(false);
+  });
+});
+
 describe('data location', () => {
   it('says EU only when the var says so', () => {
     expect(dataLocation({ DATA_JURISDICTION: 'eu' })).toMatchObject({ jurisdiction: 'eu', stored: 'EU (D1 jurisdiction eu)' });
