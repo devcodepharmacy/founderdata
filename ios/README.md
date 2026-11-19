@@ -497,6 +497,11 @@ install to your own user record. Call it after sign-in. Before that call, the
 data has no link to a person. The SDK never writes the email or a purchase
 JWS to the device log.
 
+In FounderData Pro, the call also makes this install a person in People, joined
+with the website visits that `identify()` the same user id or email. The app
+sends no traits: a person's About card shows only what your website sends
+(docs/GUIDE.md, "Identify people").
+
 On sign-out, call `FounderData.reset()`. The next events go out under a new
 install id in a new session, so whoever uses the device next is not linked
 to the user before. Events already queued keep the old id.
@@ -680,6 +685,9 @@ Generate Privacy Report). It declares:
   itself reads). After consent the SDK keeps a copy of the install id there,
   for launches before the first unlock, when the Keychain cannot be read. It
   calls no other API from Apple's required-reason list.
+
+Recordings (Pro) happen on your website only. The SDK never records the
+screen, so they change your privacy policy, not these answers.
 
 The manifest describes every install the same way. It cannot know whether
 your app asks for consent, uses `installId: .vendor` or calls `identify()`. Answer the App Privacy

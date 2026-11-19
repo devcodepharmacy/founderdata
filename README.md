@@ -157,10 +157,12 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
   counts per engine, this week against last, and costs a fraction of a cent per answer. It is off until you turn it on, and capped per day. Your server can also forward AI
   crawler hits (GPTBot, ClaudeBot, PerplexityBot) for a count per bot and page ([guide](docs/AI-VISIBILITY.md)).
 - People and recordings. A People tab lists everyone you know: signed in, paid, remembered or using your app. Each person
-  gets one story, from the first visit to the payment, across their devices. Turn on Record visits and you can watch a
-  visit like a video, with its clicks, rage clicks and errors marked. Recording is off by default. Every input is
-  masked, and `data-fd-mask` and `data-fd-block` hide more. The recordings sit in an R2 bucket on your own account that
-  `npm run setup -- --replay` creates. See [People and recordings](docs/GUIDE.md#people-and-recordings-pro).
+  gets one story, from the first visit to the payment, across their devices, once your site calls `identify()` at
+  sign-in ([Identify people](docs/GUIDE.md#identify-people)). Turn on Record visits and you can watch a visit to your
+  website like a video, with its clicks, rage clicks and errors marked. Recording is off by default and never covers
+  the iPhone app. Every input is masked, and `data-fd-mask` and `data-fd-block` hide more. The recordings sit in an R2
+  bucket on your own account that `npm run setup -- --replay` creates. See
+  [People and recordings](docs/GUIDE.md#people-and-recordings-pro).
 - An iPhone app with widgets and a push notification for every payment.
 - An alert inbox keeps every alert for 90 days, one row per message and site, so an agent can read what fired since its
   last run ([guide](docs/GUIDE.md#alert-inbox-pro)). A threshold rule's webhook can send an auth header or a GitHub

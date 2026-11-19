@@ -245,9 +245,12 @@ send and the messages people send to your addresses.
 
 ## Recordings (Pro)
 
+Recordings are of your website only. The iPhone app is never recorded, so they change your privacy policy, not your
+App Privacy answers in App Store Connect.
+
 Record visits is off for every site until you turn it on (docs/GUIDE.md, "People and recordings"). A recording is a
 copy of the page as the visitor saw it, and of what they did on it: the page's HTML and styles, mouse moves, scrolls,
-clicks and the size of the window.
+clicks and the size of the window. Recording sets no cookie and stores nothing in the visitor's browser.
 
 - **What is hidden.** Every input is masked in the browser, before anything is sent: typing shows as dots. Text inside
   an element with `data-fd-mask` is masked the same way. An element with `data-fd-block` is left out, and the player
@@ -263,8 +266,21 @@ clicks and the size of the window.
 - **Erase.** Erasing a person deletes their recordings, files and rows, and the erase log counts them.
 - **Which visits.** Your own visits with `?rt_ignore=true` and bots are never recorded. The share of visits recorded and
   the most visits a day are site settings.
-- **Your privacy policy** says that you record visits to improve the site, what you mask, and how long you keep them.
-  Session recording reads the visitor's screen, so in the EU it often needs consent. Ask your counsel.
+- **Consent.** Recording a visitor's screen usually needs their consent in the EU and the UK. By default the script
+  records a picked visit whether or not the visitor accepted your cookie banner. With **Wait for consent** on (Settings,
+  Record visits, Advanced), it records only after the visitor consents to cookies: your banner calls
+  `founderdata('consent', true)`, or the page has `data-cookies="on"`. Until then it loads no recorder and sends no
+  clicks or errors. Remember visitors does not count as consent.
+- **Your privacy policy.** Say that you record visits, what is hidden, where the recordings are and how long you keep
+  them. A paragraph you can adapt, with your own days and company name:
+
+  > We record how visitors use this website: the pages, mouse moves, scrolling, clicks and errors. Anything you type is
+  > hidden before it leaves your browser. We use the recordings to find and fix problems on the site. They are stored
+  > with Cloudflare, our hosting provider, for 30 days, and nobody else gets them. We record your visit only after you
+  > accept cookies. You can ask us to delete your recordings at any time.
+
+  Drop the second-to-last sentence if you leave **Wait for consent** off. Ask your counsel whether that is allowed
+  where your visitors live.
 
 **Remember visitors.** A site setting that keeps a visitor id in first-party cookies (`rt_vid`, `rt_sid` and
 `rt_consent=r`) without the visitor's consent, so People can follow someone across days. It is off by default. Storing

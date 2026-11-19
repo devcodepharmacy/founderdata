@@ -485,7 +485,7 @@ Store sales cron (`30 10 * * *`) imports the last three days again; it does noth
 
 - **Button clicks / goals:** `<button data-rt-goal="signup_click">`, or `window.founderdata('goal', 'signup', { plan: 'pro' })`.
   Properties go in extra attributes: `data-rt-goal-plan="pro"`.
-- **Identify logged-in users:** `window.founderdata('identify', { user_id, email, name })`
+- **Identify logged-in users:** `window.founderdata('identify', { user_id, email, name })`, see [Identify people](#identify-people)
 - **Ignore your own visits:** open `https://yoursite.com/?rt_ignore=true` once per browser
 - **Single-page apps** (Next.js, React Router…) are handled automatically
 - **Subdomains:** `app.yoursite.com` and `yoursite.com` count as the same visitor in both modes below
@@ -527,7 +527,7 @@ Marketing consent does not keep a visitor id: call `founderdata('consent', true)
 buyer who comes back the next day is a new visitor whose ad click FounderData cannot find. Without it nothing goes to Meta in the default setting.
 
 **Remember visitors (Pro setting).** A site can keep every visitor in cookies without the visitor's consent. Turn on
-**Remember visitors** in Settings, Data and privacy, Record visits. The server then tells the script on each page, and
+**Remember visitors** in Settings, Data and privacy. The server then tells the script on each page, and
 the script keeps `rt_vid` and `rt_sid` as above, with `rt_consent=r` in place of `rt_consent=1`. People stay the same
 person across days without `identify()`. In the EU that usually needs consent, so turn it on only where you have it or
 don't need it. A page that calls `founderdata('consent', false)` keeps that visitor without cookies. Turn the switch off
@@ -2626,20 +2626,89 @@ after 30 days. FounderData stores no recipient address and no subject ([PRIVACY.
 
 ## People and recordings (Pro)
 
-The People tab lists everyone FounderData knows by more than a daily id: people you `identify()`, buyers, people your
-site remembers ([Remember visitors](#cookies-and-consent)) and people who use your iOS app. Each person gets one page.
-It opens with one sentence, such as "Anna found you through Google on 3 March, came back 6 times and paid $49." Then
-come the traits you passed to `identify()`, the devices, and every visit, newest first, in plain steps: Looked at
-Pricing, Clicked "Start trial", Paid $49. Two devices are one person when they share a user id or an email.
+The People tab lists the people your site knows by more than a daily id: people you `identify()`, buyers, people your
+site remembers ([Remember visitors](#cookies-and-consent)) and people who use your iOS app. Each row says whether the
+person used your website, your app or both. Each person gets one page. It opens with one sentence, such as "Anna found
+you through Google on March 3, came back 6 times and paid $49 on March 21, 18 days after her first visit." Then come
+the traits you passed to `identify()`, the devices, and every visit, newest first, in plain steps: Looked at Pricing,
+Clicked "Start trial", Paid $49.
+
+The list has four filters:
+
+| Filter | Who is in it |
+| --- | --- |
+| People you know | Signed in, paid, came back on another day, or use your app |
+| Customers | Paid at least once. Newest payment first, with the day of the payment |
+| Has recordings | At least one recorded visit |
+| Had trouble | A recorded visit with an error, or 3 or more fast clicks on one thing (a rage click) |
+
+### Identify people
+
+Call `identify()` when a person signs in, and again each time your app starts while they are signed in. Without it,
+People shows them as "Visitor from Berlin", and a visitor id without cookies changes every day.
+
+```ts
+declare global {
+  interface Window { founderdata?: (cmd: 'identify', person: Record<string, string | number | boolean | undefined>) => void }
+}
+
+// After sign-in, and on app start when someone is already signed in.
+export function identifyPerson(user: { id: string; email: string; name?: string; plan?: string }) {
+  const send = () => window.founderdata?.('identify', { user_id: user.id, email: user.email, name: user.name, plan: user.plan });
+  if (window.founderdata) send();
+  else window.addEventListener('load', send, { once: true });
+}
+```
+
+The script tag has `defer`, so it may not have run when your code does. The `load` listener above waits for it. A call
+that changes nothing writes no row, so calling it on every app start costs nothing.
+
+Put the same script tag, with the same site id, on your marketing site and in your app. `yoursite.com` and
+`app.yoursite.com` are one site. The visits before sign-in join the person when they are from the same day, or from
+any day when the visitor accepted cookies or the site uses Remember visitors.
+
+`user_id`, `email` and `name` name the person. Every other key is a trait, shown under About on the person's page:
+
+| Rule | Limit |
+| --- | --- |
+| Key | Lowercase letters, digits and `_`, 1 to 40 characters |
+| Value | Text, a number, true or false. Stored as text, cut to 100 characters |
+| Keys per person | 20. Later keys are dropped |
+| A second call | Adds its keys. A key sent again replaces the old value |
+
+The iPhone app sends a user id, an email and a name with `FounderData.identify(userId:email:name:)`
+([ios/README.md](../ios/README.md#users)). It sends no traits, so About shows only what your website sends.
+
+### From your website to your app
+
+A web visit and an app install are one person when:
+
+- both sign in as the same person: `identify()` on the website and `FounderData.identify(userId:)` in the app, with the
+  same user id or email
+- a universal link from your website opens the app with the visitor id in `rt_vid`
+  ([ios/README.md](../ios/README.md#links-and-attribution)). That works when the app is already installed.
+
+A landing page without sign-in that links to the App Store can do neither. The App Store drops every parameter of the
+link, so a new install starts as its own person. You still see which sources send people to the App Store: each click
+on the link counts as a link out from that visit, and Apple Ads installs carry their campaign. On the person page, an
+app visit shows "Opened the app" and the screens viewed, and a subscription shows as a payment, such as "Paid $4.99".
 
 ### Turn on recordings
 
+Recordings are of your website only. The iPhone app is never recorded: its visits show as screens and events.
+
 1. Run `npm run setup -- --replay`. It creates the R2 bucket `<database name>-replay` in the database's jurisdiction,
-   adds a rule that deletes each file 90 days after upload, and binds the bucket as `REPLAY_BUCKET`.
+   adds a rule that deletes each file 90 days after upload, and binds the bucket as `REPLAY_BUCKET`. Cloudflare asks
+   for a payment method once to turn on R2, even when you stay inside the free tier.
 2. Open the site's Settings, then Data and privacy, and turn on **Record visits**.
+3. Decide on consent. In the EU and the UK, recording a visitor's screen usually needs their consent. By default a
+   visit is recorded whether or not the visitor accepted your cookie banner. Turn on **Wait for consent** under
+   Advanced, and a visit records only after your banner calls `founderdata('consent', true)`, or on pages with
+   `data-cookies="on"`. Then add the paragraph from [PRIVACY.md](PRIVACY.md#recordings-pro) to your privacy policy.
 
 The script tag stays the same. For a visit the server picks, the script loads `/js/replay.js` from your Worker. Other
-visits load nothing more. Your own visits with `?rt_ignore=true` and bots are never recorded.
+visits load nothing more. Your own visits with `?rt_ignore=true` and bots are never recorded. Recording sets no
+cookie and stores nothing in the browser.
 
 ### What a recording hides
 
@@ -2657,14 +2726,21 @@ is hidden. A click's label is the button's visible text, cut to 40 characters. I
 
 ### What it costs
 
-Most sites stay on the free plan. A recorded visit writes 3 rows in D1 for its index row. Each page where someone
-clicked or saw an error writes 4 more. The visit uploads a chunk about every 30 seconds, and each chunk is 1 Worker
-request and 1 R2 write.
+A site with 100 recorded visits a day stays far inside the free tiers: about 1,500 rows written and 700 requests a
+day, and 21,000 R2 writes and SIZE_MONTH of storage a month.
 
-Say you keep the default limit of 1,000 recorded visits a day, each 3 minutes long with clicks on 3 pages. That is
-about 15,000 rows written and 7,000 requests a day, out of the free plan's 100,000 of each. It is also 210,000 R2
-writes a month. R2's free tier includes 1 million writes and 10 GB a month. Cloudflare asks for a payment method once
-to turn on R2. To write fewer rows, lower **Most visits recorded a day** or **Share of visits recorded**.
+The numbers behind it, per recorded visit of 3 minutes with clicks on 3 pages:
+
+| What | Per visit | Free tier |
+| --- | --- | --- |
+| D1 rows written | 3 for the index row, plus 4 for each page with clicks or errors: 15 | 100,000 a day |
+| Worker requests | 1 per chunk, a chunk about every 30 seconds: 7 | 100,000 a day |
+| R2 writes | 1 per chunk: 7 | 1 million a month |
+| R2 storage | About SIZE_VISIT, gzipped | 10 GB |
+
+At the default limit of 1,000 recorded visits a day that is 15,000 rows and 7,000 requests a day, out of 100,000 of
+each, and 210,000 R2 writes a month. To record fewer, lower **Most visits recorded a day** or **Record every visit, or
+only some** under Advanced.
 
 ### Settings
 
@@ -2672,10 +2748,11 @@ The **Record visits** switch is all most sites need. **Advanced** holds the rest
 
 | Setting | Default |
 | --- | --- |
-| Share of visits recorded | 100% |
+| Record every visit, or only some | Every visit |
 | Keep recordings for | 30 days (7, 30 or 90) |
-| Most visits recorded a day | 1,000 |
-| Keep only visits where someone signed up, hit a goal or paid | Off. When on, other recordings go after 24 hours |
+| Most visits recorded a day | 1,000. After that, new visits are not recorded until 00:00 UTC |
+| Keep only visits where someone signed up, hit a goal or paid | Off. When on, the other recordings go after 24 hours, also the ones with an error |
+| Wait for consent | Off. When on, a visit records only after the visitor consents to cookies |
 
 A job that runs every hour deletes recordings older than the days you picked. The bucket's 90-day rule deletes anything left behind.
 Erasing a person ([Erase one person](#erase-one-person)) deletes their recordings too. [PRIVACY.md](PRIVACY.md#recordings-pro)
