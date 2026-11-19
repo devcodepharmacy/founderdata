@@ -125,7 +125,7 @@ describe('MCP server', () => {
       const { tools } = (await rpc('tools/list')).body.result;
       const names = tools.map((t: any) => t.name);
       expect(names).toEqual([
-        'whoami', 'get_definitions', 'query', 'get_overview', 'get_breakdown', 'get_timeseries', 'get_content', 'get_customers', 'get_subscriptions',
+        'whoami', 'get_definitions', 'query', 'get_overview', 'get_breakdown', 'get_timeseries', 'get_content', 'get_customers', 'get_people', 'get_subscriptions',
         'get_apple_search_ads', 'get_meta_ads', 'get_paid', 'get_app_funnel', 'get_app_store_sales', 'get_email', 'get_seo', 'get_aso', 'list_notes', 'get_note_impact',
         'get_weekly_report', 'get_portfolio', 'add_note', 'review_change', 'get_web_vitals', 'alert_rules',
         'list_research', 'add_research', 'research_keywords', 'get_ai_answers', 'add_ai_prompts', 'mail',
@@ -309,8 +309,8 @@ describe('OpenAPI spec', () => {
         expect(op.operationId, `${m} ${p}`).toBeTruthy();
       }
     }
-    // The budget is characters (pro/test/agent-access.test.ts); the count stays under the soft guide: 30 analytics tools
-    // and FounderData Pro's mail.
-    expect(tools().length).toBeLessThanOrEqual(31);
+    // The budget is characters (pro/test/agent-access.test.ts); the count stays under the soft guide: 31 analytics tools
+    // (get_people the newest) and FounderData Pro's mail.
+    expect(tools().length).toBeLessThanOrEqual(32);
   });
 });

@@ -2082,6 +2082,265 @@
         }
       }
     },
+    "/api/v1/people": {
+      "get": {
+        "operationId": "getPeople",
+        "summary": "People the site knows (Pro)",
+        "description": "Newest activity first, one row per person: every visitor row with the same user id or email, plus the web visitor an app install links to. Each request reads a slice of an index, so a page can be short while next is set; pass next as before. Names, emails and user ids are null. paid and payments need read:revenue (docs/API.md, People).",
+        "tags": [
+          "Read"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          },
+          {
+            "readKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "show",
+            "in": "query",
+            "required": false,
+            "description": "known (default), customers, recorded or trouble.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "known",
+                "customers",
+                "recorded",
+                "trouble"
+              ],
+              "default": "known"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "next from the page before.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "People per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 25
+            }
+          },
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "known_by": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "name": {
+                            "type": "null"
+                          },
+                          "email": {
+                            "type": "null"
+                          },
+                          "user_id": {
+                            "type": "null"
+                          },
+                          "visits": {
+                            "type": "integer"
+                          },
+                          "last_seen": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "first_source": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "paid": {
+                            "type": "integer"
+                          },
+                          "recordings": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "next": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "rows",
+                    "next"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/people/{vid}": {
+      "get": {
+        "operationId": "getPerson",
+        "summary": "One person's story (Pro)",
+        "description": "From any of the person's visitor ids: the story in one sentence, traits (a value that looks like an email or a phone number is null), devices, and the newest 50 visits as plain steps with their kind. Without read:revenue, no money (docs/API.md, People).",
+        "tags": [
+          "Read"
+        ],
+        "security": [
+          {
+            "scopedKey": []
+          },
+          {
+            "readKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vid",
+            "in": "path",
+            "required": true,
+            "description": "A visitor id from a row.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/site"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "story": {
+                      "type": "string"
+                    },
+                    "traits": {
+                      "type": "object"
+                    },
+                    "devices": {
+                      "type": "string"
+                    },
+                    "visits": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "null"
+                    },
+                    "email": {
+                      "type": "null"
+                    },
+                    "user_id": {
+                      "type": "null"
+                    },
+                    "timeline": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "session_id": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "type": "integer"
+                          },
+                          "recorded": {
+                            "type": "boolean"
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "at": {
+                                  "type": "integer"
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "detail": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "at",
+                                "text",
+                                "kind"
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/v1/subscriptions": {
       "get": {
         "operationId": "getSubscriptions",
