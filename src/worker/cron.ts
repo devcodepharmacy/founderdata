@@ -8,6 +8,8 @@
 //   minute 5   on Mondays at 07:05 UTC the weekly report (that tick makes no rank or AI work); later Monday hours try
 //              again for a channel that refused it or that the 07:05 run never reached
 //   minute 15  the X poll
+//   minute 20  mail health (pro/worker/mail/health.ts): up to 2 mail domains checked again, failed sends and lost
+//              received mail counted, and the mail alerts sent
 //   minute 30  the Search Console sync
 //   minute 45  the Meta ads import (pro/worker/meta.ts)
 //   minute 50  next actions, a few sites a run until each site has today's (pro/worker/actions.ts)
@@ -38,6 +40,8 @@ export const GSC_MINUTE = 30;
 export const META_MINUTE = 45;
 export const WEEKLY_MINUTE = 5;
 export const ACTIONS_MINUTE = 50;
+/** FounderData Pro's mail health job (pro/worker/mail/health.ts). The old hourly cron runs it every hour. */
+export const MAIL_HEALTH_MINUTE = 20;
 /** The UTC hour of the daily alerts and, on Mondays, of the weekly report's tick. */
 export const REPORT_HOUR = 7;
 export const AI_DAILY_MINUTE = 55;

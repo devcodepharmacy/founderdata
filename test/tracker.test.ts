@@ -476,6 +476,55 @@ describe('tracker: config from the server', () => {
     expect(t.requests.at(-1)).toMatchObject({ t: 'pageview', u: 'https://example.com/checkout' });
   });
 
+  it('rec.x: a page on the list loads no recorder and sends no clicks or errors, also those from before the answer', async () => {
+    const t = load({ cfg: { rec: { ...REC, x: ['/dashboard', '/account/'] } }, href: 'https://example.com/dashboard/clients' });
+    t.press(el('button', 'Anna Example'));
+    await tick();
+    t.press(el('button', 'Delete client'));
+    t.fire('error', { message: 'TypeError: client 42 is undefined', filename: 'https://example.com/app.js', lineno: 3 });
+    t.hide();
+    expect(t.scripts).toEqual([]);
+    expect(t.requests[0]).toMatchObject({ t: 'pageview', u: 'https://example.com/dashboard/clients' });
+    const sent = JSON.stringify([...t.requests, ...(await Promise.all(t.beacons))]);
+    expect(sent).not.toMatch(/Anna|Delete client|client 42/);
+    const account = load({ cfg: { rec: { ...REC, x: ['/dashboard', '/account/'] } }, href: 'https://example.com/account/' });
+    await tick();
+    expect(account.scripts).toEqual([]);
+  });
+
+  it('rec.x in a single-page app: activity stops on a listed page and comes back on the next one, matched by whole path segments', async () => {
+    const t = load({ cfg: { rec: { ...REC, x: ['/dashboard'] } } });
+    await tick();
+    expect(t.scripts).toHaveLength(1);
+    t.press(el('button', 'Open dashboard'));
+    const go = async (path: string) => {
+      t.window.location.pathname = path;
+      t.window.history.pushState();
+      await tick();
+    };
+    // The dashboard throws while it renders, before the tracker has seen the new page.
+    t.window.location.pathname = '/dashboard';
+    t.fire('error', { message: 'TypeError: client 42 is undefined', filename: 'https://example.com/app.js', lineno: 3 });
+    t.window.history.pushState();
+    await tick();
+    t.press(el('button', 'Delete client'));
+    t.fire('unhandledrejection', { reason: new Error('Anna Example not found') });
+    await go('/dashboards');
+    t.press(el('button', 'Compare'));
+    t.hide();
+    const pings = [...t.requests, ...(await Promise.all(t.beacons))].filter((r) => r.a);
+    expect(pings.map((p) => [p.a.p, p.a.c.map((c: any) => c.l), p.a.e])).toEqual([
+      ['/pricing', ['Open dashboard'], undefined],
+      ['/dashboards', ['Compare'], undefined],
+    ]);
+    expect(JSON.stringify(t.requests)).not.toMatch(/Delete client|client 42|Anna/);
+    expect(t.requests.filter((r) => r.t === 'pageview').map((r) => r.u)).toEqual([
+      'https://example.com/pricing',
+      'https://example.com/dashboard',
+      'https://example.com/dashboards',
+    ]);
+  });
+
   it('drops the oldest clicks to keep the ping under 8 KB', async () => {
     const t = load({ cfg: { rec: REC }, href: `https://example.com/pricing?q=${'x'.repeat(6500)}` });
     await tick();
@@ -540,6 +589,12 @@ describe('tracker: config from the server', () => {
     t.hide();
     expect(t.scripts[0].src).toBe('https://stats.example/js/replay.js?v=7');
     expect((await Promise.all(t.beacons))[0].a.c[0]).toMatchObject({ l: 'Buy', k: 'button' });
+    const skipped = load({ code: MINIFIED, cfg: { rec: { ...REC, x: ['/pricing'] } } });
+    await tick();
+    skipped.press(el('button', 'Buy'));
+    skipped.hide();
+    expect(skipped.scripts).toEqual([]);
+    expect((await Promise.all(skipped.beacons)).every((b) => b.a === undefined)).toBe(true);
   });
 });
 

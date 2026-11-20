@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "date": "2026-11-20",
-  "notes": "FounderData Pro adds People, with each person's visits, payments and a one-line story, and recordings of website visits with typing hidden. Recordings stay off until you turn them on in Settings."
+  "notes": "FounderData Pro tells you when mail breaks: a domain that fails its daily check, sends that fail, and received mail it could not store. Every alert channel gets it as Mail problems, and you can switch it off per channel on the Notifications page."
 }

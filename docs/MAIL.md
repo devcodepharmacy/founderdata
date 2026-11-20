@@ -237,6 +237,45 @@ to "every domain", so an address that bounced stays suppressed when you add the 
 Link a domain to a site on the Domains tab, and that site's [Email panel](GUIDE.md#email-resend-pro) counts the mail
 sent from it.
 
+## Health alerts
+
+Once an hour, at minute 20, the Worker looks for broken mail and posts what it finds to your alert channels as **Mail
+problems** ([GUIDE.md](GUIDE.md#alerts-and-weekly-report)). Every channel has it on, older ones included. A deployment
+without mail never sends it. Each alert also goes to the [alert inbox](GUIDE.md#alert-inbox-pro).
+
+**A domain breaks.** Each domain with sending or receiving on gets the same check as **Check again** once a day, at
+most 2 domains an hour. The check needs the API token, and a domain added before the token existed needs one **Check
+again** first. An alert goes out when the status leaves `verified`, when Email Routing is not `ready`, when the
+catch-all rule stops sending mail to the Worker, or when the check finds a problem the last one did not. Its title
+names the first new problem, such as "Mail for acme.example: DKIM record missing", and its lines list every problem
+with its fix. It goes out once per change, not every day. When the domain passes again, a short note says so. If
+Cloudflare or a DNS lookup does not answer, the check counts for nothing and runs again the next hour.
+
+**Sends fail.** A message that ends `failed` counts: Cloudflare refused it, the request ended before Cloudflare
+confirmed it, or Cloudflare reported that delivery failed. A bounce comes from the recipient's server and does not
+count. Each domain alerts at most once a day, with the number of failed messages since its last alert, 24 hours at
+most, and the latest error.
+
+**Received mail is lost.** The Worker counts three things. A message it could not parse is kept with its headers and
+the raw file. A message still not stored after 16 hours of retries goes back on the queue. A message not stored after
+7 days is deleted. One alert a day at most gives the counts since the last one.
+
+The JSON webhook gets `event` and these fields:
+
+| `event` | Fields |
+| --- | --- |
+| `domain_problem` | `domain` (`id`, `name`), `site` (`id`, `name`, `domain`, or null), `status`, `problems`, `new_problems` |
+| `domain_ok` | `domain`, `site` |
+| `send_failed` | `domain`, `site`, `failed` (the count), `since`, `last_error`, `last_failed_at` |
+| `inbound_failed` | `unreadable`, `requeued`, `lost` |
+
+A channel that covers only some sites gets a domain's alerts when the domain is linked to one of them, or to no site.
+Every channel that takes Mail problems gets the received-mail alert.
+
+One run makes 1 D1 read when there is nothing to do. A domain's check makes about 6 calls to Cloudflare and one DNS
+lookup per record name, 15 subrequests or so. The run reads every message sent in the last 2 days once, to count the
+failed ones.
+
 ## Templates
 
 A template is HTML you keep in FounderData and send by its id or alias, with values for its variables. Change the
@@ -433,5 +472,7 @@ Cloudflare processes every message and keeps its own delivery logs, which Founde
 | A webhook delivery | 4 when queued, plus 1 or 2 for each attempt |
 | Mark a thread read / archive it | 1 for each unread message, plus 1 / 1 |
 | Reading the inbox, the sent log, a message, the templates or the catalog | 0 |
+| Health alerts: an hour with nothing to check or report / a domain's daily check / an alert | 0 / 1, plus 1 when its problems change / 2, its alert inbox row and the row that keeps it to once a day or once per change |
+| A received message that could not be parsed, or that the hourly sweep queues again or deletes | 1 more, for the count the health alert reads |
 
 At 100 sent and 20 received messages a day, mail writes about 2,600 rows. Workers Paid includes 50 million a month.

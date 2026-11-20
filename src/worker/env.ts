@@ -229,6 +229,8 @@ export interface Site {
   record_only_active?: number;
   /** 1 = record a visit only after the visitor consented to cookies (migration 0075). */
   record_consent?: number;
+  /** Pages that are never recorded: path prefixes, one per line; null for none (migration 0076, recording.ts). */
+  record_skip?: string | null;
   /** Remember visitors (migration 0072): 1 = the tracker keeps the visitor id in first-party cookies, as with consent. */
   remember_visitors?: number;
 }

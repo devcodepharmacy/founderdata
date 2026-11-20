@@ -50,6 +50,11 @@ const ALERT_LABELS: { key: AlertKind; label: string; hint: string }[] = [
     hint: 'At once, when a new written review at or below the app\'s star limit arrives (3 stars unless you change it in the ASO tab). Needs the ASO collector',
   },
   {
+    key: 'mail',
+    label: 'Mail problems',
+    hint: 'Pro mail only. A domain that fails its daily check, once per change, and a note when it passes again. Failed sends, once a day per domain. Received mail that could not be read or stored, once a day',
+  },
+  {
     key: 'numbers',
     label: 'Daily numbers',
     hint: 'Every day at 07:00 UTC, even when nothing stands out: yesterday\'s MRR and change, new and churned subscriptions, revenue, visitors and the last Stripe check, per site. Off until you tick it',

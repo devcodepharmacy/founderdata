@@ -20,6 +20,8 @@ import { messageEvent, recordEvents } from './alert-events';
  *   sends payments regularly went quiet (silence.ts), "ASO collector stopped reporting" when an app's last snapshot is
  *   36 hours old (aso.ts), and the weekly report on Mondays. A channel that ticks "Daily numbers" gets yesterday's
  *   numbers every day (numbers-digest.ts).
+ * - FounderData Pro mail alerts when a mail domain stops being healthy, when sends fail or when received mail is lost
+ *   (pro/worker/mail/health.ts, once an hour at minute 20).
  *
  * Every send runs after the response (`waitUntil`) or in a cron. Sends write nothing to D1. The alert inbox
  * (alert-events.ts) stores 1 row per message and site, without names or emails, also when no channel takes the kind:
@@ -28,8 +30,8 @@ import { messageEvent, recordEvents } from './alert-events';
 
 export type ChannelKind = 'slack' | 'discord' | 'telegram' | 'webhook' | 'email';
 export const CHANNEL_KINDS: ChannelKind[] = ['slack', 'discord', 'telegram', 'webhook', 'email'];
-export type AlertKind = 'purchase' | 'renewal' | 'refund' | 'trial' | 'payment_failed' | 'canceled' | 'daily' | 'payments_stopped' | 'webhook_refused' | 'cap' | 'aso_collector' | 'aso_review' | 'weekly' | 'numbers' | 'plan_away';
-export const ALERT_KINDS: AlertKind[] = ['purchase', 'renewal', 'refund', 'trial', 'payment_failed', 'canceled', 'daily', 'payments_stopped', 'webhook_refused', 'cap', 'aso_collector', 'aso_review', 'weekly', 'numbers', 'plan_away'];
+export type AlertKind = 'purchase' | 'renewal' | 'refund' | 'trial' | 'payment_failed' | 'canceled' | 'daily' | 'payments_stopped' | 'webhook_refused' | 'cap' | 'aso_collector' | 'aso_review' | 'mail' | 'weekly' | 'numbers' | 'plan_away';
+export const ALERT_KINDS: AlertKind[] = ['purchase', 'renewal', 'refund', 'trial', 'payment_failed', 'canceled', 'daily', 'payments_stopped', 'webhook_refused', 'cap', 'aso_collector', 'aso_review', 'mail', 'weekly', 'numbers', 'plan_away'];
 /** What a new channel gets. */
 export const DEFAULT_ALERTS: Record<AlertKind, boolean> = {
   purchase: true,
@@ -46,6 +48,9 @@ export const DEFAULT_ALERTS: Record<AlertKind, boolean> = {
   aso_collector: true,
   // On for older channels too: it fires only for an app whose collector posts reviews, and each app can switch it off.
   aso_review: true,
+  // On for older channels too: it fires only on a deployment with FounderData Pro mail, when a mail domain breaks,
+  // sends fail or received mail is lost (pro/worker/mail/health.ts).
+  mail: true,
   weekly: true,
   // Off until a channel ticks it: it sends every day, not only when something happened (numbers-digest.ts).
   numbers: false,

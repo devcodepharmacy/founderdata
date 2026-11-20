@@ -382,7 +382,7 @@ number changes:
 | Stripe check ([below](#check-mrr-against-stripe-pro)): a finished check / a second one the same day / a step before the last / reading the history | 1 (the day's history row) / 1 (it replaces the row) / 0 / 0 |
 | Daily numbers at 07:00 UTC, per channel | 2 (the day's marker, then sent), plus 1 for each retry of a refused send; a second trigger or a later tick writes 0 |
 | Weekly report on Monday at 07:05 UTC, per channel | 2 (the week's marker, then sent), plus 1 for each retry; 1 [inbox](#alert-inbox-pro) row per site a week |
-| Alert inbox ([above](#alert-inbox-pro)): Worth a look, payments stopped, the ASO collector, refused webhooks, the write cap, a low review | 1 per message and site, also with no channel. A day with nothing to say writes 0 |
+| Alert inbox ([above](#alert-inbox-pro)): Worth a look, payments stopped, the ASO collector, refused webhooks, the write cap, a low review, mail problems | 1 per message and site, also with no channel. A day with nothing to say writes 0 |
 | Next actions ([above](#next-actions-pro)): the daily run on the minute-50 tick | 2 per site a day (the claim, then the items); reading them 0 |
 | Phone pushes at 08:00 (the daily one, the Monday one) | 1 per push and day for any number of phones; the other hourly runs 0 |
 | Phone: a push switch or the renewal threshold (`PUT /api/mobile/notifications`) | 1 |
@@ -395,6 +395,7 @@ number changes:
 | Mail: a received message that starts a thread / one that joins a thread | 15 / 14, plus 1 for each attachment. The `email()` hook itself writes none |
 | Mail: a webhook delivery queued / each attempt | 4 / 1, or 2 when the endpoint's failure count changes |
 | Mail: a thread marked read / archived / reading the inbox, the sent log or a message | 1 for each unread message, plus 1 / 1 / 0 |
+| Mail health, once an hour at minute 20 ([MAIL.md](MAIL.md#health-alerts)): an hour with nothing to check or report / a domain's daily check / an alert / a received message that could not be read, or that the hourly sweep puts back on the queue or deletes | 0 / 1 for the domain's status, plus 1 when its problems change / 2 (its alert inbox row and its dedupe row) / 1 |
 | Phone: a Live Activity token, new or changed / the same again / switched off (`/api/mobile/live-activity`) | 1 / 0 / 1 |
 | Live Activity update on a payment or refund / the 08:00 start | 1 per phone with a running activity, at most once a minute / 0, it rides on the daily push's row |
 | Payment webhook refused for a bad signature or token (401) | 1 for the first, then at most 1 per site and provider every 10 minutes per Worker instance (`test/privacy-ops-r3.test.ts`) |
@@ -2177,6 +2178,7 @@ before anything real happens. Channels cover the whole deployment: every site, o
 | Write cap reached | When a site hits its daily write cap, or all sites fill the shared one. Once a day at most | on |
 | ASO collector stopped | Daily at 07:00 UTC, when an app with ASO keywords got no snapshot for 36 hours. Once per outage ([ASO.md](ASO.md#health-and-alerts)) | on, for older channels too |
 | Low App Store review | At once, when a new written review at or below the app's star limit arrives, 3 stars by default ([ASO.md](ASO.md#review-alerts)) | on, for older channels too |
+| Mail problems | Pro mail only, checked once an hour at minute 20. A domain that fails its daily check, once per change, and a note when it passes again. Failed sends, once a day per domain. Received mail that could not be read or stored, once a day ([MAIL.md](MAIL.md#health-alerts)) | on, for older channels too |
 | No plan session (Pro) | Daily at 07:00 UTC, when a site's plan expects the agent every N hours and no session came for 2 x N hours. Once per gap, and the next session re-arms it. A failed run does not ([Plan](#plan-pro)) | on |
 | Daily numbers | Every day at 07:00 UTC: yesterday's MRR and change, new and churned subscriptions, revenue, visitors and the Stripe check, per site | off |
 | Weekly report | Mondays at 07:05 UTC | on |
@@ -2292,9 +2294,9 @@ To set up each channel:
 - Telegram: message @BotFather, send `/newbot` and paste the token. Send the bot a message (or add it to a group), open
   `https://api.telegram.org/bot<token>/getUpdates` and copy `chat.id`.
 - Webhook: FounderData POSTs JSON to your URL. Every alert has `type` (`purchase`, `renewal`, `refund`, `trial`,
-  `payment_failed`, `canceled`, `daily`, `numbers`, `payments_stopped`, `webhook_refused`, `cap`, `aso_collector`, `aso_review`, `weekly` or `test`), `title`, `text`, `lines` and
+  `payment_failed`, `canceled`, `daily`, `numbers`, `payments_stopped`, `webhook_refused`, `cap`, `aso_collector`, `aso_review`, `mail`, `weekly` or `test`), `title`, `text`, `lines` and
   `sent_at`. A preview from **Send** adds `preview: true`. "Webhooks refused" adds `site`, `provider`, `refused` (the
-  count) and `at`. "ASO collector stopped" adds `items[]` with `site_id`, `site_name` and `last_snapshot_at`. "Low App Store review" adds `site` (`id`, `name`), `country` and `reviews[]` with `id`, `rating`, `at`, `title`, `text` and `version`. A payment adds `site`, `event`, `id`,
+  count) and `at`. "ASO collector stopped" adds `items[]` with `site_id`, `site_name` and `last_snapshot_at`. "Low App Store review" adds `site` (`id`, `name`), `country` and `reviews[]` with `id`, `rating`, `at`, `title`, `text` and `version`. "Mail problems" adds `event` and the fields [MAIL.md](MAIL.md#health-alerts) lists for it. A payment adds `site`, `event`, `id`,
   `provider`, `amount` (minor units, a refund negative), `currency`, `amount_text`, `product`, `source` and
   `channel`. "Payment failed" and "Subscription canceled" add `site`, `event` (`payment_failed`, `canceled` or `ended`),
   `subscription_id`, `provider`, `product`, `customer_id`, `customer_email`, `customer_name`, `mrr` (minor units of
@@ -2406,8 +2408,8 @@ comes back from the API. With `"format": "github_dispatch"` and a webhook URL of
 ### Alert inbox (Pro)
 
 Every alert above is also kept for 90 days, one row per message and site, never per channel: Worth a look, payments
-stopped, failed payments and cancellations, refused webhooks, the write cap, the ASO collector and reviews, rules that
-fired, an agent that went away and the weekly report. It is kept also when no channel takes the alert. Purchases, renewals and Daily numbers
+stopped, failed payments and cancellations, refused webhooks, the write cap, the ASO collector and reviews, mail
+problems, rules that fired, an agent that went away and the weekly report. It is kept also when no channel takes the alert. Purchases, renewals and Daily numbers
 stay out. Names and emails never go in.
 
 An agent reads it with `GET /api/v1/alerts?since=<a minute before its last run>` or the MCP tool `alert_rules` with
@@ -2946,6 +2948,10 @@ Recordings are of your website only. The iPhone app is never recorded: its visit
    visit is recorded whether or not the visitor accepted your cookie banner. Turn on **Wait for consent** under
    Advanced, and a visit records only after your banner calls `founderdata('consent', true)`, or on pages with
    `data-cookies="on"`. Then add the paragraph from [PRIVACY.md](PRIVACY.md#recordings-pro) to your privacy policy.
+4. List the pages that must never be recorded, such as an account area or an admin dashboard that shows your
+   customers' data. Open **Advanced** and enter them under **Pages that are never recorded**, one per line, such as
+   `/dashboard`. A page is skipped when its path is `/dashboard` or starts with `/dashboard/`, so `/dashboards` is
+   still recorded. Up to 20 paths.
 
 The script tag stays the same. For a visit the server picks, the script loads `/js/replay.js` from your Worker. Other
 visits load nothing more. Your own visits with `?rt_ignore=true` and bots are never recorded. Recording sets no
@@ -2957,6 +2963,9 @@ cookie and stores nothing in the browser.
 - The text of any element with `data-fd-mask`. The layout stays, the letters don't.
 - Any element with `data-fd-block`. It shows as an empty box of the same size.
 - Canvas, web fonts and frames from other domains. They are not recorded.
+- Every page on the list of pages that are never recorded. The recorder doesn't start there, and the script sends no
+  clicks or errors from them. Their pageviews still count in your stats. In a single-page app, the recording of that
+  page load ends when the visitor opens a listed page, and starts again on their next full page load.
 
 Put `data-fd-mask` on anything that shows personal data, such as the name and address on an account page.
 
@@ -2994,6 +3003,7 @@ The **Record visits** switch is all most sites need. **Advanced** holds the rest
 | Most visits recorded a day | 1,000. After that, new visits are not recorded until 00:00 UTC |
 | Keep only visits where someone signed up, hit a goal or paid | Off. When on, the other recordings go after 24 hours, also the ones with an error |
 | Wait for consent | Off. When on, a visit records only after the visitor consents to cookies |
+| Pages that are never recorded | None. Up to 20 paths, one per line, such as `/dashboard` or `/account` |
 
 A job that runs every hour deletes recordings older than the days you picked. The bucket's 90-day rule deletes anything left behind.
 Erasing a person ([Erase one person](#erase-one-person)) deletes their recordings too. [PRIVACY.md](PRIVACY.md#recordings-pro)
