@@ -542,7 +542,8 @@ metadata. The server can't read them from a cookie unless cookies are on.
 
 When someone asks you to delete their data (GDPR Article 17), open their profile from the Visitors or Customers tab and
 click **Erase this person**. With an email or user id on the profile, it erases every visitor with that email or user
-id, plus payments with that email. Otherwise it erases the one visitor id. From a script, use
+id, plus payments with that email. A user id also clears the RevenueCat payments and subscriptions filed under that app
+user id, even when no visitor links them. Otherwise it erases the one visitor id. From a script, use
 `DELETE /api/sites/<id>/visitors/<visitor_id>` or `POST /api/sites/<id>/erase` with `{"email": "..."}` or
 `{"user_id": "..."}` while signed in, or the same calls under `/api/v1/` with the site's API key
 ([API.md](API.md#erase-one-person)). Add `"note": "ticket 4411"` (or `?note=` on the DELETE) to record your

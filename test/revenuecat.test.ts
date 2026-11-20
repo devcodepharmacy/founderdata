@@ -268,3 +268,19 @@ describe('POST /api/webhooks/revenuecat/:siteId', () => {
     expect(r.body.groups.find((g: any) => g.value === 'rc_test')).toMatchObject({ paywallViews: 1, purchases: 1, revenue: 999 });
   });
 });
+
+describe('erasing an app user id', () => {
+  it('clears the rc: customer id from that user’s payments and subscriptions, also without a visitor', async () => {
+    const ev = rcEvent('INITIAL_PURCHASE', { store: 'PLAY_STORE', app_user_id: 'erase-me-42', original_app_user_id: 'erase-me-42' });
+    expect((await deliver(ev)).status).toBe(200);
+    const before = await w.db.prepare("SELECT COUNT(*) AS n FROM payments WHERE site_id = ? AND customer_id = 'rc:erase-me-42'").bind(site.id).first<{ n: number }>();
+    expect(before!.n).toBeGreaterThan(0);
+    const res = await w.admin(`/api/sites/${site.id}/erase`, { method: 'POST', json: { user_id: 'erase-me-42' } });
+    expect(res.status).toBe(200);
+    expect(res.body.payments).toBeGreaterThan(0);
+    for (const table of ['payments', 'subscriptions']) {
+      const left = await w.db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE site_id = ? AND customer_id = 'rc:erase-me-42'`).bind(site.id).first<{ n: number }>();
+      expect(left!.n, table).toBe(0);
+    }
+  });
+});

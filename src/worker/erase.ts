@@ -27,8 +27,11 @@ export interface Erased {
   more?: boolean;
 }
 
-/** Erase these visitors of `site`, and clear `email` from payments that no visitor links. */
-export async function eraseVisitors(db: D1Database, site: Site, ids: string[], email: string | null = null): Promise<Erased> {
+/**
+ * Erase these visitors of `site`, and clear `email` from payments that no visitor links. With `userId`, payments and
+ * subscriptions that RevenueCat filed under that app user id (`rc:<id>`, revenuecat.ts) lose it too, also without a visitor.
+ */
+export async function eraseVisitors(db: D1Database, site: Site, ids: string[], email: string | null = null, userId: string | null = null): Promise<Erased> {
   const out: Erased = { visitors: 0, sessions: 0, events: 0, claims: 0, signals: 0, payments: 0, subscriptions: 0 };
   const unlinkSubs = `UPDATE subscriptions SET visitor_id = NULL, session_id = NULL, customer_id = NULL, channel = NULL, source = NULL,
                         source_domain = NULL, campaign = NULL, rev = rev + 1 WHERE site_id = ?`;
@@ -42,6 +45,8 @@ export async function eraseVisitors(db: D1Database, site: Site, ids: string[], e
           .all<{ id: string }>()
       ).results.map((r) => r.id)
     : [];
+  const rcCustomer = userId ? `rc:${userId.slice(0, 128)}` : null;
+  if (rcCustomer && !customers.includes(rcCustomer)) customers.push(rcCustomer);
   for (let i = 0; i < ids.length; i += IDS_PER_BATCH) {
     const chunk = ids.slice(i, i + IDS_PER_BATCH);
     const inList = chunk.map(() => '?').join(', ');
@@ -97,6 +102,14 @@ export async function eraseVisitors(db: D1Database, site: Site, ids: string[], e
       .bind(site.id, ...chunk)
       .run();
     out.subscriptions += subs.meta.changes;
+  }
+  if (rcCustomer) {
+    // RevenueCat payments of this app user that no visitor links.
+    const res = await db
+      .prepare('UPDATE payments SET email = NULL, name = NULL, customer_id = NULL, matched_by = NULL WHERE site_id = ? AND customer_id = ?')
+      .bind(site.id, rcCustomer)
+      .run();
+    out.payments += res.meta.changes;
   }
   if (email) {
     // Payments with this email that no visitor links (the buyer was never seen on the site).
@@ -172,7 +185,7 @@ export async function erasePerson(c: Context<AppEnv>) {
   const more = visitors.length > MAX_VISITORS;
   // FounderData Pro's recordings of these visitors, before their visits go (pro-hooks.ts eraseRecordings).
   const recordings = await eraseRecordings(c, visitors.slice(0, MAX_VISITORS));
-  const erased = { ...(await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email)), ...recordings };
+  const erased = { ...(await eraseVisitors(c.env.DB, site, visitors.slice(0, MAX_VISITORS), email, userId)), ...recordings };
   // FounderData Pro's mail: the messages to and from this address, across the deployment (pro-hooks.ts erasePerson).
   const mail = eraseMail ? await pro!.erasePerson!({ env: c.env, email: email! }) : undefined;
   const res = { ...erased, ...mail };

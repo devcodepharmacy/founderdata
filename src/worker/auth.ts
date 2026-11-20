@@ -105,6 +105,17 @@ export interface MemberRow {
   version: number;
 }
 
+/**
+ * True for a POST, PUT, PATCH or DELETE that a browser sent from another origin. Browsers set Origin on every
+ * cross-origin write and Sec-Fetch-Site on every request; scripts and apps send neither, so they pass.
+ */
+export function crossOriginWrite(c: Context<AppEnv>): boolean {
+  if (c.req.method === 'GET' || c.req.method === 'HEAD' || c.req.method === 'OPTIONS') return false;
+  const origin = c.req.header('origin');
+  const fetchSite = c.req.header('sec-fetch-site');
+  return (!!origin && origin !== new URL(c.req.url).origin) || (!!fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none');
+}
+
 /** Signed in with the admin password, or as a teammate with the owner role. */
 export async function isLoggedIn(c: Context<AppEnv>) {
   return (await sessionRole(c)) === 'admin';
@@ -385,6 +396,9 @@ export function hidesPersonalData(role: Role, env: Pick<Env, 'VIEWER_PII' | 'PHO
  */
 export const requireAuth = async (c: Context<AppEnv>, next: Next) => {
   let role: Role | null = await sessionRole(c);
+  // The cookie is SameSite=Lax, which stops other sites but not a page on a sibling subdomain. A write signed in by
+  // cookie must come from the dashboard's own origin. A phone's bearer token is not sent by browsers, so it skips this.
+  if (role && crossOriginWrite(c)) return c.json({ error: 'Changes must come from the dashboard.' }, 403);
   if (!role) {
     const device = await deviceFromBearer(c);
     if (!device) return c.json({ error: 'unauthorized' }, 401);

@@ -1,3 +1,12 @@
+# Every page and file: no other site may frame the dashboard (clickjacking), browsers keep each file's declared type,
+# and a click from the dashboard to a visitor's page or a referrer sends no Referer, so this deployment's address stays
+# private. The inline scripts in index.html rule out a script-src rule here.
+/*
+  Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
 /js/script.js
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=3600

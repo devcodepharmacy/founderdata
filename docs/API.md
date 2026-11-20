@@ -17,6 +17,10 @@ Routes marked (Pro) answer 404 in core. FounderData Pro adds them ([PRO.md](PRO.
 
 The API key and the read key belong to one site.
 
+A `POST`, `PUT`, `PATCH` or `DELETE` signed in by the dashboard cookie must come from the dashboard's own origin. One
+with another `Origin`, or a `Sec-Fetch-Site` of `cross-site` or `same-site`, answers 403. Scripts and curl send neither
+header, and keys and phone tokens don't use the cookie, so they are not affected.
+
 **Why two keys.** The API key lives on your server, next to your checkout code, and it can create payments. A read key
 goes into tools like Grafana, a spreadsheet or a cron job, and many people can see those. If a read key leaks,
 someone can see your numbers but can't add fake revenue. You can revoke a read key without touching the checkout, and
@@ -3159,7 +3163,7 @@ Logged-in routes for the admin login, and the same two calls under `/api/v1` for
 | Route | |
 | --- | --- |
 | `DELETE /api/sites/<id>/visitors/<visitor_id>`, or `DELETE /api/v1/visitors/<visitor_id>` with the API key | One visitor id. `404` if the site has nothing for it. |
-| `POST /api/sites/<id>/erase`, or `POST /api/v1/erase` with the API key, with `{ "email": "..." }` or `{ "user_id": "..." }` | Everyone with that email (any case) or `identify()` user id, and payments with that email. |
+| `POST /api/sites/<id>/erase`, or `POST /api/v1/erase` with the API key, with `{ "email": "..." }` or `{ "user_id": "..." }` | Everyone with that email (any case) or `identify()` user id, payments with that email, and RevenueCat payments and subscriptions of that app user id. |
 
 Both take an optional note for the erase log, such as a ticket number: `"note"` in the POST body, `?note=` on the
 DELETE. It is one line of up to 200 characters. Don't put the person's name or email in it.
