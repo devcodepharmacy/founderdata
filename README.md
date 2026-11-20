@@ -183,9 +183,11 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
 - MRR in the alerts and the Monday report, a daily numbers message, and a verdict for each logged change on the number
   it was meant to move: an SEO edit on its page's Search Console clicks over 28 days, an ad budget change on CPA, an AI
   content change on the mention rate, an app price on paywall conversion.
-- All 37 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
+- All 38 MCP tools, with `query`, which answers metrics by up to 2 dimensions and a day, week or month for every site a
   key covers in one call ([docs/MCP.md](docs/MCP.md#the-query-tool-pro)), alert rules, the research log and eight agent
   skills.
+- Custom dashboards that your agent builds over MCP: numbers, lines, columns, bars, a country map, funnels and tables, run live when
+  you open the page ([docs/MCP.md](docs/MCP.md#custom-dashboards-pro)).
 - Teammates with their own login, as owner or viewer.
 
 ## Install
@@ -398,6 +400,7 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | Chart note from an agent / its review | 3, or 4 with an idempotency key / 1 |
 | Research log entry from an agent | 1, or 2 with an idempotency key |
 | Plan ([docs/API.md](docs/API.md#plan-pro)): create it / change the document, rules or reach / change only the schedule or the share / the portfolio / a task, new or changed, claimed by a run or approved / the owner ticks a task, says yes or no, or undoes it / a session or a failed run / a check-in / the daily results job / the away alert | 1 / 2 (the plan and the version before; 3 once 30 older versions are kept) / 1 / 1 / 1 each, 0 when another run's claim or an owner task refuses it / 1 / 2, or 3 with an idempotency key, plus 1 per closed result it keeps (8 at most) / 1, or 2 with an idempotency key, plus 1 per closed result it keeps / 1 per closed result no session kept yet (3 per site a day at most), 0 when there is none / 2 per plan, once per gap. Reading the plan writes 0 |
+| Custom dashboard: created, changed or deleted / a widget run | 1 / 0 |
 | AI answer check (one prompt on one AI surface on one day), new or replaced | 1 |
 | Setup checklist: the cron heartbeat / a test button pressed / a refused location code stored | 1 at most every 10 minutes, so 96 a day / 2, 0 inside 15 seconds / 1 a day per refused country, 1 to clear it. Reading the checklist writes none and reads one row per site and payment provider with a signing secret |
 | Google rank tracking: a daily check posted / its result collected, per keyword | 2 / 1 (the claim, then the task id), plus 1 a day for the cost counter and 1 a day when nothing is left to post. 200 keywords write about 600 rows a day. The SERP top 10 and features are columns on the result's row. A keyword that was never checked posts at the next tick, not at 05:00, with the same rows |

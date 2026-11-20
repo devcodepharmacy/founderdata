@@ -22,6 +22,11 @@ describe('dashboard routes', () => {
     for (const sub of ['search', 'keywords', 'cannibalization', 'ranks', 'ai', 'plan', 'pages']) expect(m(`/site/s1/seo/${sub}`)).toMatchObject({ view: 'seo' });
     expect(m('/site/s1/seo/other')).toEqual({ page: 'home' });
     expect(m('/live')).toEqual({ page: 'live' });
+    expect(m('/dashboards')).toEqual({ page: 'dashboards', id: null });
+    expect(m('/dashboards/db_abc123')).toEqual({ page: 'dashboards', id: 'db_abc123' });
+    // A viewer reads dashboards too.
+    expect(m('/dashboards/db_abc123', true)).toEqual({ page: 'dashboards', id: 'db_abc123' });
+    expect(m('/dashboards/a/b')).toEqual({ page: 'home' });
     expect(m('/nowhere')).toEqual({ page: 'home' });
   });
 

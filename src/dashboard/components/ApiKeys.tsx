@@ -16,7 +16,7 @@ import { SetupRow, SkeletonRows, Spinner, StatusChip, Tabs, toast } from './ui';
  * the changes it logged on this site. The legacy read keys (rtr_) are listed under them.
  */
 
-type Scope = 'read' | 'read:revenue' | 'read:rows' | 'notes:write' | 'alerts:write' | 'payments:write' | 'seo:write' | 'aso:write' | 'research:write' | 'spend:write' | 'spend:ai' | 'spend:seo' | 'mail:read' | 'mail:write' | 'mail:templates';
+type Scope = 'read' | 'read:revenue' | 'read:rows' | 'notes:write' | 'alerts:write' | 'payments:write' | 'seo:write' | 'aso:write' | 'research:write' | 'spend:write' | 'spend:ai' | 'spend:seo' | 'mail:read' | 'mail:write' | 'mail:templates' | 'dashboards:write';
 
 interface ApiKey {
   id: string;
@@ -60,6 +60,7 @@ const SCOPES: { id: Scope; label: string; text: string }[] = [
   { id: 'mail:read', label: 'Read mail', text: 'Inbox threads, sent messages and their delivery events, with addresses and message text.' },
   { id: 'mail:write', label: 'Send mail', text: 'Send from your mail domains, reply, mark read and archive. It does not include Read mail.' },
   { id: 'mail:templates', label: 'Edit mail templates', text: 'Create, change, publish and delete the templates of your mail domains. It sends nothing.' },
+  { id: 'dashboards:write', label: 'Build dashboards', text: 'Create, change and delete custom dashboards on the sites this key covers. Writes no data.' },
 ];
 const SCOPE_LABEL = Object.fromEntries(SCOPES.map((s) => [s.id, s.label])) as Record<Scope, string>;
 
@@ -80,6 +81,7 @@ const ABILITIES: Record<Scope, { text: string; tools: string[] }> = {
   'mail:read': { text: 'Read the inbox and the sent log, with addresses and message text', tools: ['mail'] },
   'mail:write': { text: 'Send and reply from your mail domains, as an app through the Resend-compatible API or as an agent', tools: ['mail', 'POST /api/mail/emails'] },
   'mail:templates': { text: 'Upload and publish the HTML your apps send, from a build or an agent', tools: ['mail', 'POST /api/mail/templates'] },
+  'dashboards:write': { text: 'Build custom dashboards of charts, numbers and tables that stay live', tools: ['dashboards', 'POST /api/v1/dashboards'] },
 };
 
 type PresetId = 'read' | 'revenue' | 'growth' | 'custom';

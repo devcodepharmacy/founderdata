@@ -13,7 +13,7 @@ import { requireAuth, sha256Hex } from './auth';
 import { getSite, type AppEnv, type Site } from './env';
 import { randomId } from './lib/crypto';
 
-export const SCOPES = ['read', 'read:revenue', 'read:rows', 'notes:write', 'alerts:write', 'payments:write', 'seo:write', 'aso:write', 'research:write', 'spend:write', 'spend:ai', 'spend:seo', 'mail:read', 'mail:write', 'mail:templates'] as const;
+export const SCOPES = ['read', 'read:revenue', 'read:rows', 'notes:write', 'alerts:write', 'payments:write', 'seo:write', 'aso:write', 'research:write', 'spend:write', 'spend:ai', 'spend:seo', 'mail:read', 'mail:write', 'mail:templates', 'dashboards:write'] as const;
 export type Scope = (typeof SCOPES)[number];
 /**
  * Scopes that write. spend:ai and spend:seo also write, and each one lets a key start billed calls on the owner's provider
@@ -38,6 +38,7 @@ export const SCOPE_TEXT: Record<Scope, string> = {
   'mail:read': "read the deployment's mail: inbox threads, sent messages and their events, with addresses and message text",
   'mail:write': "send mail from the deployment's domains and change the inbox (reply, mark read, archive). It does not include mail:read",
   'mail:templates': "create, change, publish and delete the mail templates of the deployment's domains. It sends nothing",
+  'dashboards:write': 'create, change and delete custom dashboards, on the sites the key covers',
 };
 
 /** The scopes the old keys have. They can't change. */
@@ -207,6 +208,7 @@ const WRITE_TEXT: Record<WriteScope, string> = {
   'spend:ai': 'add AI visibility prompts, which cost money on every enabled engine',
   'spend:seo': "spend DataForSEO money on keyword research",
   'mail:write': 'send mail',
+  'dashboards:write': 'change dashboards',
 };
 
 /**

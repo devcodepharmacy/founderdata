@@ -16,6 +16,7 @@ export type Route =
   | { page: 'home' }
   | { page: 'apps' }
   | { page: 'mail' }
+  | { page: 'dashboards'; id: string | null }
   | { page: 'notifications' }
   | { page: 'live' }
   | { page: 'settings'; siteId: string }
@@ -50,6 +51,9 @@ export function matchRoute(path: string, viewer: boolean = isViewer()): Route {
   if (/^\/apps\/?$/.test(path)) return { page: 'apps' };
   // Mail holds other people's addresses and messages: the owner's only, like Notifications.
   if (/^\/mail\/?$/.test(path) && !viewer) return { page: 'mail' };
+  // Custom dashboards (FounderData Pro): the list, or one dashboard. A viewer reads them; only an owner changes them.
+  const board = /^\/dashboards(?:\/([\w-]+))?\/?$/.exec(path);
+  if (board) return { page: 'dashboards', id: board[1] ?? null };
   // The full-screen live view: the globe, who is online and the last hour's payments (pages/Live.tsx).
   if (/^\/live\/?$/.test(path)) return { page: 'live' };
   // Alert channels hold webhook URLs: the owner's only. The viewer login lands on the home page.
@@ -90,6 +94,8 @@ function chunksOf(route: Route) {
       return [Pages.Apps];
     case 'mail':
       return [Pages.Mail];
+    case 'dashboards':
+      return [Pages.Dashboards];
     case 'notifications':
       return [Pages.Notifications];
     case 'live':

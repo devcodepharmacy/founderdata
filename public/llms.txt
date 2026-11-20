@@ -22,6 +22,7 @@ Send one key on every call: `Authorization: Bearer fdk_...`. The owner makes one
 - `spend:seo`: buy keyword research on the owner's DataForSEO account with `POST /api/v1/ranks/research` or `POST /api/v1/aso/app-keywords`, up to the site's monthly cap.
 - `mail:read` and `mail:write` (FounderData Pro): read the deployment's mail, and send it. `read` does not reach mail, and `mail:write` does not include `mail:read`.
 - `mail:templates` (FounderData Pro): create, change and publish mail templates. It sends nothing.
+- `dashboards:write` (FounderData Pro): create, change and delete custom dashboards with the MCP tool `dashboards`. It writes no data.
 - `aso:write`: ASO keywords, countries and competitors, plus snapshots and reviews, on `/api/sites/<id>/aso/...` and `GET /api/aso/collect`.
 
 A missing scope answers 403 and names it. `GET /api/v1/whoami` lists the key's scopes and the sites it covers, for any key. A key for one site reads that site. A key for several or all sites names the site with `?site=<id>` on each route, writes included. A missing, expired or revoked key gets 401. Names, emails and user ids are always null.
