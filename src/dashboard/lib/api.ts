@@ -237,7 +237,7 @@ export async function apiPage<T = any>(path: string): Promise<{ rows: T[]; next:
 
 /** Alert channels (GET /api/alerts, docs/GUIDE.md "Alerts and weekly report"). */
 export type ChannelKind = 'slack' | 'discord' | 'telegram' | 'webhook' | 'email';
-export type AlertKind = 'purchase' | 'renewal' | 'refund' | 'trial' | 'payment_failed' | 'canceled' | 'daily' | 'payments_stopped' | 'webhook_refused' | 'cap' | 'aso_collector' | 'aso_review' | 'weekly' | 'numbers';
+export type AlertKind = 'purchase' | 'renewal' | 'refund' | 'trial' | 'payment_failed' | 'canceled' | 'daily' | 'payments_stopped' | 'webhook_refused' | 'cap' | 'aso_collector' | 'aso_review' | 'mail' | 'weekly' | 'numbers';
 
 export interface AlertChannel {
   id: string;

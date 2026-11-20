@@ -311,6 +311,12 @@ describe('payment failed and subscription canceled alerts', () => {
     expect(parseAlerts(JSON.stringify({ payment_failed: true, canceled: true }))).toMatchObject({ payment_failed: true, canceled: true });
   });
 
+  it('turns mail alerts on for older channels too, and keeps a channel that switched them off', () => {
+    expect(parseAlerts(JSON.stringify({ purchase: true })).mail).toBe(true);
+    expect(parseAlerts(null).mail).toBe(true);
+    expect(parseAlerts(JSON.stringify({ mail: false })).mail).toBe(false);
+  });
+
   it('records the discounted price, from the first invoice, as new MRR', async () => {
     expect(await deliver('customer.subscription.created', subscription('sub_r3a'))).toBe(200);
     expect((await row('sub_r3a')).mrr).toBe(4900);

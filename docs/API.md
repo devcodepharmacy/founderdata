@@ -2806,6 +2806,8 @@ no channel takes it:
 - `daily`: Worth a look, per site
 - `payments_stopped`, `payment_failed`, `canceled`, `webhook_refused`, `cap`
 - `aso_collector`, `aso_review`
+- `mail`: a mail domain that fails its daily check or passes it again, failed sends of a domain, and received mail
+  that could not be read or stored, with `event` in `data` (FounderData Pro mail, [MAIL.md](MAIL.md#health-alerts))
 - `weekly`: the Monday report, one row per site with that site's part of it
 
 Purchases, renewals and Daily numbers stay out: payments hold the first two, and the third says the same every day.

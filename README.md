@@ -361,7 +361,7 @@ one about 750 and a tick before 05:00 UTC with nothing new about 950, so the 288
 for the UTC day, its ticks skip the scan of its keywords and pairs. Reads still grow with the pairs and keywords you track.
 
 The hourly jobs never share a tick: phone pushes and alert rules run at minute 0, the weekly report at 07:05 on Mondays,
-the X poll at minute 15, the Search Console sync at minute 30, the Meta ads import at minute 45, next actions at
+the X poll at minute 15, the mail health check at minute 20, the Search Console sync at minute 30, the Meta ads import at minute 45, next actions at
 minute 50 (3 sites a tick) and the AI answer counts at minute 55. The Meta Conversions API sends what is pending on every
 tick, and a tick with nothing pending costs one query. All jobs of one run draw on one counter of 48 subrequests (50 minus 2 in reserve) that counts
 every D1 query and outgoing call, and a paid call (a DataForSEO task or an AI engine call) starts only when the counter
@@ -421,11 +421,12 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | Phone pushes at 08:00: the daily one / the Monday one | 1 a day / 1 a week, for any number of phones |
 | Live Activity: a payment's update / a new token | 1 per phone, at most once a minute / 1 |
 | Threshold alert rule, checked hourly: a check that fires or judges a change / a quiet check | 1, plus 1 alert inbox row per alert it sent / 0 |
-| Alert inbox: each alert message, per site (rules, Worth a look, payments stopped, a failed payment or cancellation of a paying subscription, refused webhooks, the write cap, the ASO collector, a low review) | 1, also with no channel. Purchases and renewals stay out |
+| Alert inbox: each alert message, per site (rules, Worth a look, payments stopped, a failed payment or cancellation of a paying subscription, refused webhooks, the write cap, the ASO collector, a low review, mail problems) | 1, also with no channel. Purchases and renewals stay out |
 | Weekly report on Monday 07:05 UTC, per channel / its inbox rows | 2 (the week's marker, then sent), plus 1 for each retry / 1 per site a week |
 | Next actions, computed once a day on the minute-50 tick | 2 per site a day (the claim, then the items) |
 | Resend email event: the first of its type for an email / a retry or a second open | 2 / 0 |
 | Mail ([docs/MAIL.md](docs/MAIL.md)): an app sends to one address / the dashboard or an agent sends / a status event / a received message that starts a thread | 18, or 21 with an idempotency key / 23 or 24 / 5 / 15 |
+| Mail health alerts, hourly at minute 20: a quiet hour / a domain's daily check / an alert / a received message that could not be read or stored | 0 / 1, plus 1 when its problems change / 2 / 1 |
 | Meta ads import: a new ad and day / a new campaign, ad set or ad name / a run that finds nothing new | 2 (the row and its index entry) / 1 / 1. Today's rows change every hour as spend comes in, so 20 active ads write about 500 rows a day |
 | Meta Conversions API: an event sent or skipped / a tick with nothing pending | 1, plus 1 for the site's status when it changes / 0 |
 | Ad spend from Google Ads, TikTok or any channel without an import (`POST /api/v1/spend` or a CSV): a new or changed row of a day and campaign / a row sent again unchanged | 1 / 0. Meta and Apple Search Ads spend joins in from their imports and writes nothing more |
