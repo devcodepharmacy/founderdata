@@ -230,6 +230,38 @@ from the payments index. A test runs only when you press its button, from the da
 between presses. Each call has a 5 second timeout. A secret never appears, by value or by prefix. The routes are in
 [API.md](API.md#setup-checklist).
 
+### Set up integrations
+
+Every integration is optional. Each one needs an account or key that only the owner has, so set up the ones they want and
+skip the rest. Set a secret with `node scripts/wrangler.mjs secret put <NAME>` in a terminal. It asks for the value, so
+the secret never shows up in a chat or a shell history.
+
+| Integration | Turns on | The owner gets | Secrets and steps | Guide |
+| --- | --- | --- | --- | --- |
+| Payments | Revenue per visitor and source | A signing secret from Stripe, Dodo, Lemon Squeezy, Polar, Paddle or Gumroad | Webhook URL in the provider, signing secret in the site's settings | [Stripe](#revenue-attribution-with-stripe), [Dodo](#revenue-attribution-with-dodo-payments), [others](#revenue-attribution-with-lemon-squeezy-polar-paddle-and-gumroad) |
+| Email alerts | Alerts and the weekly report by email | A Resend key, or Cloudflare Email Routing | `RESEND_API_KEY`, `ALERT_EMAIL_FROM` | [Alerts](#alerts-and-weekly-report) |
+| DataForSEO (Pro) | Google rank tracking and keyword research (SEO tab), App Store ranks without a Mac (ASO tab), Google AI Overviews and Perplexity (AI visibility tab) | The API login and API password from the DataForSEO dashboard. The API password is not the account password. The account needs a balance | `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, then press Test on the checklist's DataForSEO row. Per site: the country and monthly cap under SEO, Google ranks, then keywords | [SEO.md](SEO.md#keyword-research-and-rank-tracking), [ASO.md](ASO.md#ranks-without-your-mac) |
+| Search Console (Pro) | The SEO tab's clicks, queries, pages and decay | A Google Cloud project with an OAuth client of type Web application | Paste the redirect URI from the checklist's Google row into the client, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then the owner clicks **Connect Google** in the SEO tab and picks a property per site | [SEO.md](SEO.md#connect-google) |
+| ASO collector (Pro) | App Store ranks, the top 10, ratings and reviews per country | A machine that is not on Cloudflare, such as their Mac | Keywords and countries in the ASO tab, `node scripts/aso-collect.mjs --probe`, then a daily schedule. Reviews and ratings need it even when DataForSEO checks the ranks | [ASO.md](ASO.md#set-it-up) |
+| Apple Search Ads (Pro) | Ad spend and ROAS, and Apple's popularity score in the ASO tab | An API user in Apple Ads with a public key uploaded | `ASA_CLIENT_ID`, `ASA_TEAM_ID`, `ASA_KEY_ID`, `ASA_PRIVATE_KEY`, optional `ASA_AD_ACCOUNT_ID` | [Apple Search Ads](#apple-search-ads-pro) |
+| App Store sales (Pro) | Downloads, proceeds and Apple's cut | An App Store Connect team key with the Sales and Reports role | `ASC_KEY_P8`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_VENDOR_NUMBER` | [App Store sales](#app-store-sales-pro) |
+| AI visibility (Pro) | How often assistants name the site | One key or more, each with a spend limit at the provider | Any of `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `PERPLEXITY_API_KEY`. DataForSEO adds Google AI Overviews. Then prompts, names, engines and a cap in the AI visibility tab | [AI-VISIBILITY.md](AI-VISIBILITY.md#set-it-up) |
+| Meta ads (Pro) | Spend, ROAS and the Conversions API | A system user token with `ads_read` | `META_ACCESS_TOKEN`, then the ad account and URL parameters in the site's settings | [Meta ads](#set-up-meta-ads) |
+| X posts (Pro) | Visitors and revenue per post | A bearer token from the X developer console | `X_BEARER_TOKEN`, then press Test and type the handle in the site's settings | [Which post paid](#which-post-paid-pro) |
+| Resend email stats (Pro) | Sent, delivered, bounced and opened per site | A Resend webhook | `RESEND_WEBHOOK_SECRET` | [Email (Resend)](#email-resend-pro) |
+| Push (Pro) | Notifications on the iPhone app | An APNs auth key | `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID` | [Phone app and push](#phone-app-and-push-pro) |
+| Mail (Pro) | Sending and receiving on the owner's domains | Workers Paid, and a domain whose DNS is on the same Cloudflare account | `npm run setup -- --mail`, then `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then a domain on the Mail page | [MAIL.md](MAIL.md#set-it-up) |
+| Recordings (Pro) | Recordings of visits in People | R2 on the Cloudflare account | `npm run setup -- --replay`, then Record visits in the site's settings, Data and privacy | [People and recordings](#people-and-recordings-pro) |
+| Plan agent (Pro) | An AI agent that works each site's plan on a schedule | An agent tool that runs a prompt on a schedule, and a FounderData key with `read`, `read:revenue`, `notes:write` and `research:write` | The steps on the Plan tab's **Runs by itself** card | [Run an agent on a schedule](#run-an-agent-on-a-schedule-pro) |
+
+One DataForSEO login serves every site, and each site has one monthly DataForSEO cap. Google ranks, keyword research,
+App Store ranks without a Mac, AI Overviews and Perplexity through DataForSEO all spend from that cap. Set it to what
+they need together. A cap of $0 stops all of them.
+
+When you're done, open the [setup checklist](#setup-checklist), or call `GET /api/setup` with the owner's login. Each
+integration the owner chose should say Working. The rest should say Off. Fix each row that says Needs a look or Broken
+by following its `next` step.
+
 ### Viewer login
 
 For a colleague who should see the dashboard but not change it, set a second password:
@@ -2761,17 +2793,27 @@ review and mark them kept, reverted or iterated ([MCP.md](MCP.md#the-review-loop
 The ASO tab of an iOS app shows its rank for each keyword in each country, the 10 apps above it, a difficulty score,
 Apple's search popularity, ratings per country and new reviews. Apple refuses these requests from Cloudflare, so a
 script on your own machine, `scripts/aso-collect.mjs`, fetches them and posts them to the Worker. It uses App Store
-endpoints that Apple's terms don't allow automated access to, so you decide whether to run it. Popularity comes from
-the Apple Ads API with the `ASA_*` secrets. Setup, scheduling, the formulas and the snapshot format are in
+endpoints that Apple's terms don't allow automated access to, so you decide whether to run it. With the DataForSEO
+secrets, the Worker can check the ranks itself through DataForSEO's licensed API instead
+([Ranks without your Mac](ASO.md#ranks-without-your-mac)). Ratings and reviews still need the collector. Popularity
+comes from the Apple Ads API with the `ASA_*` secrets. Setup, scheduling, the formulas and the snapshot format are in
 [ASO.md](ASO.md). An app's App Store id, under General in its settings, helps the collector find it. Without one it
 looks the app up by its bundle id.
 
 ## SEO (Pro)
 
-FounderData doesn't collect search data. The SEO tab shows a snapshot you push from your own scripts: Search Console
-clicks, impressions, click-through rate and position per day, plus optional keyword targets, SERP checks, an SEO plan,
-a ship log, AI assistant answers, competitors and backlinks. `PUT /api/sites/:id/seo/:part` stores a part, and a push
-replaces the last one. The tab ends every window on the last day Search Console has data for, because Google reports
+The SEO tab gets its data three ways, and each is optional:
+
+- **Search Console.** Click **Connect Google** once and the Worker reads clicks, impressions, click-through rate and
+  position per day every hour ([Connect Google](SEO.md#connect-google)). `scripts/gsc-sync.mjs` does the same from your
+  machine without OAuth ([Sync Search Console](SEO.md#sync-search-console)).
+- **Google ranks and keyword research.** With the `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` secrets, the Worker
+  checks your keywords on Google once a day and buys keyword research on request, up to the site's monthly cap
+  ([Keyword research and rank tracking](SEO.md#keyword-research-and-rank-tracking)).
+- **Your own scripts.** `PUT /api/sites/:id/seo/:part` stores a part of the snapshot, such as keyword targets, SERP
+  checks, an SEO plan, a ship log, AI assistant answers, competitors and backlinks. A push replaces the last one.
+
+The tab ends every window on the last day Search Console has data for, because Google reports
 about two days late, so it hides the period picker. The tab has five views, each with its own URL: Search (the
 totals, decaying pages and top queries and pages), Keywords (targets, queries close to page one, who ranks instead), AI
 answers (each panel prompt per assistant, and visits from assistants), Plan and work (the SEO plan and the ship
