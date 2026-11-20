@@ -22,6 +22,16 @@ export const SKIP_CHARS = 100;
 export const skipList = (text: string | null | undefined): string[] => (text ? text.split('\n').filter(Boolean) : []);
 
 /**
+ * Whether `path` is one of the site's pages that are never recorded: the same path or one below it, so /dashboard skips
+ * /dashboard and /dashboard/x but not /dashboards. The tracker and the recorder use the same rule.
+ */
+export function isSkipped(path: string | null | undefined, list: string[]): boolean {
+  if (!path || !list.length) return false;
+  const p = path.split(/[?#]/)[0];
+  return list.some((x) => p === x || p.startsWith(x.endsWith('/') ? x : `${x}/`));
+}
+
+/**
  * Checks a list of pages that are never recorded: text with one path per line, or an array of paths. Trims each line,
  * drops empty lines, a trailing slash and repeats. Returns the text to store (null for an empty list) or the error.
  */

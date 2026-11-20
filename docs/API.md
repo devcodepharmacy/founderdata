@@ -3037,7 +3037,8 @@ The list behind `x` is the site setting `record_skip`. `GET /api/sites/<id>` ret
 line, or `null`. `PATCH /api/sites/<id>` (dashboard login) takes the same text or an array of paths. It trims each
 line, drops empty lines, a trailing `/` and repeats, and stores an empty list as `null`. Each path starts with `/`, has
 at most 100 characters and no space, `?` or `#`. At most 20 paths. Anything else answers `400` with an `error` that
-says what to fix.
+says what to fix. The server checks the list too: it stores no clicks or errors for a page on it, whichever version of
+the script sent them.
 
 With `rec`, the script loads `<script host>/js/replay.js` once per page (`?v=<rec.v>` when given), `async`, and sets
 `window.founderdata._rec` before it does. A page in `rec.x` gets `_rec` but not the recorder:

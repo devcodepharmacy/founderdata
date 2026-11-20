@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MAX_TRAITS, parseActivity, traitsOf } from '../src/worker/collect';
 import { forgetSite } from '../src/worker/env';
 import { installPro, proHooks, type Pro, type RecordConfig } from '../src/worker/pro-hooks';
-import { parseSkipList, patchRecording, skipList } from '../src/worker/recording';
+import { isSkipped, parseSkipList, patchRecording, skipList } from '../src/worker/recording';
 import { startWorker, type TestWorker } from './helpers/worker';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/129 Safari/537.36';
@@ -90,6 +90,12 @@ describe('patchRecording', () => {
     expect(parseSkipList(['/a', ' /b '])).toEqual({ text: '/a\n/b' });
     for (const empty of ['', null, ' \n ', []]) expect(parseSkipList(empty)).toEqual({ text: null });
     expect(skipList(null)).toEqual([]);
+    expect(isSkipped('/dashboard', ['/dashboard'])).toBe(true);
+    expect(isSkipped('/dashboard/clients?x=1', ['/dashboard'])).toBe(true);
+    expect(isSkipped('/dashboards', ['/dashboard'])).toBe(false);
+    expect(isSkipped('/pricing', ['/'])).toBe(true);
+    expect(isSkipped('/pricing', [])).toBe(false);
+    expect(isSkipped(null, ['/dashboard'])).toBe(false);
   });
 
   it('refuses a page that is not a path, and more than 20', () => {
@@ -267,6 +273,16 @@ describe('people and recordings in the Worker', () => {
     await event({ t: 'ping', d: 5000, vid: 'actvisitor0001', sid: 'actsession0001', a: activity });
     expect((await w.db.prepare("SELECT COUNT(*) AS n FROM events WHERE type = 'activity' AND session_id = 'actsession0001'").first<{ n: number }>())?.n).toBe(1);
     await setSite({ record_visits: 1 });
+    // A page on the never-recorded list keeps its clicks and errors out, even from a tracker that sent them anyway.
+    await setSite({ record_skip: '/dashboard' });
+    w.takeRowsWritten();
+    await event({ t: 'ping', d: 5000, vid: 'actvisitor0001', sid: 'actsession0001', a: { ...activity, p: '/dashboard/clients' } });
+    expect(w.takeRowsWritten()).toBe(1);
+    await event({ t: 'ping', d: 5000, vid: 'actvisitor0001', sid: 'actsession0001', u: 'https://people.example/dashboard', a: { c: activity.c } });
+    expect(w.takeRowsWritten()).toBe(1);
+    await event({ t: 'ping', d: 5000, vid: 'actvisitor0001', sid: 'actsession0001', a: { ...activity, p: '/dashboards' } });
+    expect(w.takeRowsWritten()).toBe(5);
+    await setSite({ record_skip: null });
   });
 
   it('activity rows change no number: overview, pages, goals, funnel, profile counts and the goal picker', async () => {

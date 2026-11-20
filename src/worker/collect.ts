@@ -8,6 +8,7 @@ import { clientIp, cookielessIds, trustsForwardedFor, visitorSecret } from './id
 import { isBot, parseUA } from './lib/ua';
 import { overCap, rowsWritten, spend } from './budget';
 import { creditedVisitSql } from './payments';
+import { isSkipped, skipList } from './recording';
 import { insertVitals, parseVitals, vitalsPath } from './vitals';
 import { proHooks, type RecordConfig } from './pro-hooks';
 
@@ -330,8 +331,9 @@ export async function ingest(
     const insert = vitals && insertVitals(db, site, vitals, vitalsPath(body.v, path), parseUA(ua, Number(body.sw) || undefined).device, now);
     if (insert) stmts.push(insert);
     // The clicks and errors of the page that ended: 1 row more, only for a site that records visits.
+    // A page on the site's never-recorded list keeps its clicks and errors out too, whatever tracker version sent them.
     const act = site.record_visits ? parseActivity(body.a) : null;
-    if (act) {
+    if (act && !isSkipped(act.path ?? path, skipList(site.record_skip))) {
       stmts.push(
         db
           .prepare(
