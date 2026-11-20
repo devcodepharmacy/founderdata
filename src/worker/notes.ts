@@ -12,15 +12,20 @@ import { makeCtx, overview, type Ctx } from './stats';
 import type { AscPrefetch } from './revenue';
 import {
   JUDGE_CALLS,
+  beyondNoise,
+  isApp,
   measuring,
   metricsFor,
+  NOISE_TEXT,
   NOTE_METRICS,
   parseTarget,
   RANK_MIN_PLACES,
   RANK_MIN_SHARE,
+  rateBeyondNoise,
   WAIT_SQL,
   waitDays,
   windowFor,
+  type AppData,
   type JudgeInput,
   type Judgement,
   type NoteMetric,
@@ -134,6 +139,7 @@ function readNote(
   b: Record<string, unknown> | null,
   now: number,
   site: Pick<Site, 'product_type' | 'app_bundle_id'>,
+  data: AppData | null = null,
 ): { error: string } | { text: string; ts: number; annotation: Annotation } {
   const text = typeof b?.text === 'string' ? b.text.trim().replace(/\s+/g, ' ') : '';
   if (!text) return { error: 'text is required' };
@@ -179,7 +185,7 @@ function readNote(
   }
   if (given('ends_at')) return { error: 'ends_at is for kind outage only' };
   // What the verdict judges: the kind and target pick it (pro/worker/verdicts.ts), or the request names one they allow.
-  const allowed = metricsFor(annotation.change_kind, annotation.target, site);
+  const allowed = metricsFor(annotation.change_kind, annotation.target, site, data);
   if (given('metric')) {
     const m = b!.metric;
     if (typeof m !== 'string' || !(NOTE_METRICS as readonly string[]).includes(m)) return { error: `metric is one of ${NOTE_METRICS.join(', ')}` };
@@ -372,11 +378,28 @@ export async function listNotesApi(c: Context<AppEnv>) {
   return Response.json(q.compact === 'true' ? compactNotes(rows) : rows, { headers: truncated ? { 'x-truncated': '1' } : {} });
 }
 
+/**
+ * What an app site has stored for its own verdicts (note-metrics.ts metricsFor): Apple's download rows and trials. Only
+ * with Pro, whose judges read them, and only for an app: one read, the two EXISTS on their site indexes.
+ */
+export async function appDataOf(db: D1Database, site: Site): Promise<AppData | null> {
+  if (!proHooks()?.judgeMetric || !isApp(site)) return null;
+  const r = await db
+    .prepare(
+      `SELECT EXISTS (SELECT 1 FROM asc_sales WHERE site_id = ?1 AND kind = 'download') AS downloads,
+         EXISTS (SELECT 1 FROM subscriptions WHERE site_id = ?1 AND sandbox = 0 AND trial_start IS NOT NULL) AS trials`,
+    )
+    .bind(site.id)
+    .first<{ downloads: number; trials: number }>()
+    .catch(() => null);
+  return r ? { downloads: !!r.downloads, trials: !!r.trials } : null;
+}
+
 /** POST /api/sites/:id/notes { text, ts?, kind?, actor?, target?, before?, after? } from the dashboard. */
 export async function createNote(c: Context<AppEnv>) {
   const b = await c.req.json<Record<string, unknown>>().catch(() => null);
   const now = Date.now();
-  const n = readNote(b, now, c.get('site'));
+  const n = readNote(b, now, c.get('site'), await appDataOf(c.env.DB, c.get('site')));
   if ('error' in n) return c.json({ error: n.error }, 400);
   const { note } = await insertNote(c.env.DB, c.get('site'), n.text, n.ts, 'manual', now, n.annotation);
   return c.json(dashboardNote(note));
@@ -400,7 +423,7 @@ export async function handleNoteApi(c: Context<AppEnv>) {
   const site = auth.site;
   const b = await c.req.json<Record<string, unknown>>().catch(() => null);
   const now = Date.now();
-  const n = readNote(b, now, site);
+  const n = readNote(b, now, site, await appDataOf(c.env.DB, site));
   if ('error' in n) return c.json({ error: n.error }, 400);
   const { note, created } = await insertNote(c.env.DB, site, n.text, n.ts, 'api', now, n.annotation);
   return c.json({ ok: true, id: note.id, ts: note.ts, created, note: apiNote(note) });
@@ -476,6 +499,8 @@ interface SideCounts {
  *    (`currency` null) judges visitors.
  * 4. Up by IMPACT_MIN_LIFT or more over the value before is better, down by as much is worse, less is inconclusive.
  *    From 0 to more is better.
+ * 5. A count must also clear the noise rule (beyondNoise): visitors, and the new customers behind a conversion rate
+ *    (rateBeyondNoise). Revenue per visitor has no count rule: a price change moves it with the same customers.
  */
 export function judge(
   b: SideCounts,
@@ -512,10 +537,13 @@ export function judge(
   const rel = before ? round4((after - before) / before) : after > 0 ? Infinity : 0;
   const span = `from ${show(before)} to ${show(after)}`;
   const on = metric === 'visitors' ? '' : `, on ${count(b.visitors)} visitors before and ${count(a.visitors)} after`;
-  if (rel >= IMPACT_MIN_LIFT) {
-    return { verdict: 'better', verdict_metric: metric, reason: `${label} rose ${Number.isFinite(rel) ? `${percent(rel)}, ` : ''}${span}${on}.` };
+  const noise =
+    metric === 'visitors' ? !beyondNoise(a.visitors, b.visitors) : metric === 'conversion_rate' ? !rateBeyondNoise(a.customers, a.visitors, b.customers, b.visitors) : false;
+  if (rel >= IMPACT_MIN_LIFT || rel <= -IMPACT_MIN_LIFT) {
+    const moved = rel > 0 ? `rose ${Number.isFinite(rel) ? `${percent(rel)}, ` : ''}` : `fell ${percent(rel)}, `;
+    if (noise) return { verdict: 'inconclusive', verdict_metric: metric, reason: `${label} ${moved}${span}${on}. ${NOISE_TEXT}` };
+    return { verdict: rel > 0 ? 'better' : 'worse', verdict_metric: metric, reason: `${label} ${moved}${span}${on}.` };
   }
-  if (rel <= -IMPACT_MIN_LIFT) return { verdict: 'worse', verdict_metric: metric, reason: `${label} fell ${percent(rel)}, ${span}${on}.` };
   return {
     verdict: 'inconclusive',
     verdict_metric: metric,
@@ -710,8 +738,8 @@ const gapShare = (w: { from: number; to: number }, outages: { start: number; end
  *   entries in `change`. The visit numbers stay as context.
  *
  * Scope: when the note's target is a page path (targetPath), the visit numbers count only the visits that entered on
- * that page and the payments credited to them (`scope` "page"). `overlapping` lists the other notes in the after
- * window whose changes are in the numbers too; for a page, the notes aimed at another page are left out. `outages`
+ * that page and the payments credited to them (`scope` "page"). `overlapping` lists the other notes in the before
+ * and after windows, whose changes are in the numbers too; for a page, the notes aimed at another page are left out. `outages`
  * lists the outage notes that overlap either side; one that covers OUTAGE_MAX_SHARE of a side makes a verdict on
  * FounderData's own numbers inconclusive (`data_gap`).
  *
@@ -773,7 +801,7 @@ export async function impactOf(
   const t = parseTarget(note.target);
   const kw = metric === null ? keywordTarget(note) : metric === 'keyword_rank' && t.type === 'keyword' ? { term: t.term, country: t.country } : null;
   const special = metric && metric !== 'visits' && metric !== 'keyword_rank' ? metric : null;
-  // One read for the notes in the after window (`overlapping`) and the outages on either side. The outages take a day
+  // One read for the notes in both windows (`overlapping`) and the outages on either side. The outages take a day
   // of margin on each side: a judge that reads whole days (ads) reaches past the note's time by up to a day.
   const [o, near, keyword, j] = await Promise.all([
     span ? overview(ctx) : null,
@@ -782,7 +810,7 @@ export async function impactOf(
         `SELECT 'n' AS part, * FROM (SELECT * FROM notes WHERE site_id = ?1 AND ts >= ?5 AND ts < ?6 AND id != ?4 ORDER BY ts LIMIT 50)
          UNION ALL SELECT 'o' AS part, * FROM (${OUTAGES_SQL})`,
       )
-      .bind(site.id, note.ts - (win + 1) * DAY, note.ts + (win + 1) * DAY, note.id, note.ts, note.ts + win * DAY)
+      .bind(site.id, note.ts - (win + 1) * DAY, note.ts + (win + 1) * DAY, note.id, note.ts - win * DAY, note.ts + win * DAY)
       .all<Note & { part: 'n' | 'o' }>(),
     kw ? keywordMoves(db, site.id, kw, note.ts, note.ts + span) : null,
     special ? judgeSpecial({ db, site, note, metric: special, win, now, reviewAfter, before, after, complete: msComplete }) : (null as Judgement | null),
@@ -955,6 +983,10 @@ export function metricValues(i: Pick<NoteImpact, 'verdict_metric' | 'before' | '
     case 'paywall_conversion':
     case 'trial_rate':
       return from('paywall', m);
+    case 'app_downloads':
+      return from('downloads', 'downloads');
+    case 'trial_to_paid':
+      return from('trials', 'trial_to_paid');
     case null:
     case 'keyword_rank':
       return { before: 0, after: 0 };
@@ -1011,12 +1043,14 @@ export const GROUP_SPAN_MS = 30 * DAY;
  * The window is `days` when given, else each note's own (window_days, 7 for a note from before migration 0066), plus
  * the days its data comes late (verdicts.ts WAIT_DAYS). Outage notes need no review. A group (several notes with one
  * `group` key, such as locale copies) shows once, as its first note, and leaves once any of its notes is reviewed.
- * One query on the notes_site_time index; the rest is checked on those rows.
+ * One query on the notes_site_time index; the rest is checked on those rows. `f.since` keeps only the notes created at or
+ * after that time, plus the ones `f.ids` names (FounderData Pro's plan: the notes its tasks link, and the newer ones);
+ * with `f.invert` it keeps the other notes instead.
  */
 export async function dueNotes(
   db: D1Database,
   siteId: string,
-  f: { actor: string | null; kind: ChangeKind | null },
+  f: { actor: string | null; kind: ChangeKind | null; since?: number | null; ids?: string[] | null; invert?: boolean },
   days: number | null,
   limit: number,
   now = Date.now(),
@@ -1027,12 +1061,13 @@ export async function dueNotes(
          AND (n.change_kind IS NULL OR n.change_kind != 'outage')
          AND n.ts + (COALESCE(?7, n.window_days, ?8) + ${WAIT_SQL}) * ${DAY} <= ?9
          AND (?4 IS NULL OR n.actor = ?4) AND (?5 IS NULL OR n.change_kind = ?5)
+         AND (?11 IS NULL OR (CASE WHEN n.created_at >= ?11 OR n.id IN (SELECT value FROM json_each(?12)) THEN 1 ELSE 0 END) != ?13)
          AND (n.group_key IS NULL OR NOT EXISTS (
            SELECT 1 FROM notes g WHERE g.site_id = n.site_id AND g.ts >= n.ts - ?10 AND g.ts <= n.ts + ?10 AND g.group_key = n.group_key AND g.id != n.id
              AND (g.reviewed_at IS NOT NULL OR g.ts < n.ts OR (g.ts = n.ts AND g.id < n.id))))
        ORDER BY n.ts LIMIT ?6`,
     )
-    .bind(siteId, now - DUE_LOOKBACK_DAYS * DAY, now - DAY, f.actor, f.kind, limit, days, IMPACT_DEFAULT_DAYS, now, GROUP_SPAN_MS)
+    .bind(siteId, now - DUE_LOOKBACK_DAYS * DAY, now - DAY, f.actor, f.kind, limit, days, IMPACT_DEFAULT_DAYS, now, GROUP_SPAN_MS, f.since ?? null, JSON.stringify(f.ids ?? []), f.invert ? 1 : 0)
     .all<Note>();
   return results;
 }

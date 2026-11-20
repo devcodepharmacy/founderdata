@@ -42,6 +42,7 @@ export const Views: Record<Exclude<View, 'overview'>, Preloadable<ComponentType<
   ads: proView('ads'),
   asa: proView('asa'),
   dropoff: proView('dropoff'),
+  plan: proView('plan'),
   people: proView('people'),
 };
 

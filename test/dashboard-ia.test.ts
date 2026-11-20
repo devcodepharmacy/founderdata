@@ -74,8 +74,11 @@ class FakeWindow extends EventTarget implements UrlWindow {
 }
 
 describe('section row', () => {
-  it('puts every section in exactly one group, in the order Analytics, Organic, Paid, Revenue', () => {
-    expect(SECTION_GROUPS.map((g) => g.label)).toEqual(['Analytics', 'Organic', 'Paid', 'Revenue']);
+  it('puts every section in exactly one group, in the order Agent, Analytics, Organic, Paid, Revenue', () => {
+    expect(SECTION_GROUPS.map((g) => g.label)).toEqual(['Agent', 'Analytics', 'Organic', 'Paid', 'Revenue']);
+    // The agent's plan has a group of its own, first in the row; a site still opens on the Overview.
+    expect(SECTION_GROUPS[0].views).toEqual(['plan']);
+    expect(matchRoute('/site/s1', false)).toEqual({ page: 'dashboard', siteId: 's1', view: 'overview' });
     const all = SECTION_GROUPS.flatMap((g) => g.views);
     expect(new Set(all).size).toBe(all.length);
     expect([...all].sort()).toEqual(Object.keys(SECTION_LABELS).sort());
@@ -115,8 +118,11 @@ describe('section row', () => {
     expect(sectionState(appOnly, 'seo').setup).toMatchObject({ title: 'This section needs a website', settings: 'general' });
     expect(sectionState(webOnly, 'subscriptions').setup).toMatchObject({ settings: 'payments' });
     expect(sectionState(webOnly, 'overview')).toEqual({ muted: false, setup: null });
-    expect(viewsFor(webOnly)).toEqual(['overview', 'people', 'content', 'dropoff', 'seo', 'ai', 'paid', 'ads']);
-    expect(viewsFor(appOnly)).toEqual(['overview', 'people', 'dropoff', 'app', 'aso', 'paid', 'asa', 'subscriptions', 'appstore']);
+    expect(viewsFor(webOnly)).toEqual(['plan', 'overview', 'people', 'content', 'dropoff', 'seo', 'ai', 'paid', 'ads']);
+    expect(viewsFor(appOnly)).toEqual(['plan', 'overview', 'people', 'dropoff', 'app', 'aso', 'paid', 'asa', 'subscriptions', 'appstore']);
+    // The plan needs neither a website nor an app.
+    expect(sectionState(appOnly, 'plan')).toEqual({ muted: false, setup: null });
+    expect(sectionState(webOnly, 'plan')).toEqual({ muted: false, setup: null });
   });
 
   it('carries the period and filters to another section, not the section\'s own tab, view or visitor', () => {

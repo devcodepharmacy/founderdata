@@ -2177,6 +2177,7 @@ before anything real happens. Channels cover the whole deployment: every site, o
 | Write cap reached | When a site hits its daily write cap, or all sites fill the shared one. Once a day at most | on |
 | ASO collector stopped | Daily at 07:00 UTC, when an app with ASO keywords got no snapshot for 36 hours. Once per outage ([ASO.md](ASO.md#health-and-alerts)) | on, for older channels too |
 | Low App Store review | At once, when a new written review at or below the app's star limit arrives, 3 stars by default ([ASO.md](ASO.md#review-alerts)) | on, for older channels too |
+| No plan session (Pro) | Daily at 07:00 UTC, when a site's plan expects the agent every N hours and no session came for 2 x N hours. Once per gap, and the next session re-arms it. A failed run does not ([Plan](#plan-pro)) | on |
 | Daily numbers | Every day at 07:00 UTC: yesterday's MRR and change, new and churned subscriptions, revenue, visitors and the Stripe check, per site | off |
 | Weekly report | Mondays at 07:05 UTC | on |
 
@@ -2406,7 +2407,7 @@ comes back from the API. With `"format": "github_dispatch"` and a webhook URL of
 
 Every alert above is also kept for 90 days, one row per message and site, never per channel: Worth a look, payments
 stopped, failed payments and cancellations, refused webhooks, the write cap, the ASO collector and reviews, rules that
-fired and the weekly report. It is kept also when no channel takes the alert. Purchases, renewals and Daily numbers
+fired, an agent that went away and the weekly report. It is kept also when no channel takes the alert. Purchases, renewals and Daily numbers
 stay out. Names and emails never go in.
 
 An agent reads it with `GET /api/v1/alerts?since=<a minute before its last run>` or the MCP tool `alert_rules` with
@@ -2437,15 +2438,135 @@ about 5,000 with Connect Google, which builds the totals parts, and up to about 
 
 ### Run an agent on a schedule (Pro)
 
-The Pro repository has `examples/agents/weekly-review.yml`, a GitHub Actions workflow. Copy it into
-the `.github/workflows/` folder of any repository you own. It runs a headless agent with the FounderData MCP server
-every Monday at 08:00 UTC, after the weekly report, and on every alert a rule sends it. It needs two repository
-secrets: an Anthropic API key, and a FounderData key (Settings, Agents) with `read`, `read:revenue`, `notes:write` and
-`research:write`. Set the deployment's URL in the file.
+Once a site has a plan ([Plan](#plan-pro)), you schedule one prompt. Each run is one session of that plan: the agent
+reads the plan, closes what is due, does the next task and logs what it did.
 
-Each run starts with two calls: `get_portfolio` with `view: "actions"` (what to do) and `alert_rules` with
-`action: "events"` since the last run (what changed). It follows the `founderdata-portfolio-triage` or
-`founderdata-alert-triage` skill and saves what it found with `add_research`, so the next run starts from it.
+```text
+Work on the growth plan for site SITE_ID in FounderData. Call get_plan and do what its guide says. End with log_session.
+```
+
+The Plan tab's **Runs by itself** card has the setup steps with your site id filled in. Your agent can also walk you
+through them: `get_plan` returns the same steps in `autopilot.setup`. Connect the FounderData MCP server in the tool
+first ([MCP.md](MCP.md#connect)), with a key that has `read`, `read:revenue`, `notes:write` and `research:write`.
+
+Allow the tools the task needs, and nothing more: the FounderData tools, plus file edits in the project folder when
+the agent should change your site. Anything else can stay on "ask". Do not switch on a mode that approves everything.
+
+**Which one.** Your Mac sleeps at night? Pick the Claude app. You want code changes as pull requests? Pick GitHub
+Actions. You run several products? Read [Several sites](#several-sites-and-one-repository-per-product) too.
+
+| Path | Runs where | A missed run | Can change your code |
+| --- | --- | --- | --- |
+| Claude app | Anthropic's cloud, on a paid Claude plan | The computer can sleep, so sleep misses nothing. Anthropic does not document what happens to a run that fails to start | No |
+| Claude Code | Your Mac, in the Claude desktop app's Code tab | Skipped while the Mac sleeps. On wake, one catch-up run for the newest missed time, up to 7 days back | Yes, in the folder you pick |
+| GitHub Actions | GitHub's runners | GitHub may start a scheduled run late, and drop one at busy times. A dropped run does not repeat | Yes, as a pull request |
+| Codex | Your computer, in the ChatGPT desktop app | No run while the computer is off | Yes |
+| By hand | Wherever you paste the prompt | Nothing runs until you start it | Depends on the app |
+
+What each needs, from the tool's own documentation (checked 2026-11-19, links below):
+
+- **Claude app.** In the Claude app on a computer, or at claude.ai, click **Scheduled** in the left sidebar, then
+  **New task**, paste the prompt and set it to daily. Leave the folder empty: a task with a folder runs only while that
+  computer is awake and the app is open. Scheduled tasks use the connectors you added, so add FounderData once as a
+  custom connector: **Customize**, **Connectors**, **Add**, **Add custom connector**, the URL
+  `https://founderdata.example.com/mcp`, Authentication **No sign-in**, and under **Request headers** the header
+  `authorization` with the value `Bearer fdk_...`. Request headers are in beta for some accounts. Without that section
+  in the dialog, your account cannot connect FounderData this way yet, because FounderData has no sign-in flow for
+  connectors: use Claude Code or GitHub Actions. If Claude stops to ask your permission, open
+  the connector's page and set FounderData so it does not ask each time. We have not run this path against a live account, so check after the first run that the Plan
+  tab shows a session.
+- **Claude Code.** In the Claude desktop app, open the **Code** tab, click **Scheduled** in the sidebar, then
+  **New task**. Paste the prompt, pick your project folder and choose **Daily**. It runs only while the app is open and
+  the Mac is awake; **Keep computer awake** in the app's settings stops idle sleep, but closing the lid still sleeps
+  it. It sees the MCP server you added with `claude mcp add`. Click **Run now** on the task's page, watch the first
+  run and allow the FounderData tools there. A cloud task in the same list runs while the Mac is off, but it uses the
+  connectors from your claude.ai account, as in the Claude app path.
+- **GitHub Actions.** The Plan tab's **Copy run-plan.yml** button copies the workflow with your URL and site id filled
+  in; the Pro repository has it at `pro/examples/agents/run-plan.yml`. Save it as `.github/workflows/run-plan.yml` in
+  the repository of your site, add the secrets `ANTHROPIC_API_KEY` and `FOUNDERDATA_KEY`, set `TEST_COMMAND` and
+  `SETUP_COMMAND`, and tick **Allow GitHub Actions to create and approve pull requests** under Settings, Actions,
+  General. It runs every day at 08:17 UTC and on every alert a rule sends, in two jobs on two machines. The `plan` job
+  runs everything that comes from your repository (`SETUP_COMMAND`, the agent, `TEST_COMMAND`) with a read-only token
+  and no token in its environment or git config, so nothing there can push, even code that takes over the machine. It
+  hands the agent's branch over as a git bundle. The `pull-request` job holds the only token that can write and runs no
+  code from your repository: git with hooks off and gh. It checks that the branch is named `founderdata/...`, pushes
+  only that branch and opens a pull request (a draft when the tests failed). Nothing in the file can push to your
+  default branch, so it needs no branch protection rule. Repository code in the `plan` job can read the Anthropic key
+  and the FounderData key, so give the FounderData key only the four scopes and one site. A run stopped by the turn or
+  cost cap sends no branch. Pull requests
+  opened with the workflow's token do not start your other workflows; close and reopen one to run your CI on it.
+- **Codex.** A scheduled task in the ChatGPT desktop app, under **Scheduled**. It needs the computer on and the app
+  running, and it runs in your default sandbox. Add the server to Codex's `config.toml`, which the app, the CLI and the
+  IDE extension share. We did not check this path against OpenAI's documentation this round.
+- **By hand.** With no scheduler, open a chat as often as you agreed with your agent and paste the prompt. When none
+  arrives for twice the interval, FounderData sends the "No plan session" [alert](#alerts-and-weekly-report), which is
+  your reminder.
+- **Anything else.** A scheduler that can start an agent without you, and an agent that can call an MCP server over
+  HTTP, run the same prompt.
+
+Sources: [Claude app scheduled tasks](https://support.claude.com/en/articles/13854387-schedule-recurring-tasks-in-claude-cowork),
+[custom connectors and request headers](https://claude.com/docs/connectors/custom/add-unlisted),
+[Claude Code Desktop scheduled tasks](https://code.claude.com/docs/en/desktop-scheduled-tasks),
+[cloud scheduled tasks](https://code.claude.com/docs/en/routines),
+[Claude Code permission rules](https://code.claude.com/docs/en/permissions),
+[Claude Code in GitHub Actions](https://code.claude.com/docs/en/github-actions).
+
+The agent can only do the tasks it can reach, and it only does what the rules allow. The plan's `reach` lists what it
+can and cannot touch, and the Plan tab shows both. A task outside its reach becomes a task for you.
+
+#### Several sites and one repository per product
+
+Make one key for all sites. Then run one session per site, so a failure in one does not stop the others: one scheduled
+task per site with that site's prompt is safer, and one task whose prompt names the sites is quicker. With no `site`,
+`get_plan` lists every site the key covers, and Home copies one prompt that sets your rules for all products and then
+makes a plan for each product without one ([Start plans for every product](#start-plans-for-every-product)).
+
+In `run-plan.yml`, list one site id per line under `matrix.site` when one repository holds every site. Each site gets
+its own job, and two sites never wait for each other.
+
+When each product has its own repository:
+
+1. Copy `run-plan.yml` into each product's repository, and list only that product's site id under `matrix.site`.
+2. Give each copy its own minute in `cron` (`'17 8 * * *'`, `'29 8 * * *'`, ...), so ten repositories do not start at
+   the same moment and hit GitHub's busy hour.
+3. Use one key for all sites in every repository, or a key per site so one leaked secret exposes one site. Both work.
+4. Set each repository's `TEST_COMMAND` and `SETUP_COMMAND` to its own commands.
+5. Leave the rules for all products in FounderData (`portfolio`). Every run reads them, so ten repositories still
+   share your hours and money as the plans' shares say.
+
+#### What a run costs
+
+You pay your model provider for the tokens, and GitHub for the runner minutes. We measured one run of the workflow's
+agent command on 2026-11-19, on a small plan, with `claude-sonnet-5-5` ($2 and $10 per million input and output
+tokens, $0.10 per million read from the cache):
+
+| | |
+| --- | --- |
+| Turns | 9, stopped by `--max-turns 8` before it logged the session |
+| Tokens | 220,110 read from the cache, 18,931 written to it, 16 other input, 1,745 output |
+| Cost | $0.12 (`total_cost_usd`) |
+| `get_plan` answer | 9.8 KB for that plan; a busy plan is 5 to 15 KB |
+
+It read the plan, claimed its task, made a branch, edited one file, ran the tests, committed and wrote the pull
+request text in those 8 turns. A run that also logs the change and the session needs about 15 to 25 turns, which we
+estimate at $0.25 to $0.50. Each turn re-reads a longer conversation, so cost grows faster than turns: the workflow's
+40-turn cap is about $1, and `MAX_BUDGET_USD` stops a run at $3. A daily run at $0.40 is about $12 a month per site.
+`claude-opus-5-5` costs twice as much per token. The workflow writes each run's turns, tokens and cost into the run's
+summary on GitHub, so you see your own numbers after the first run.
+
+#### When a run fails
+
+`run-plan.yml` logs a failed session when any step fails: `status: "failed"`, a `cause` in plain words such as
+"stopped after 40 steps" or "the tests failed on the change, so it waits as a draft", and a `link` to the run. The Plan
+tab and Home show "Run failed" with the cause and an **Open the run** link. A failed session does not count as the agent being back, so after twice the cadence
+you still get the "No plan session for SITE" [alert](#alerts-and-weekly-report). Another scheduler can do the same with
+one call to `POST /api/v1/plans/SITE_ID/sessions` ([API.md](API.md#post-apiv1plansessions)).
+
+The usual causes are a revoked or wrong FounderData key (the tools answer 401 or 403), a key without `research:write`
+(the plan tools answer 403 and name the scope), a missing secret, the turn or cost cap, and a tool that waited for
+approval with no one there. Fix it and start the run again by hand.
+
+Set `cadence_hours` on the plan to the interval you schedule.
 
 To wake it on an alert, give a rule the workflow's repository as its webhook:
 
@@ -2458,6 +2579,125 @@ curl -X POST "https://founderdata.example.com/api/v1/alerts/rules?site=SITE_ID" 
 
 The GitHub token needs Contents read and write on that one repository. GitHub answers 204 and starts the workflow
 with the alert in `github.event.client_payload`.
+
+**The weekly review instead.** The Pro repository also has `examples/agents/weekly-review.yml`. It runs every Monday at
+08:00 UTC, after the weekly report, and follows `founderdata-portfolio-triage` or `founderdata-weekly-review` for a key
+that covers several sites. Each run starts with `get_portfolio` with `view: "actions"` and `alert_rules` with
+`action: "events"` since the last run, and saves what it found with `add_research`. Pick it when you want a report
+across many sites and no standing plan.
+
+## Plan (Pro)
+
+A plan is the growth project your AI agent runs for one site, with you. It holds what you want, what the agent is doing
+now, what waits on you, and what each finished change led to. Open it in the **Plan** tab. Your agent writes the plan
+through the MCP tools. You steer it by talking to your agent.
+
+### Start a plan
+
+The Plan tab of a site with no plan shows three steps.
+
+1. Connect your agent. Settings, Agents has the key, and [MCP.md](MCP.md#connect) has the setup.
+2. Copy the starting prompt.
+3. Paste it into your agent.
+
+The agent reads only the data your site has, and the changes you already logged, then tells you in five lines what
+works and what is broken. It says "not measured" where no tool gave it a number. Then it asks, one question at a time:
+
+- If you never set rules for all your products: whether you run other products. If you do, it sets those rules first
+  (below), then asks what share of your hours and money this product gets, and shows what the other plans already use.
+- What you want from this product, and by when.
+- With one product: how many hours a week and how much money a month, and your rules.
+- Which tools run the business, and which of them it can reach. It says up front that whatever it cannot reach, such
+  as a course platform or customer email, becomes a task for you.
+
+It asks again when an answer is too vague to act on. It proposes one to three goals, the one thing it would do first
+and why, and what comes after. It tells you where each goal stands and whether the target is realistic, and changes the
+proposal until you say yes. Then it saves the plan, adds three to seven first tasks, asks how often it should work, and
+walks you through scheduling it, one step at a time in the chat. The tab fills in.
+
+**Your share** of hours can be half an hour. When the plans' shares add up to more hours or money than you set for
+all products, your agent gets a warning and Home shows it, for example "Shares: 7 of 6 hours".
+
+**Your rules** come in three lists: what the agent **does alone**, what it **asks you first**, and what it **never**
+does. Each list holds up to 12 lines of 200 characters. "Change App Store keywords and text" can sit in one list,
+"Screenshots", "Price" and "Any ad spend" in another.
+
+### Start plans for every product
+
+Home lists every product, with a line for the ones without a plan and **Copy one prompt for all**. That prompt needs
+a key for all sites. The agent sets your rules for all products once: your hours a week, your money a month, and the
+three lists. Every plan obeys them, and a "never" in either the product's rules or the rules for all wins. Then it
+walks each product without a plan in a short interview of three questions (what you want from it, its share of your
+hours and money, which tools it can reach), saves the plan and its first tasks, and moves on. Say "skip" to move past
+one. At the end it walks you through one schedule for all of them.
+
+### What the tab shows
+
+- **Header.** The plan's title and summary, and one status line for your agent: worked a few hours ago, late, away for
+  N days, no schedule yet, or "Run failed" with the cause and a link to the run. **Copy a prompt for your agent** copies
+  a prompt that opens the plan in your agent.
+- **Your rules.** At the top, always open: **Does alone**, **Asks you first** and **Never**, then what the agent can
+  and cannot reach, and this plan's share of your hours and money. On a phone it folds to one row, "Your rules (7)".
+- **Waiting on you.** Tasks only you can do, each with the reason the agent gave. A decision the agent needs, such as
+  "Approve 100 USD for a 2-week search ad test", has **Yes, approve** and **No**. Any other task has **Done** and
+  **Not now**, and a task that needs a page, such as "Connect Search Console", has a button that opens it. Only you
+  close these tasks: your agent can change their text or take one back when it is no longer needed, never mark it done
+  or say yes for you. With No or Not now you write one line on why: the agent reads it and does not propose the same thing
+  again. In the Done list, **Mark as not done** takes back a done, and **Take back your no** takes back a no. These
+  answers are the only thing you change in the tab.
+- **Goals.** Each goal shows its current value against its target ("$3,920 of $5,000"), a bar, a mark where you should
+  be today, and a chip: ahead, on track or behind. A goal at or above its target reads reached. A number FounderData
+  cannot read says "Not measured" and why, never 0.
+- **Doing now, Up next and Done.** Three lists of tasks. Each of the agent's tasks says what it expected, on the number
+  FounderData will judge it on, and a done task shows what it got on that number: "Expected +10% conversion · got +3%
+  conversion". When the change could only be judged on another number, the line says so: "judged on paywall
+  conversion". A change that needed your yes shows **You said yes** with the day, which only your own answer in the tab
+  can set, or **Your rules allow this** with the rule. A result opens to the numbers before and after (a rate with how
+  many it counted, "18% of 120 trials → 22% of 131"), the days measured and the other changes that went live in the days
+  before or after, by name.
+- **What your agent did.** One line per session: when, whether you asked, a schedule started it or an alert did, and
+  what it did. A failed run shows its cause and a link. Open a session to read what it checked and what it plans next.
+- **Check-in.** Every 2 to 4 weeks the agent writes a review. Its text, labelled "Written by your agent", sits next to
+  the numbers FounderData measured, so you see who says what. The numbers carry the date they were taken.
+- **The plan.** The strategy and the history of each change with its reason, and the rules as they were in each
+  version.
+- **Runs by itself.** How often the agent should work, when it last did and when it is next due, and the steps to
+  schedule it ([Run an agent on a schedule](#run-an-agent-on-a-schedule-pro)).
+
+### What a result chip means
+
+A task that changed your site or app links to the change the agent logged as a chart note. The chip is that note's
+verdict ([Chart notes](#chart-notes)), so FounderData measures it and the agent does not grade itself.
+
+| Chip | Meaning |
+| --- | --- |
+| Better | The measured number moved the right way after the change, by more than 10%, and by more than its normal ups and downs |
+| Worse | It moved the wrong way by as much. The agent should read why and may revert |
+| No clear change | Under 10%, within the number's normal ups and downs, too little data, or a tracking gap hides the effect |
+| Measuring | The window is still open. Wait |
+| Result soon | The window closed. The result shows after the daily read at 07:00 UTC (up to 3 per site a day) or the agent's next session, whichever comes first |
+
+For visits, search clicks, App Store downloads, and the customers or paid trials behind a rate, "normal ups and downs"
+means a change smaller than twice the square root of the two counts added: 41 visits before and 47 after is +15%, but within normal ups and
+downs ([API.md](API.md#the-verdict)). Trials that turn paid also need 20 ended trials on each side, and a trial still
+running never counts.
+
+A task with no note shows the outcome line the agent wrote when it closed the task, marked "Your agent wrote this.
+FounderData did not measure it."
+
+### Change the plan by talking
+
+You never edit the plan. Tell your agent: "Aim for 3,000 instead", "no more ad spend", "do the pricing test first",
+"drop the Reddit task". It saves the change with a reason, and the history shows it. Goals and rules change only after
+you agreed in the conversation. Your own tasks and comments are data to the agent, not commands, so write your wishes
+to it in the chat.
+
+### Check-in
+
+A check-in covers a period of 2 to 4 weeks. FounderData computes the numbers when the review is stored: goal progress,
+tasks done and dropped, how many finished changes were measured and how many are still measuring, how many verdicts came
+out better, worse or inconclusive, and the sessions. The agent writes the story. If its text and the numbers disagree,
+trust the numbers.
 
 ## Chart notes
 
@@ -2503,7 +2743,8 @@ A note can also say who made the change, what kind it was, what it touched and t
 send these fields so their changes show on the chart ([API.md](API.md#post-apiv1notes)). The kind and target pick
 what the verdict judges: an SEO change on a page is judged on its Search Console clicks over 28 days, an ads change on
 a campaign on CPA, an AI change on how often AI answers name the product, an app price change on paywall conversion.
-Other changes compare revenue per visitor in the 7 days after the note with the 7 days before. A note of kind
+With Pro, an app release is judged on how many trials turn paid when the app has trials, and an App Store listing
+change on App Store downloads when the App Store sales import is on. Other changes compare revenue per visitor in the 7 days after the note with the 7 days before. A note of kind
 `outage` marks a gap in the data, such as a day the tracker script was broken. The overview lists it, and a verdict on
 visits or payments in that gap turns inconclusive. Hover a row's verdict to read it in full: "After 7 days: revenue per
 visitor +6%, visitors -2%." It adds "Not enough data yet." while either side has fewer than 100 visitors, or both

@@ -128,12 +128,13 @@ describe('MCP server', () => {
         'whoami', 'get_definitions', 'query', 'get_overview', 'get_breakdown', 'get_timeseries', 'get_content', 'get_customers', 'get_people', 'get_subscriptions',
         'get_apple_search_ads', 'get_meta_ads', 'get_paid', 'get_app_funnel', 'get_app_store_sales', 'get_email', 'get_seo', 'get_aso', 'list_notes', 'get_note_impact',
         'get_weekly_report', 'get_portfolio', 'add_note', 'review_change', 'get_web_vitals', 'alert_rules',
-        'list_research', 'add_research', 'research_keywords', 'get_ai_answers', 'add_ai_prompts', 'mail',
+        'list_research', 'add_research', 'get_plan', 'update_plan', 'update_tasks', 'log_session', 'add_plan_review', 'research_keywords', 'get_ai_answers',
+        'add_ai_prompts', 'mail',
       ]);
       for (const t of tools) {
         expect(t.description.length, t.name).toBeGreaterThan(80);
         expect(t.inputSchema.type, t.name).toBe('object');
-        expect(t.annotations.readOnlyHint, t.name).toBe(!['add_note', 'review_change', 'add_research', 'research_keywords', 'add_ai_prompts', 'alert_rules', 'mail'].includes(t.name));
+        expect(t.annotations.readOnlyHint, t.name).toBe(!['add_note', 'review_change', 'add_research', 'research_keywords', 'add_ai_prompts', 'alert_rules', 'mail', 'update_plan', 'update_tasks', 'log_session', 'add_plan_review'].includes(t.name));
         expect(t.outputSchema.type, t.name).toBe('object');
       }
       expect(tools.find((t: any) => t.name === 'get_breakdown').inputSchema.required).toEqual(['dim']);
@@ -310,7 +311,7 @@ describe('OpenAPI spec', () => {
       }
     }
     // The budget is characters (pro/test/agent-access.test.ts); the count stays under the soft guide: 31 analytics tools
-    // (get_people the newest) and FounderData Pro's mail.
-    expect(tools().length).toBeLessThanOrEqual(32);
+    // (get_people the newest), FounderData Pro's mail and the plan's five tools.
+    expect(tools().length).toBeLessThanOrEqual(37);
   });
 });

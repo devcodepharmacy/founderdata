@@ -154,6 +154,8 @@ export function Home() {
                 <PulseStrip data={data} />
               </div>
             </Reveal>
+            {/* Each site's growth plan, one line each (FounderData Pro). The slot draws nothing when no site has a plan. */}
+            {isPro && <ProSlot name="planRow" sites={data.sites} className="fd-reveal order-2 lg:order-3 lg:col-span-12" />}
             {isPro && (
               <Reveal delay={105} className="order-2 lg:order-3 lg:col-span-12">
                 <div className={`transition-opacity duration-base ${refreshing || growth.loading ? 'opacity-60' : ''}`}>

@@ -28,8 +28,8 @@ import { messageEvent, recordEvents } from './alert-events';
 
 export type ChannelKind = 'slack' | 'discord' | 'telegram' | 'webhook' | 'email';
 export const CHANNEL_KINDS: ChannelKind[] = ['slack', 'discord', 'telegram', 'webhook', 'email'];
-export type AlertKind = 'purchase' | 'renewal' | 'refund' | 'trial' | 'payment_failed' | 'canceled' | 'daily' | 'payments_stopped' | 'webhook_refused' | 'cap' | 'aso_collector' | 'aso_review' | 'weekly' | 'numbers';
-export const ALERT_KINDS: AlertKind[] = ['purchase', 'renewal', 'refund', 'trial', 'payment_failed', 'canceled', 'daily', 'payments_stopped', 'webhook_refused', 'cap', 'aso_collector', 'aso_review', 'weekly', 'numbers'];
+export type AlertKind = 'purchase' | 'renewal' | 'refund' | 'trial' | 'payment_failed' | 'canceled' | 'daily' | 'payments_stopped' | 'webhook_refused' | 'cap' | 'aso_collector' | 'aso_review' | 'weekly' | 'numbers' | 'plan_away';
+export const ALERT_KINDS: AlertKind[] = ['purchase', 'renewal', 'refund', 'trial', 'payment_failed', 'canceled', 'daily', 'payments_stopped', 'webhook_refused', 'cap', 'aso_collector', 'aso_review', 'weekly', 'numbers', 'plan_away'];
 /** What a new channel gets. */
 export const DEFAULT_ALERTS: Record<AlertKind, boolean> = {
   purchase: true,
@@ -49,6 +49,8 @@ export const DEFAULT_ALERTS: Record<AlertKind, boolean> = {
   weekly: true,
   // Off until a channel ticks it: it sends every day, not only when something happened (numbers-digest.ts).
   numbers: false,
+  // On for older channels too: it fires only for a site whose plan has a schedule (FounderData Pro, pro/worker/plan.ts).
+  plan_away: true,
 };
 /** Alerts added after channels existed. A channel stored before them has them off until someone switches them on. */
 const OFF_FOR_OLDER_CHANNELS: Partial<Record<AlertKind, boolean>> = { payment_failed: false, canceled: false };

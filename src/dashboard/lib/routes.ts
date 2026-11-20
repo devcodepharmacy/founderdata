@@ -23,6 +23,8 @@ export type Route =
 
 // Order matters: the first pattern that fits wins, as in the router this replaced.
 const DASHBOARD: [RegExp, View][] = [
+  // The agent's growth plan (FounderData Pro). /seo/plan below is the SEO tab's own view, a different page.
+  [/^\/site\/([\w-]+)\/plan\/?$/, 'plan'],
   [/^\/site\/([\w-]+)\/dropoff\/?$/, 'dropoff'],
   // /people, and anything under it (/people/recordings, one person's page): People reads the rest of the path.
   [/^\/site\/([\w-]+)\/people(?:\/[^?#]*)?$/, 'people'],

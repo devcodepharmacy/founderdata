@@ -14,7 +14,7 @@ describe('dashboard routes', () => {
     expect(m('/notifications')).toEqual({ page: 'notifications' });
     expect(m('/site/a-1/settings')).toEqual({ page: 'settings', siteId: 'a-1' });
     expect(m('/site/a-1')).toEqual({ page: 'dashboard', siteId: 'a-1', view: 'overview' });
-    for (const view of ['dropoff', 'people', 'content', 'seo', 'ai', 'subscriptions', 'ads', 'appstore', 'aso', 'app'] as const)
+    for (const view of ['plan', 'dropoff', 'people', 'content', 'seo', 'ai', 'subscriptions', 'ads', 'appstore', 'aso', 'app'] as const)
       expect(m(`/site/s1/${view}`)).toEqual({ page: 'dashboard', siteId: 's1', view });
     expect(m('/site/s1/content/page/blog/x')).toMatchObject({ view: 'content' });
     expect(m('/site/s1/people/recordings')).toMatchObject({ view: 'people' });
