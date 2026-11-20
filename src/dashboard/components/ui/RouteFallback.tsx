@@ -27,7 +27,7 @@ const MARK = (
 
 function Header() {
   return (
-    <header className="flex items-center justify-between gap-3">
+    <header className="mx-[calc(50%-50vw)] flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
       <div className="flex items-center gap-2">
         {MARK}
         <span className="text-lg font-semibold tracking-tight">FounderData</span>

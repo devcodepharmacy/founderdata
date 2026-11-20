@@ -223,6 +223,8 @@
     color: rgb(var(--ink));
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* Page headers span the window with 50vw margins, which overshoot by the scrollbar where scrollbars take room. */
+    overflow-x: clip;
   }
   /* The body stays transparent so the fixed backdrop below can sit between the page color and the content. */
   body {
