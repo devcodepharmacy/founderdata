@@ -551,8 +551,8 @@ names and sizes. The tool sends no attachments. The route does.
 
 ### The tool budget
 
-A client loads `tools/list` into every turn, so the budget is its size: at most @@BUDGET@@ characters without the output
-schemas, about @@TOKENS@@ tokens. A test in the Pro repository fails above it. The count is a guide, 37 at most: a new report
+A client loads `tools/list` into every turn, so the budget is its size: at most 58,500 characters without the output
+schemas, about 14,600 tokens. A test in the Pro repository fails above it. The count is a guide, 37 at most: a new report
 becomes a view or an argument of a tool first. Mail is one tool with nine actions for that reason. `get_people` is one
 tool for the People list and one person's story. The plan's five tools moved the cap from 53,000: a plan is written in
 small steps, and one tool per step keeps each call short.
