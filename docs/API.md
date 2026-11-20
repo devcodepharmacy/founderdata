@@ -602,7 +602,7 @@ curl -X POST https://founderdata.example.com/api/v1/query -H "Authorization: Bea
 | Field | Takes |
 | --- | --- |
 | `metrics` | 1 to 12 of `visitors`, `sessions`, `pageviews`, `bounce_rate`, `avg_duration` (seconds), `customers` (new buyers), `payments`, `revenue` (net of refunds), `refunds` (negative), `conversion_rate`, `rpv` (revenue per visitor; `revenue_per_visitor` works too), `goal:<name>` (visitors who completed the goal, 5 goals at most) |
-| `dimensions` | Up to 2 of the session dimensions of `stats/breakdown` (`channel`, `source`, `campaign`, `keyword`, `referrer_domain`, `country`, `region`, `city`, `browser`, `os`, `device`, `platform`, `entry_page`, `exit_page`, `hostname`, `app_version`, `language`, `click_network`, `utm_source`, `utm_medium`, `utm_content`, `ref`, `referrer`), `prop:<key>`, `goal_prop:<key>` (goal metrics only), `product` and `provider` (payment metrics only). Plus one of `day`, `week` and `month`. `site` is accepted; rows are always per site. |
+| `dimensions` | Up to 2 of the session dimensions of `stats/breakdown` (`channel`, `source`, `campaign`, `keyword`, `referrer_domain`, `country`, `region`, `city`, `browser`, `os`, `device`, `platform`, `entry_page`, `exit_page`, `hostname`, `app_version`, `language`, `click_network`, `utm_source`, `utm_medium`, `utm_content`, `ref`, `referrer`), `prop:<key>`, `goal_prop:<key>` (goal metrics only), `product` and `provider` (payment metrics only). Plus one of `day`, `week` and `month`. `site` is accepted; rows are always per site. A property value that holds an email address answers `"(email)"`, and a `prop:` filter can't be an email address (`400`). |
 | `sites` | Site ids, or `["*"]` for every site the key covers (the default). 25 at most. `site` takes one id. |
 | `filters`, `period`, `from`, `to` | As on the routes above, in each site's timezone |
 | `compare` | `previous` (the period before, as the overview compares) or `year` (the same days a year before) |
@@ -668,7 +668,7 @@ Three rules hold for all of them:
 | `GET /api/v1/app/retention` (Pro) | range | `GET /api/sites/<id>/app/retention` |
 | `GET /api/v1/app/sources` (Pro) | range, `dim` (`channel` by default; an unknown one gets `400`) | `GET /api/sites/<id>/app/sources` |
 | `GET /api/v1/app/versions` (Pro) | range, `series` (`true` adds sessions per version over time) | `GET /api/sites/<id>/app/versions` |
-| `GET /api/v1/dropoff` (Pro) | range, `platform` (`all`, `web`, `app`), `split` (`platform`, `app_version`, `user_state`, `prop:<key>`), `include_test`, `limit` | `GET /api/sites/<id>/dropoff`, with `limit` groups and `groups_total` |
+| `GET /api/v1/dropoff` (Pro) | range, `platform` (`all`, `web`, `app`), `split` (`platform`, `app_version`, `user_state`, `prop:<key>`), `include_test`, `limit` | `GET /api/sites/<id>/dropoff`, with `limit` groups and `groups_total`. A property value that holds an email address groups as `"(email)"`. |
 | `GET /api/v1/funnel` | range, `funnel_id`, or `steps` | (new, see [Funnels and paths](#funnels-and-paths)) |
 | `GET /api/v1/paths` (Pro) | range, `path`, `platform`, `limit` | (new, see [Funnels and paths](#funnels-and-paths)) |
 | `GET /api/v1/app/experiments` (Pro) | range | `GET /api/sites/<id>/app/experiments` |
