@@ -2769,6 +2769,10 @@ stores each answer as one row of the history above. Setup, cost per engine and l
 its `kind`, `position` and `count`) and `cost_usd` in `GET /api/v1/ai-answers`, and `null` in those fields when an agent
 pushed it. The owner sets engines, models and the monthly cap in the dashboard with the login. No key can change them.
 The settings answer for the dashboard (`GET /api/sites/<id>/ai-visibility/settings`) has `limits.checks_per_run`, the checks one cron run starts (`AI_CHECKS_PER_RUN`). It replaces `checks_per_hour`, which the cron no longer uses.
+`schedule` is `"smart"` (the default) or `"daily"`, in the settings answer and in `PUT /api/sites/<id>/ai-visibility/settings`;
+`smart` holds the rules (`baseline`, `settled_after`, `settled_days`, `open_days`, `lookback_days`). Each prompt in the
+settings answer has `engines`: one entry per enabled engine except `aio`, with `state` (`baseline`, `open` or `settled`),
+`answers` (in the last 28 days) and `next_day`, the UTC day it is asked next. [How checks are scheduled](AI-VISIBILITY.md#how-checks-are-scheduled).
 
 ### `GET /api/v1/ai-visibility`
 

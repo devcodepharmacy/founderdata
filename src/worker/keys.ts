@@ -33,7 +33,7 @@ export const SCOPE_TEXT: Record<Scope, string> = {
   'aso:write': 'change ASO keywords, countries and competitors, and push ASO snapshots and reviews',
   'research:write': 'add entries to the research log (findings, decisions, data bought) and track keywords',
   'spend:write': 'send ad spend from channels without an import (Google Ads, TikTok, a newsletter), as rows or a CSV. It records spend and costs nothing',
-  'spend:ai': 'add prompts and competitors to the AI visibility runner. Each prompt is billed daily on every engine the owner turned on',
+  'spend:ai': 'add prompts and competitors to the AI visibility runner. Each prompt is billed on every engine the owner turned on: 3 checks on its first day, then one every 2 to 7 days (daily if the owner chose that)',
   'spend:seo': "spend the owner's DataForSEO money on keyword research, up to the site's monthly cap",
   'mail:read': "read the deployment's mail: inbox threads, sent messages and their events, with addresses and message text",
   'mail:write': "send mail from the deployment's domains and change the inbox (reply, mark read, archive). It does not include mail:read",

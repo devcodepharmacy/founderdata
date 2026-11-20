@@ -150,7 +150,9 @@ Pro with a `git merge`, so changes you made to your copy stay. [docs/PRO.md](doc
   Push your crawler's output too, and a Page audit view flags pages that are thin, orphaned, noindex, not 200, lack a
   meta description or have a long title ([docs/SEO.md](docs/SEO.md#page-audit)).
 - AI visibility: save prompts, your brand and your competitors, add your own OpenAI, Anthropic or Gemini key, and the
-  cron asks each engine with web search on, a few checks every 5 minutes. You get the mention rate per engine, share of voice, the most cited
+  cron asks each engine with web search on, a few checks every 5 minutes. A new prompt is asked 3 times on its first
+  day. After that, a prompt whose answers stopped changing is asked weekly and the rest every 2 days, with the monthly
+  cap spread evenly over the days. You get the mention rate per engine, share of voice, the most cited
   domains and whether your own pages are cited, within a monthly spend cap you set. Two optional engines run on your
   DataForSEO login: Google AI Overviews (whether one appeared, whether you are named or cited) and Perplexity (also
   possible on a `PERPLEXITY_API_KEY`). A sentiment label per answer that names you shows positive, neutral and negative
@@ -409,6 +411,7 @@ spend, and DataForSEO's price changes show up only after a call. DataForSEO's ow
 | X posts: a poll that finds N posts linking to the site / a poll with nothing new / a post added by hand | N + 2 (the claim, the posts, the settings row) / 1 (the claim) / 1. Matching visits to posts happens when a report is read and writes nothing |
 | AI visibility: a run of N prompt checks on one engine (answer and spend in one batch) / a prompt or the settings saved / a prompt removed | 2N / 1 / 1 |
 | AI visibility: a check that failed for its own prompt (or that the provider billed) | 1 |
+| AI visibility: the first run of a day that finds no check left for a site marks it done for the day / prompts added after that clear the mark | 1 a site and day / 1 |
 | AI visibility, Perplexity check through DataForSEO / on its own key (`PERPLEXITY_API_KEY`) | 3 (answer, AI spend, DataForSEO counter) / 2 |
 | AI visibility, a Google AI Overview check: posted / collected | 2N + 2 for N prompts in one post (a claim and a task id each, the AI spend, the DataForSEO counter) / 2 (the answer, the deleted claim) |
 | AI visibility, one sentiment rating (`sentiment_per_day`, off by default, up to 500 a site and day) | 2 (the label on the answer, the AI spend) |

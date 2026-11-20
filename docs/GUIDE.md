@@ -404,6 +404,7 @@ number changes:
 | AI answer check (`POST /api/v1/ai-answers`), per prompt, surface and day | 1, new or replaced: 60 for a run of 10 prompts on 6 surfaces |
 | AI visibility ([AI-VISIBILITY.md](AI-VISIBILITY.md)): settings saved / a prompt saved | 1 / 1, a prompt already saved 0 |
 | AI visibility: a run of N checks on one engine, one site | N + 1 (each answer, and the month's spend once per site and engine); a failed run 1 when its error is new, else 0 |
+| AI visibility: the first run of a day that finds no check left for a site / a prompt added after that | 1 (the done mark), 0 for the later runs of the day / 1 more (clears the mark) |
 | AI visibility, Perplexity check through DataForSEO / on its own key (`PERPLEXITY_API_KEY`) | 3 (answer, AI spend, DataForSEO counter) / 2 |
 | AI visibility, a Google AI Overview check: posted / collected | 2N + 2 for N prompts in one post (a claim and a task id each, the AI spend, the DataForSEO counter) / 2 (the answer, the deleted claim) |
 | AI visibility, one sentiment rating (`sentiment_per_day`, off by default, up to 500 a site and day) | 2 (the label on the answer, the AI spend) |

@@ -64,6 +64,8 @@ See [Sentiment](#sentiment).
 4. **Turn the engine on for the site** and, if you like, change its model. The model field takes any model id the engine
    accepts. The defaults are `gpt-6-luna` for OpenAI, `claude-haiku-5-5` for Anthropic and `gemini-3.8-flash` for Gemini.
 5. **Set the monthly cap.** The default is 20 US dollars a site. 0 pauses the runs.
+6. **Pick the schedule.** Smart (the default) asks each new prompt 3 times on its first day, then less often once its
+   answers stop changing. Daily asks every prompt once a day. See [How checks are scheduled](#how-checks-are-scheduled).
 
 The first check runs within the hour. The panel shows each engine's last error, such as a rejected key, until a later run
 succeeds.
@@ -71,19 +73,48 @@ succeeds.
 Two more engines are optional and each has its own section below: [Google AI Overviews](#google-ai-overviews) and
 [Perplexity](#perplexity). Both can run through your DataForSEO login.
 
+## How checks are scheduled
+
+A single answer is a coin flip. The same prompt can name you on Monday and leave you out on Tuesday. So the smart
+schedule (`schedule: "smart"`, the default) spends its checks where answers still move:
+
+1. **Baseline.** A new prompt is asked 3 times on each engine on its first day. That gives a first mention rate on day
+   one, instead of after 3 days.
+2. **Settled.** When a prompt's last 4 answers on an engine agree (all name one of your brands, or none does), it is
+   asked once a week on that engine.
+3. **Open.** Any other prompt is asked every 2 days. One new answer that differs from the rest makes a settled prompt
+   open again.
+4. **Pacing.** The month's cap, minus what was spent before today, is split evenly over the days left in the month,
+   today included. Once today's share is spent, the checks wait for tomorrow. Open prompts go first, then the ones that
+   waited longest. Baseline answers are only held to the monthly cap, not to the day's share.
+
+Only answers from the last 28 days count. A prompt that went unasked that long, for example because the cap paused it,
+starts with a new baseline.
+
+What this costs: 25 prompts on one engine at about $0.011 a check are 75 checks ($0.83) on the first day. After that a
+settled prompt costs about 4 checks a month and an open one about 15, instead of 30 under the daily schedule.
+
+`schedule: "daily"` asks every prompt once a day on every engine, as before. It suits a deployment that wants a fixed
+row per prompt and day, or a cap large enough not to care.
+
+The settings answer shows each prompt's state per engine (`baseline`, `open` or `settled`), its answers in the last 28
+days and the day it is asked next (`prompts[].engines[]`).
+
 ## How a day runs
 
 The cron (`*/5 * * * *`, which also runs the phone pushes and alert rules at minute 0, the X poll at minute 15, the Search Console sync at minute 30, the Meta ads import at minute 45 and the AI answer counts at minute 55) does this on every run for each site
 that has an enabled engine with a key:
 
-1. Lists the day's checks that are not stored yet: each prompt on each enabled engine, prompt by prompt.
-2. Takes a share of them: pending checks divided by the runs left in the UTC day, rounded up. 150 checks at 00:00 UTC
-   run as 1 a run. A missed run is caught up by the next ones.
+1. Lists the checks due today ([How checks are scheduled](#how-checks-are-scheduled)): under the daily schedule, each
+   prompt on each enabled engine that has no answer today; under the smart schedule, missing baseline answers and the
+   prompts whose interval has passed.
+2. Takes all baseline answers the batch has room for, and a share of the rest: those checks divided by the runs left in
+   the UTC day, rounded up. 150 checks at 00:00 UTC run as 1 a run. The next runs catch up a missed one.
 3. Stops at 6 checks per run across all sites (`AI_CHECKS_PER_RUN`, 1 to 50), and starts at a different site each run so
    one site doesn't use the batch.
 4. Asks each engine in turn, one check at a time. Different engines run side by side.
 5. Before each check, compares the month's estimated spend with the cap. At the cap it skips the rest and the tab says
-   "paused".
+   "paused". Under the smart schedule a check after the baseline also waits for tomorrow once today's share is spent.
 6. Stores one row per check in `ai_answers`: engine, model, cited URLs and domains, which names the answer contains with
    their order, an excerpt of 1,000 characters and the estimated cost. The answer and the month's spend are written in one
    batch, so a run that ends early never leaves a charge without an answer or an answer without its charge.
@@ -91,8 +122,10 @@ that has an enabled engine with a key:
 A bad key, a missing model, a rate limit, a server error or a timeout stops that engine until the next hour. Its message
 shows in the settings. Any other failure, such as an answer with no text or a request the engine refuses, counts against
 that prompt only: the run goes on with the next prompt, and a prompt that failed twice on an engine is skipped for the rest
-of the UTC day. A call the engine billed but that returned no text is added to the spend. A failed check stores no
-answer. A second run for the same prompt, engine and day replaces the row. Before each engine call the run claims the check (`ai_claims`, 1 row), and a claim younger than 2 minutes stops an overlapping run from calling the engine again and being billed twice. The share of a run is taken per engine, so an engine that keeps failing and is backing off does not hold up the others.
+of the UTC day. When a run finds nothing left for a site, it marks the site done for the day (`ai_settings.done_day`),
+and later runs that day skip it without reading its answers. Saving the settings or adding a prompt clears the mark. A call the engine billed but that returned no text is added to the spend. A failed check stores no
+answer. Each answer of a day has a sample number (0, 1, 2 for a baseline), and a second run for the same prompt, engine, day
+and sample replaces the row. Before each engine call the run claims the check (`ai_claims`, 1 row), and a claim younger than 2 minutes stops an overlapping run from calling the engine again and being billed twice. The share of a run is taken per engine, so an engine that keeps failing and is backing off does not hold up the others.
 
 Error messages are never stored as the engine sent them. A rejected key shows a fixed text, and any other message has key-like
 strings removed first.
@@ -178,6 +211,9 @@ You pay each provider directly. FounderData estimates the cost of each check fro
 calls at the provider's per-search price, and the input and output tokens at the model's list price. The estimate is
 what the monthly cap compares against. Your provider's invoice is the truth.
 
+The table below is the daily schedule. The smart schedule costs the same on a prompt's first day and less after it
+([How checks are scheduled](#how-checks-are-scheduled)).
+
 Per month at 50 prompts a day on one engine, which is 1,500 checks. Each check assumes one search call, 6,000 input
 tokens and 900 output tokens, the size of the providers' own examples. Real answers vary, and the token part scales
 linearly. Anthropic may search up to 3 times a check, and OpenAI and Gemini can search more than once, so the settings
@@ -218,14 +254,15 @@ add one more.
 | Names | 20 brands and 20 competitors a site, 100 characters each, with up to 10 aliases and 10 exclusions each |
 | Checks | 6 a run across all sites by default. The cron runs 288 times a day, so up to 1,728 a day. 50 prompts on 3 engines are 150 checks, and the day's share spreads them over the day. A deployment that kept the hourly cron in `wrangler.local.jsonc` gets 144 a day until it adds `*/5 * * * *` |
 | Answer | 3,000 output tokens asked for. Anthropic may search up to 3 times a check. 30,000 characters are read for names |
-| History | A check is 1 row a day per prompt and engine. Rows older than 200 days are deleted by the daily retention run. A report reads at most 90 days, and the 90 before them for the comparison |
-| AI Overviews and sentiment | 5 prompts per `task_post`, 3 results collected a tick, 3 answers rated a tick. A post needs 4 subrequests, a collect 2 plus 2 per result, a rating 2. The AI Overview step and the check loop take turns going first, and every call checks the shared budget, so a busy tick stays under 50, which a test in the Pro repository checks |
+| History | A check is 1 row: a day holds up to 3 per prompt and engine on a baseline day, and 1 after that. Rows older than 200 days are deleted by the daily retention run. A report reads at most 90 days, and the 90 before them for the comparison |
+| AI Overviews and sentiment | 5 prompts per `task_post`, 3 results collected a tick, 3 answers rated a tick. A post needs 4 subrequests, a collect 2 plus 2 per result, a rating 2. The AI Overview step and the check loop take turns going first, and every call checks the shared budget, so a busy tick stays under 50 which a test in the Pro repository checks |
 | Free plan | The cron gets 10 ms of CPU, shared with the rank collection of the same invocation (and at minute 0 the phone pushes and alert rules), and the invocation's 50 subrequests, which every job of the run counts on one shared counter. An engine call mostly waits on the network, which is not CPU, but parsing an answer with its search results (tens of KB) and matching names is. A check is 2 subrequests (the call and the write), and each site adds about 3 more. So 6 checks a run is the default. Lower `AI_CHECKS_PER_RUN` if a run hits the CPU limit |
 | Workers Paid | 30 s of CPU and 1,000 subrequests a run, so `AI_CHECKS_PER_RUN` can go to its limit of 50. An engine call times out after 90 seconds, so 50 checks on one engine can take over an hour of wall time: keep it near 10 per engine |
 
-D1 rows written: a check writes 2 rows, the answer and the month's spend. A run of 6 checks on one engine writes 12 rows. A run with nothing pending writes none.
+D1 rows written: a check writes 2 rows, the answer and the month's spend. A run of 6 checks on one engine writes 12 rows. A run with nothing pending writes 1 row the first time that day (the done mark), and none after it.
 A check that failed for its own prompt writes 1 row for its failure count, and 1 more if the engine billed it. A Perplexity check through DataForSEO writes 3 rows (answer, AI spend, DataForSEO counter). An AI Overview prompt writes 4 rows to post (2N + 2 for N prompts in one post) and 2 to collect. A sentiment rating writes 2. Saving the
-settings writes 1 row, each new prompt 1 row. A cost test in the Pro repository pins the numbers.
+settings writes 1 row, each new prompt 1 row, plus 1 to clear the done mark when it is set. A cost test in the Pro
+repository pins the numbers.
 
 ## Untrusted text
 
