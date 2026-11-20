@@ -2705,6 +2705,10 @@ Recordings are of your website only. The iPhone app is never recorded: its visit
    visit is recorded whether or not the visitor accepted your cookie banner. Turn on **Wait for consent** under
    Advanced, and a visit records only after your banner calls `founderdata('consent', true)`, or on pages with
    `data-cookies="on"`. Then add the paragraph from [PRIVACY.md](PRIVACY.md#recordings-pro) to your privacy policy.
+4. List the pages that must never be recorded, such as an account area or an admin dashboard that shows your
+   customers' data. Open **Advanced** and enter them under **Pages that are never recorded**, one per line, such as
+   `/dashboard`. A page is skipped when its path is `/dashboard` or starts with `/dashboard/`, so `/dashboards` is
+   still recorded. Up to 20 paths.
 
 The script tag stays the same. For a visit the server picks, the script loads `/js/replay.js` from your Worker. Other
 visits load nothing more. Your own visits with `?rt_ignore=true` and bots are never recorded. Recording sets no
@@ -2716,6 +2720,9 @@ cookie and stores nothing in the browser.
 - The text of any element with `data-fd-mask`. The layout stays, the letters don't.
 - Any element with `data-fd-block`. It shows as an empty box of the same size.
 - Canvas, web fonts and frames from other domains. They are not recorded.
+- Every page on the list of pages that are never recorded. The recorder doesn't start there, and the script sends no
+  clicks or errors from them. Their pageviews still count in your stats. In a single-page app, the recording of that
+  page load ends when the visitor opens a listed page, and starts again on their next full page load.
 
 Put `data-fd-mask` on anything that shows personal data, such as the name and address on an account page.
 
@@ -2753,6 +2760,7 @@ The **Record visits** switch is all most sites need. **Advanced** holds the rest
 | Most visits recorded a day | 1,000. After that, new visits are not recorded until 00:00 UTC |
 | Keep only visits where someone signed up, hit a goal or paid | Off. When on, the other recordings go after 24 hours, also the ones with an error |
 | Wait for consent | Off. When on, a visit records only after the visitor consents to cookies |
+| Pages that are never recorded | None. Up to 20 paths, one per line, such as `/dashboard` or `/account` |
 
 A job that runs every hour deletes recordings older than the days you picked. The bucket's 90-day rule deletes anything left behind.
 Erasing a person ([Erase one person](#erase-one-person)) deletes their recordings too. [PRIVACY.md](PRIVACY.md#recordings-pro)

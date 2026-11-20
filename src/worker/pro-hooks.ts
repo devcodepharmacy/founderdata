@@ -279,8 +279,13 @@ export interface RecordConfig {
   mask: string;
   /** CSS selector of elements left out of the recording: "[data-fd-block]". */
   block: string;
+  /**
+   * Pages that are never recorded (`record_skip`): path prefixes. The tracker sends no clicks or errors from a page
+   * whose path is one of them or starts with one plus "/", and the recorder records nothing there. Absent for none.
+   */
+  x?: string[];
   /** More settings Pro's replay.js reads. Short keys: this rides on every pageview answer of a recorded visit. */
-  [key: string]: string | number | boolean;
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 // ---------- the installed edition

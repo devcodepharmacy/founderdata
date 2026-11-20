@@ -3031,10 +3031,16 @@ In cookie mode the answer is `{ "cfg": { … } }`.
 | Key | Meaning |
 | --- | --- |
 | `rm` | Remember visitors is on. The script keeps the visitor in cookies as after `founderdata('consent', true)`, with `rt_consent=r`. When a later answer has no `rm`, the script removes cookies it kept this way. A page that called `founderdata('consent', false)` stays without cookies. |
-| `rec` | Record this visit (Pro). The server decides per visit, by the site's share and daily maximum. The object holds the recorder's settings: `mask` and `block` are CSS selectors, and Pro may add short keys of its own, such as `v` for the recorder's version. `c: 1` means the site waits for consent (`record_consent`): the script records only once the visitor consented to cookies, with `data-cookies="on"`, an earlier `rt_consent=1` or `founderdata('consent', true)`. Until then it loads nothing and sends no clicks or errors. Remember visitors (`rt_consent=r`) is not consent. |
+| `rec` | Record this visit (Pro). The server decides per visit, by the site's share and daily maximum. The object holds the recorder's settings: `mask` and `block` are CSS selectors, and Pro may add short keys of its own, such as `v` for the recorder's version. `c: 1` means the site waits for consent (`record_consent`): the script records only once the visitor consented to cookies, with `data-cookies="on"`, an earlier `rt_consent=1` or `founderdata('consent', true)`. Until then it loads nothing and sends no clicks or errors. Remember visitors (`rt_consent=r`) is not consent. `x` is the site's list of pages that are never recorded (`record_skip`, migration 0076), as path prefixes such as `["/dashboard", "/account"]`, and is absent when the list is empty. A page whose path is a prefix, or starts with a prefix and `/`, loads no recorder and sends no clicks or errors. When a single-page app moves to such a page, the recorder stops for the rest of the page load. |
+
+The list behind `x` is the site setting `record_skip`. `GET /api/sites/<id>` returns it as text with one path per
+line, or `null`. `PATCH /api/sites/<id>` (dashboard login) takes the same text or an array of paths. It trims each
+line, drops empty lines, a trailing `/` and repeats, and stores an empty list as `null`. Each path starts with `/`, has
+at most 100 characters and no space, `?` or `#`. At most 20 paths. Anything else answers `400` with an `error` that
+says what to fix.
 
 With `rec`, the script loads `<script host>/js/replay.js` once per page (`?v=<rec.v>` when given), `async`, and sets
-`window.founderdata._rec` before it does:
+`window.founderdata._rec` before it does. A page in `rec.x` gets `_rec` but not the recorder:
 
 | Key | Value |
 | --- | --- |
@@ -3063,7 +3069,7 @@ its label `l` (visible text up to 40 characters, else `aria-label`, else the tag
 within 1 second of the last, count as one entry with `n`, the number of clicks; `r: 1` marks 3 or more, a rage click. An
 error has its message `m` (200 characters) and its source `s`, the file without its query and the line. A page keeps
 at most 30 clicks, the newest, and 5 errors, the first. When the body would pass 8 KB, the script drops the oldest
-clicks first.
+clicks first. A page in `rec.x` sends no `a`.
 
 The server stores it as one `events` row with `type` `activity`, the page's `path`, and these `p`-less fields as
 `props`, only for a site with Record visits on and a visit it knows. Counts of pageviews, goals and visitors never

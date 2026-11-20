@@ -209,7 +209,11 @@
   // rm: Remember visitors. Keep the visitor in cookies as consent would (rt_consent=r), unless this page said no.
   // rec: record this visit. Load /js/replay.js once and hand it what it needs in window.founderdata._rec.
   // rec.c: wait for consent. Hold the recording until data-cookies="on" or founderdata('consent', true).
+  // rec.x: pages that are never recorded. No recorder and no clicks or errors on a path that is one or starts with one + /.
   var rec = null, cfgSeen = false, held = null;
+  function skip(p) {
+    return rec && (rec.x || []).some(function (x) { return p === x || p.indexOf(x.slice(-1) === '/' ? x : x + '/') === 0; });
+  }
   function config(cfg) {
     cfgSeen = true;
     if (cfg.rm && !cookies && !refused) {
@@ -226,6 +230,7 @@
     if (r.c && !dataCookies && readCookie(CONSENT) !== '1') { held = r; return; }
     rec = r;
     api._rec = { site: siteId, sid: id.sid, host: host, url: /\/api\/event$/.test(endpoint) ? endpoint.slice(0, -6) + '/rec' : host + '/api/rec', cfg: rec };
+    if (skip(loc.pathname)) return;
     var el = d.createElement('script');
     el.async = true;
     el.src = host + '/js/replay.js' + (rec.v ? '?v=' + encodeURIComponent(rec.v) : '');
@@ -289,7 +294,7 @@
   // last) and errors. Kept in memory until the server answers, then only when it records the visit. Sent with the
   // ping, never alone. Labels are visible text, never what someone typed; [data-fd-mask] and [data-fd-block] hide it.
   var clicks = [], errs = [], actAt = Date.now(), actPath = loc.pathname, lastEl = null, lastAt = 0;
-  function watching() { return rec || !cfgSeen; }
+  function watching() { return (rec || !cfgSeen) && !skip(loc.pathname); }
   function activity() {
     var a = { p: actPath, s: actAt }, n = clicks.length + errs.length;
     if (clicks.length) a.c = clicks;
@@ -297,7 +302,7 @@
     clicks = [];
     errs = [];
     lastEl = null;
-    return n && rec ? a : undefined;
+    return n && rec && !skip(actPath) ? a : undefined;
   }
   function noteClick(el, kind) {
     var now = Date.now();

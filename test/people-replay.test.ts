@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MAX_TRAITS, parseActivity, traitsOf } from '../src/worker/collect';
 import { forgetSite } from '../src/worker/env';
 import { installPro, proHooks, type Pro, type RecordConfig } from '../src/worker/pro-hooks';
-import { patchRecording } from '../src/worker/recording';
+import { parseSkipList, patchRecording, skipList } from '../src/worker/recording';
 import { startWorker, type TestWorker } from './helpers/worker';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/129 Safari/537.36';
@@ -81,6 +81,30 @@ describe('patchRecording', () => {
     expect(patchRecording({ record_keep_days: 14 }, {} as any)).toMatch(/7, 30 or 90/);
     expect(patchRecording({ record_daily_max: 0 }, {} as any)).toMatch(/most visits a day/);
   });
+
+  it('takes the pages that are never recorded: trimmed, without empty lines, trailing slashes or repeats', () => {
+    const next: any = {};
+    expect(patchRecording({ record_skip: '  /dashboard \r\n\n/account/\n/dashboard\n/\n' }, next)).toBeNull();
+    expect(next.record_skip).toBe('/dashboard\n/account\n/');
+    expect(skipList(next.record_skip)).toEqual(['/dashboard', '/account', '/']);
+    expect(parseSkipList(['/a', ' /b '])).toEqual({ text: '/a\n/b' });
+    for (const empty of ['', null, ' \n ', []]) expect(parseSkipList(empty)).toEqual({ text: null });
+    expect(skipList(null)).toEqual([]);
+  });
+
+  it('refuses a page that is not a path, and more than 20', () => {
+    expect(patchRecording({ record_skip: 'dashboard' }, {} as any)).toBe('"dashboard" needs to start with /, such as /dashboard');
+    expect(patchRecording({ record_skip: '/my account' }, {} as any)).toMatch(/has a space in it/);
+    expect(patchRecording({ record_skip: '/account?tab=billing' }, {} as any)).toMatch(/has a \? or #/);
+    expect(patchRecording({ record_skip: '/#/admin' }, {} as any)).toMatch(/has a \? or #/);
+    expect(patchRecording({ record_skip: `/${'x'.repeat(100)}` }, {} as any)).toMatch(/longer than 100 characters/);
+    expect(patchRecording({ record_skip: `/${'x'.repeat(99)}` }, {} as any)).toBeNull();
+    const many = Array.from({ length: 21 }, (_, i) => `/p${i}`);
+    expect(patchRecording({ record_skip: many.join('\n') }, {} as any)).toBe('Enter at most 20 pages');
+    expect(patchRecording({ record_skip: [...many.slice(0, 20), '/p0'].join('\n') }, {} as any)).toBeNull();
+    expect(patchRecording({ record_skip: 42 }, {} as any)).toMatch(/one per line/);
+    expect(patchRecording({ record_skip: ['/a', 1] }, {} as any)).toMatch(/one per line/);
+  });
 });
 
 describe('people and recordings in the Worker', () => {
@@ -139,6 +163,19 @@ describe('people and recordings in the Worker', () => {
     const patched = await setSite({ record_sample: 50, record_keep_days: 7 });
     expect(patched).toMatchObject({ record_sample: 50, record_keep_days: 7, replay_bucket: true });
     await setSite({ record_sample: 100, record_keep_days: 30 });
+  });
+
+  it('stores the pages that are never recorded on the site row, and an empty list as null', async () => {
+    expect((await w.admin(`/api/sites/${site.id}`)).body.record_skip).toBeNull();
+    expect(await setSite({ record_skip: '/dashboard/\n/account' })).toMatchObject({ record_skip: '/dashboard\n/account' });
+    expect((await w.db.prepare('SELECT record_skip FROM sites WHERE id = ?').bind(site.id).first())!.record_skip).toBe('/dashboard\n/account');
+    const bad = await w.admin(`/api/sites/${site.id}`, { method: 'PATCH', json: { record_skip: 'dashboard' } });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toBe('"dashboard" needs to start with /, such as /dashboard');
+    // A change to another setting keeps the list.
+    expect(await setSite({ record_sample: 100 })).toMatchObject({ record_skip: '/dashboard\n/account' });
+    expect(await setSite({ record_skip: '' })).toMatchObject({ record_skip: null });
+    expect((await w.db.prepare('SELECT record_skip FROM sites WHERE id = ?').bind(site.id).first())!.record_skip).toBeNull();
   });
 
   it('answers a pageview as before while both switches are off, and asks Pro nothing', async () => {

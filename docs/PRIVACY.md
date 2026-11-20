@@ -254,8 +254,9 @@ clicks and the size of the window. Recording sets no cookie and stores nothing i
 
 - **What is hidden.** Every input is masked in the browser, before anything is sent: typing shows as dots. Text inside
   an element with `data-fd-mask` is masked the same way. An element with `data-fd-block` is left out, and the player
-  shows an empty box. Canvas, web fonts and frames from other domains are not recorded. Mask anything else that shows
-  personal data, such as names and addresses on account pages.
+  shows an empty box. Canvas, web fonts and frames from other domains are not recorded. A page on the site's list of
+  **Pages that are never recorded**, such as `/account`, is not recorded at all, and the script sends no clicks or
+  errors from it. Mask anything else that shows personal data, such as names and addresses on account pages.
 - **Where it is.** In the R2 bucket `npm run setup -- --replay` creates on your own Cloudflare account, in the EU when
   the database is. Each chunk is a file `r/<site id>/<visit id>/<number>`. D1 holds one row per recording in
   `replays`. Nothing goes to another company.
