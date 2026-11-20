@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "date": "2026-11-20",
-  "notes": "FounderData Pro tells you when mail breaks: a domain that fails its daily check, sends that fail, and received mail it could not store. Every alert channel gets it as Mail problems, and you can switch it off per channel on the Notifications page."
+  "notes": "FounderData Pro adds custom dashboards that your AI agent builds over MCP, and AI visibility asks a prompt weekly instead of daily once its answers stop changing. Core refuses cookie writes from other origins, erases RevenueCat ids along with a user, and the guide gets a setup table for every integration."
 }
