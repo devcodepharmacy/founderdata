@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "date": "2026-11-20",
-  "notes": "FounderData Pro adds People, with each person's visits, payments and a one-line story, and recordings of website visits with typing hidden. Recordings stay off until you turn them on in Settings."
+  "notes": "FounderData Pro can keep pages such as /dashboard or /account out of recordings, and the tracker sends no clicks or errors from those pages."
 }
