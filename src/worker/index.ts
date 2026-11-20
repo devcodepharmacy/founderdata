@@ -21,7 +21,7 @@ import { ascPrefetch, ascPrefetchSpan } from './revenue';
 import { RESEND_WEBHOOK_PATH } from './webhook-paths';
 import { importRow } from './imports';
 import { createNote, deleteNote, handleNoteApi, listNotes, noteImpactRoute, overviewOutages, reviewNoteRoute } from './notes';
-import { AUTH_COOKIE, AUTH_DAYS, checkLogin, checkMemberLogin, hasTeam, requireAuth, revokeStaleDevices, sessionCookie, sessionRole, startMemberSession } from './auth';
+import { AUTH_COOKIE, AUTH_DAYS, checkLogin, checkMemberLogin, crossOriginWrite, hasTeam, requireAuth, revokeStaleDevices, sessionCookie, sessionRole, startMemberSession } from './auth';
 import { pro } from './edition';
 import { installPro, proHooks } from './pro-hooks';
 import { handleFavicon } from './favicon';
@@ -227,13 +227,7 @@ app.use('/api/favicon/*', requireAuth);
 // write must come from the dashboard's own page. The Resend-compatible /api/mail/* takes an API key instead (keys.ts
 // accountKeyOf).
 const sameOriginWrites = async (c: Context<AppEnv>, next: Next) => {
-  if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
-    const origin = c.req.header('origin');
-    const fetchSite = c.req.header('sec-fetch-site');
-    if ((origin && origin !== new URL(c.req.url).origin) || (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none')) {
-      return c.json({ error: 'Mail changes must come from the dashboard.' }, 403);
-    }
-  }
+  if (crossOriginWrite(c)) return c.json({ error: 'Mail changes must come from the dashboard.' }, 403);
   await next();
 };
 app.use('/api/mail-admin', requireAuth, sameOriginWrites);

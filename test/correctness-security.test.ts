@@ -77,6 +77,38 @@ describePro('a device token reads the dashboard API and changes nothing', () => 
 
 // ---------- 2. a new password signs everyone out
 
+describe('a write signed in by cookie must come from the dashboard origin', () => {
+  let w: TestWorker;
+  let site: any;
+  beforeAll(async () => {
+    w = await startWorker();
+    site = await w.createSite({ domain: 'csrf-check.com' });
+  });
+  afterAll(() => w.dispose());
+
+  it('refuses a write from a sibling subdomain, even as text/plain', async () => {
+    const res = await w.fetch(`/api/sites/${site.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'Taken over' }),
+      headers: { 'content-type': 'text/plain', origin: 'https://www.csrf-check.com', 'sec-fetch-site': 'same-site' },
+    });
+    expect(res.status).toBe(403);
+    expect((await w.admin(`/api/sites/${site.id}`)).body.name).not.toBe('Taken over');
+    const del = await w.fetch(`/api/sites/${site.id}`, { method: 'DELETE', headers: { 'sec-fetch-site': 'cross-site' } });
+    expect(del.status).toBe(403);
+  });
+
+  it('accepts the same write from the dashboard, and reads from anywhere', async () => {
+    const res = await w.fetch(`/api/sites/${site.id}`, {
+      method: 'PATCH',
+      json: { name: 'Renamed' },
+      headers: { origin: 'http://localhost', 'sec-fetch-site': 'same-origin' },
+    });
+    expect(res.status).toBe(200);
+    expect((await w.fetch(`/api/sites/${site.id}`, { headers: { 'sec-fetch-site': 'cross-site' } })).status).toBe(200);
+  });
+});
+
 describe('changing ADMIN_PASSWORD signs out every browser and phone', () => {
   let w: TestWorker;
   beforeAll(async () => {

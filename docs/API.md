@@ -17,6 +17,10 @@ Routes marked (Pro) answer 404 in core. FounderData Pro adds them ([PRO.md](PRO.
 
 The API key and the read key belong to one site.
 
+A `POST`, `PUT`, `PATCH` or `DELETE` signed in by the dashboard cookie must come from the dashboard's own origin. One
+with another `Origin`, or a `Sec-Fetch-Site` of `cross-site` or `same-site`, answers 403. Scripts and curl send neither
+header, and keys and phone tokens don't use the cookie, so they are not affected.
+
 **Why two keys.** The API key lives on your server, next to your checkout code, and it can create payments. A read key
 goes into tools like Grafana, a spreadsheet or a cron job, and many people can see those. If a read key leaks,
 someone can see your numbers but can't add fake revenue. You can revoke a read key without touching the checkout, and
@@ -41,7 +45,7 @@ only replaced. Revoking a key stops it within a minute and leaves the others alo
 | `read:revenue` | Revenue, payments, customers, conversion rate and MRR in those answers. Includes `read`. | Revenue fields are left out. `customers`, `subscriptions` and `asa` answer `403`. |
 | `read:rows` | Raw rows as CSV: [`GET /api/v1/export/<table>`](#raw-rows-for-agents) for sessions and events, and with `read:revenue` for payments and subscriptions. Names, emails and customer ids stay empty. Off unless you pick it. Needs `read` too. | `403` on the export route |
 | `notes:write` | `POST /api/v1/notes`, `POST /api/v1/notes/<id>/review`, and the MCP tools `add_note` and `review_change` | `403` |
-| `alerts:write` | `POST`, `DELETE /api/v1/alerts/rules` and the test send ([Alert rules](#alert-rules-pro)) | `403` |
+| `alerts:write` | `POST`, `DELETE /api/v1/alerts/rules` and the test send ([Alert rules](#alert-rules-pro)). A rule on revenue, revenue per visitor, conversion rate, ROAS, CPA, CAC or a note verdict also needs `read:revenue`. | `403` |
 | `payments:write` | `POST`, `DELETE /api/v1/payments`, `POST /api/v1/goals`, `POST /api/v1/erase`, `DELETE /api/v1/visitors/<id>` | `403` |
 | `seo:write` | Push the SEO snapshot: `PUT /api/sites/<id>/seo/<part>`, and `GET /api/sites/<id>/seo` to read it back ([SEO and ASO writes](#seo-and-aso-writes)). Push [AI answer checks](#ai-answer-checks-pro). | `403` |
 | `aso:write` | ASO keywords, countries and competitors, and the collector's snapshots and reviews ([SEO and ASO writes](#seo-and-aso-writes)) | `403` |
@@ -59,7 +63,8 @@ or all sites names the site with `?site=<id>` on every route, reads and writes a
 `scopes`, and [`GET /api/v1/whoami`](#get-apiv1whoami) answers the key itself. An unknown, expired or revoked key gets `401`.
 
 The older keys have fixed scopes. A read key (`rtr_...`) has `read`, plus `read:revenue` when it shows revenue. The
-site API key (`rt_...`) has `payments:write`, `notes:write` and `alerts:write` for its site, and reads nothing.
+site API key (`rt_...`) has `payments:write`, `notes:write` and `alerts:write` for its site, and reads nothing, so its
+alert rules can't watch revenue.
 
 **A copy agent that may not see money:** `read` and `notes:write` on one site. It reads visitors and pages, logs its
 changes and reviews them. It gets `403` on `POST /api/v1/payments`, and no revenue field anywhere.
@@ -599,7 +604,7 @@ curl -X POST https://founderdata.example.com/api/v1/query -H "Authorization: Bea
 | Field | Takes |
 | --- | --- |
 | `metrics` | 1 to 12 of `visitors`, `sessions`, `pageviews`, `bounce_rate`, `avg_duration` (seconds), `customers` (new buyers), `payments`, `revenue` (net of refunds), `refunds` (negative), `conversion_rate`, `rpv` (revenue per visitor; `revenue_per_visitor` works too), `goal:<name>` (visitors who completed the goal, 5 goals at most) |
-| `dimensions` | Up to 2 of the session dimensions of `stats/breakdown` (`channel`, `source`, `campaign`, `keyword`, `referrer_domain`, `country`, `region`, `city`, `browser`, `os`, `device`, `platform`, `entry_page`, `exit_page`, `hostname`, `app_version`, `language`, `click_network`, `utm_source`, `utm_medium`, `utm_content`, `ref`, `referrer`), `prop:<key>`, `goal_prop:<key>` (goal metrics only), `product` and `provider` (payment metrics only). Plus one of `day`, `week` and `month`. `site` is accepted; rows are always per site. |
+| `dimensions` | Up to 2 of the session dimensions of `stats/breakdown` (`channel`, `source`, `campaign`, `keyword`, `referrer_domain`, `country`, `region`, `city`, `browser`, `os`, `device`, `platform`, `entry_page`, `exit_page`, `hostname`, `app_version`, `language`, `click_network`, `utm_source`, `utm_medium`, `utm_content`, `ref`, `referrer`), `prop:<key>`, `goal_prop:<key>` (goal metrics only), `product` and `provider` (payment metrics only). Plus one of `day`, `week` and `month`. `site` is accepted; rows are always per site. A property value that holds an email address answers `"(email)"`, and a `prop:` filter can't be an email address (`400`). |
 | `sites` | Site ids, or `["*"]` for every site the key covers (the default). 25 at most. `site` takes one id. |
 | `filters`, `period`, `from`, `to` | As on the routes above, in each site's timezone |
 | `compare` | `previous` (the period before, as the overview compares) or `year` (the same days a year before) |
@@ -665,7 +670,7 @@ Three rules hold for all of them:
 | `GET /api/v1/app/retention` (Pro) | range | `GET /api/sites/<id>/app/retention` |
 | `GET /api/v1/app/sources` (Pro) | range, `dim` (`channel` by default; an unknown one gets `400`) | `GET /api/sites/<id>/app/sources` |
 | `GET /api/v1/app/versions` (Pro) | range, `series` (`true` adds sessions per version over time) | `GET /api/sites/<id>/app/versions` |
-| `GET /api/v1/dropoff` (Pro) | range, `platform` (`all`, `web`, `app`), `split` (`platform`, `app_version`, `user_state`, `prop:<key>`), `include_test`, `limit` | `GET /api/sites/<id>/dropoff`, with `limit` groups and `groups_total` |
+| `GET /api/v1/dropoff` (Pro) | range, `platform` (`all`, `web`, `app`), `split` (`platform`, `app_version`, `user_state`, `prop:<key>`), `include_test`, `limit` | `GET /api/sites/<id>/dropoff`, with `limit` groups and `groups_total`. A property value that holds an email address groups as `"(email)"`. |
 | `GET /api/v1/funnel` | range, `funnel_id`, or `steps` | (new, see [Funnels and paths](#funnels-and-paths)) |
 | `GET /api/v1/paths` (Pro) | range, `path`, `platform`, `limit` | (new, see [Funnels and paths](#funnels-and-paths)) |
 | `GET /api/v1/app/experiments` (Pro) | range | `GET /api/sites/<id>/app/experiments` |
@@ -3610,7 +3615,7 @@ Logged-in routes for the admin login, and the same two calls under `/api/v1` for
 | Route | |
 | --- | --- |
 | `DELETE /api/sites/<id>/visitors/<visitor_id>`, or `DELETE /api/v1/visitors/<visitor_id>` with the API key | One visitor id. `404` if the site has nothing for it. |
-| `POST /api/sites/<id>/erase`, or `POST /api/v1/erase` with the API key, with `{ "email": "..." }` or `{ "user_id": "..." }` | Everyone with that email (any case) or `identify()` user id, and payments with that email. |
+| `POST /api/sites/<id>/erase`, or `POST /api/v1/erase` with the API key, with `{ "email": "..." }` or `{ "user_id": "..." }` | Everyone with that email (any case) or `identify()` user id, payments with that email, and RevenueCat payments and subscriptions of that app user id. |
 
 Both take an optional note for the erase log, such as a ticket number: `"note"` in the POST body, `?note=` on the
 DELETE. It is one line of up to 200 characters. Don't put the person's name or email in it.
