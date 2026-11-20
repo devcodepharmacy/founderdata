@@ -45,7 +45,7 @@ only replaced. Revoking a key stops it within a minute and leaves the others alo
 | `read:revenue` | Revenue, payments, customers, conversion rate and MRR in those answers. Includes `read`. | Revenue fields are left out. `customers`, `subscriptions` and `asa` answer `403`. |
 | `read:rows` | Raw rows as CSV: [`GET /api/v1/export/<table>`](#raw-rows-for-agents) for sessions and events, and with `read:revenue` for payments and subscriptions. Names, emails and customer ids stay empty. Off unless you pick it. Needs `read` too. | `403` on the export route |
 | `notes:write` | `POST /api/v1/notes`, `POST /api/v1/notes/<id>/review`, and the MCP tools `add_note` and `review_change` | `403` |
-| `alerts:write` | `POST`, `DELETE /api/v1/alerts/rules` and the test send ([Alert rules](#alert-rules-pro)) | `403` |
+| `alerts:write` | `POST`, `DELETE /api/v1/alerts/rules` and the test send ([Alert rules](#alert-rules-pro)). A rule on revenue, revenue per visitor, conversion rate, ROAS, CPA, CAC or a note verdict also needs `read:revenue`. | `403` |
 | `payments:write` | `POST`, `DELETE /api/v1/payments`, `POST /api/v1/goals`, `POST /api/v1/erase`, `DELETE /api/v1/visitors/<id>` | `403` |
 | `seo:write` | Push the SEO snapshot: `PUT /api/sites/<id>/seo/<part>`, and `GET /api/sites/<id>/seo` to read it back ([SEO and ASO writes](#seo-and-aso-writes)). Push [AI answer checks](#ai-answer-checks-pro). | `403` |
 | `aso:write` | ASO keywords, countries and competitors, and the collector's snapshots and reviews ([SEO and ASO writes](#seo-and-aso-writes)) | `403` |
@@ -63,7 +63,8 @@ or all sites names the site with `?site=<id>` on every route, reads and writes a
 `scopes`, and [`GET /api/v1/whoami`](#get-apiv1whoami) answers the key itself. An unknown, expired or revoked key gets `401`.
 
 The older keys have fixed scopes. A read key (`rtr_...`) has `read`, plus `read:revenue` when it shows revenue. The
-site API key (`rt_...`) has `payments:write`, `notes:write` and `alerts:write` for its site, and reads nothing.
+site API key (`rt_...`) has `payments:write`, `notes:write` and `alerts:write` for its site, and reads nothing, so its
+alert rules can't watch revenue.
 
 **A copy agent that may not see money:** `read` and `notes:write` on one site. It reads visitors and pages, logs its
 changes and reviews them. It gets `403` on `POST /api/v1/payments`, and no revenue field anywhere.
