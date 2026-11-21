@@ -28,8 +28,28 @@ dependencies {
 
 The library brings kotlinx-coroutines-android, androidx `lifecycle-process` and the Play `installreferrer` client. Play
 Billing and `play-services-appset` are `compileOnly` dependencies: an app without them does not pull them in, and the
-SDK checks at runtime that they are there. Until a release is on Maven Central, build it from this folder with
-`./gradlew :founderdata:publishToMavenLocal` and add `mavenLocal()` to the app's repositories; the version is then
+SDK checks at runtime that they are there.
+
+Until a release is on Maven Central, use JitPack, which builds the library from a git tag of this repository
+(`jitpack.yml` at its root). Add the repository and the JitPack coordinates instead of the line above:
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+}
+
+// build.gradle.kts of the app
+implementation("com.github.founderdata.founderdata:founderdata-android:TAG")
+```
+
+`TAG` is a release tag, a commit or `BRANCH-SNAPSHOT`; a fork works the same with its owner in place of the first
+`founderdata`. The first request for a tag builds it, which takes a few minutes. To build it yourself instead, run
+`./gradlew :founderdata:publishToMavenLocal` in this folder and add `mavenLocal()`; the version is then
 `1.0.0-SNAPSHOT`.
 
 The library ships consumer R8 rules (`consumer-rules.pro`), so a minified app needs no rules of its own.
@@ -347,7 +367,8 @@ properties, the goal helpers against `docs/APP-EVENTS.md`, the RevenueCat attrib
 `src/worker/revenuecat.ts`, and the Google Play purchase event from real Play Billing `Purchase` objects.
 
 Publishing goes to Maven Central through `com.vanniktech.maven.publish`
-(`./gradlew :founderdata:publishAndReleaseToMavenCentral`). It reads the Central Portal token and the signing key from
+(`./gradlew :founderdata:publishAndReleaseToMavenCentral`); without a signing key the build publishes unsigned, which
+is what JitPack and `publishToMavenLocal` do. It reads the Central Portal token and the signing key from
 Gradle properties or environment variables (`ORG_GRADLE_PROJECT_mavenCentralUsername`, `..._mavenCentralPassword`,
 `..._signingInMemoryKey`, `..._signingInMemoryKeyPassword`); none are in this repository. Set `VERSION_NAME` in
 `gradle.properties` to the release tag. Read [CHANGELOG.md](CHANGELOG.md) before you update.

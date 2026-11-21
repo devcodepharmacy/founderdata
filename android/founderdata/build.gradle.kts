@@ -59,8 +59,12 @@ dependencies {
 mavenPublishing {
     configure(AndroidSingleVariantLibrary(JavadocJar.Empty(), SourcesJar.Sources(), "release"))
     publishToMavenCentral()
-    signAllPublications()
-    coordinates("com.founderdata", "founderdata-android", providers.gradleProperty("VERSION_NAME").get())
+    // Maven Central needs signed artifacts and gets the key (signingInMemoryKey) from the release environment. A build
+    // without a key, such as JitPack or publishToMavenLocal, publishes unsigned.
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) signAllPublications()
+    // Maven Central publishes as com.founderdata. JitPack (jitpack.yml at the repository root) passes PUBLISH_GROUP, so the
+    // same artifact is served as com.github.<owner>.<repo>:founderdata-android:<tag>, JitPack's name for a module.
+    coordinates(providers.gradleProperty("PUBLISH_GROUP").orElse("com.founderdata").get(), "founderdata-android", providers.gradleProperty("VERSION_NAME").get())
 
     pom {
         name.set("FounderData for Android")
