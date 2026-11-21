@@ -44,11 +44,11 @@ dependencyResolutionManagement {
 }
 
 // build.gradle.kts of the app
-implementation("com.github.founderdata.founderdata:founderdata-android:TAG")
+implementation("com.github.founderdata:founderdata:TAG")
 ```
 
 `TAG` is a release tag, a commit or `BRANCH-SNAPSHOT`; a fork works the same with its owner in place of the first
-`founderdata`. The first request for a tag builds it, which takes a few minutes. To build it yourself instead, run
+`founderdata` (the library is the repository's only artifact, so JitPack names it after the repository). The first request for a tag builds it, which takes a few minutes. To build it yourself instead, run
 `./gradlew :founderdata:publishToMavenLocal` in this folder and add `mavenLocal()`; the version is then
 `1.0.0-SNAPSHOT`.
 

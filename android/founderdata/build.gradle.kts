@@ -63,7 +63,7 @@ mavenPublishing {
     // without a key, such as JitPack or publishToMavenLocal, publishes unsigned.
     if (providers.gradleProperty("signingInMemoryKey").isPresent) signAllPublications()
     // Maven Central publishes as com.founderdata. JitPack (jitpack.yml at the repository root) passes PUBLISH_GROUP, so the
-    // same artifact is served as com.github.<owner>.<repo>:founderdata-android:<tag>, JitPack's name for a module.
+    // build installs it under the group JitPack expects; JitPack then serves it as com.github.<owner>:<repo>:<tag>.
     coordinates(providers.gradleProperty("PUBLISH_GROUP").orElse("com.founderdata").get(), "founderdata-android", providers.gradleProperty("VERSION_NAME").get())
 
     pom {
